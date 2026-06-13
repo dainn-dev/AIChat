@@ -34,6 +34,17 @@ export interface ObservabilityConfig {
   posthogHost: string;
 }
 
+export interface AuthConfig {
+  /** Secret used to sign/verify short-lived access JWTs. */
+  jwtAccessSecret: string;
+  /** Access-token lifetime, expressed as a `jsonwebtoken` duration string. */
+  accessTokenTtl: string;
+  /** Opaque refresh-token lifetime, in days. */
+  refreshTokenTtlDays: number;
+  /** bcrypt cost factor for password hashing. */
+  bcryptRounds: number;
+}
+
 const toBool = (value: string | undefined, fallback = false): boolean => {
   if (value === undefined) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
@@ -73,4 +84,16 @@ export default () => ({
     posthogApiKey: process.env.POSTHOG_API_KEY,
     posthogHost: process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com',
   } satisfies ObservabilityConfig,
+  auth: {
+    // A dev/test default keeps the service bootable without secrets, matching
+    // the scaffold's local-first philosophy. MUST be overridden in production.
+    jwtAccessSecret:
+      process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me',
+    accessTokenTtl: process.env.JWT_ACCESS_TTL ?? '15m',
+    refreshTokenTtlDays: parseInt(
+      process.env.REFRESH_TOKEN_TTL_DAYS ?? '30',
+      10,
+    ),
+    bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS ?? '10', 10),
+  } satisfies AuthConfig,
 });
