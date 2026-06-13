@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector image so `CREATE EXTENSION vector` succeeds in migrations.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: aichat
+          POSTGRES_PASSWORD: aichat
+          POSTGRES_DB: aichat
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aichat -d aichat"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_HOST: localhost
+      DATABASE_PORT: 5432
+      DATABASE_USER: aichat
+      DATABASE_PASSWORD: aichat
+      DATABASE_NAME: aichat
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Run migrations (enables pgvector)
+        run: npm run migration:run
+
+      - name: Verify pgvector extension is present
+        run: |
+          PGPASSWORD=aichat psql -h localhost -U aichat -d aichat -tAc \
+            "SELECT 1 FROM pg_extension WHERE extname = 'vector';" | grep -q 1
+          echo "pgvector extension is present."
+
+      - name: E2E tests
+        run: npm run test:e2e
