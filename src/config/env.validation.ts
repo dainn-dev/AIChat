@@ -60,6 +60,30 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   DATABASE_NAME?: string;
+
+  // ── Auth ────────────────────────────────────────────────────────────
+  // Optional in dev/test (a default secret is used so the app still boots);
+  // set a strong, unique JWT_ACCESS_SECRET in production.
+  @IsString()
+  @IsOptional()
+  JWT_ACCESS_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_ACCESS_TTL?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  REFRESH_TOKEN_TTL_DAYS?: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(4)
+  @Max(15)
+  @IsOptional()
+  BCRYPT_ROUNDS?: number;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
