@@ -50,17 +50,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const code = this.codeForStatus(status);
 
       // Nest validation/built-in errors carry a `message` (string | string[]).
+      // Domain exceptions may also carry an explicit `code`/`details` payload
+      // (e.g. QUOTA_EXCEEDED), which take precedence over the status-derived
+      // code so clients get a stable, machine-readable reason.
       if (typeof res === 'object' && res !== null) {
         const body = res as Record<string, unknown>;
+        const resolvedCode = typeof body.code === 'string' ? body.code : code;
         const message = Array.isArray(body.message)
           ? 'Request validation failed'
           : ((body.message as string) ?? exception.message);
         const details = Array.isArray(body.message)
           ? { fields: body.message }
-          : undefined;
+          : body.details;
         return {
           status,
-          envelope: buildErrorEnvelope(code, message, details),
+          envelope: buildErrorEnvelope(resolvedCode, message, details),
         };
       }
 
@@ -91,6 +95,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       [HttpStatus.CONFLICT]: 'CONFLICT',
       [HttpStatus.UNPROCESSABLE_ENTITY]: 'VALIDATION_ERROR',
       [HttpStatus.TOO_MANY_REQUESTS]: 'RATE_LIMITED',
+      [HttpStatus.PAYMENT_REQUIRED]: 'PAYMENT_REQUIRED',
+      [HttpStatus.BAD_GATEWAY]: 'UPSTREAM_ERROR',
     };
     return map[status] ?? `HTTP_${status}`;
   }
