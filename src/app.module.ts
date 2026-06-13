@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { ScreenshotsModule } from './screenshots/screenshots.module';
 import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
 
@@ -25,6 +26,7 @@ import { UsageModule } from './usage/usage.module';
     UsageModule,
     AiModule,
     AuthModule,
+    ScreenshotsModule,
   ],
 })
 export class AppModule {}

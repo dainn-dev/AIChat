@@ -1,11 +1,14 @@
 /**
  * Origin surface of an AI request, per DAI-124 §1.2 / FR-P1. The enum reserves
- * `keyboard` and `share` for Phases 3-4; Phase 1 only ever emits `app`.
+ * `keyboard` and `share` for Phases 3-4. Phase 1 emits `app` for the direct
+ * `/ai/*` calls and `ocr` for analysis of an ingested screenshot (WS-5). Each
+ * value is a valid `content_source` enum member in the database.
  */
 export enum AiSource {
   App = 'app',
   Keyboard = 'keyboard',
   Share = 'share',
+  Ocr = 'ocr',
 }
 
 /**
