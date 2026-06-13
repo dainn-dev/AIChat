@@ -34,6 +34,23 @@ export interface ObservabilityConfig {
   posthogHost: string;
 }
 
+/**
+ * LLM provider configuration. The concrete provider is gated on epic Decision #1
+ * (provider + keys); until that lands, `provider` defaults to the deterministic,
+ * keyless `stub` so the pipeline is fully exercisable. Swapping in a real
+ * provider (e.g. Claude / GPT / Gemini) is a config + binding change only —
+ * see `src/ai/provider`.
+ */
+export interface LlmConfig {
+  provider: string;
+  replyModel?: string;
+  analysisModel?: string;
+  apiKey?: string;
+  baseUrl?: string;
+  requestTimeoutMs: number;
+  maxRepairRetries: number;
+}
+
 export interface AuthConfig {
   /** Secret used to sign/verify short-lived access JWTs. */
   jwtAccessSecret: string;
@@ -84,6 +101,18 @@ export default () => ({
     posthogApiKey: process.env.POSTHOG_API_KEY,
     posthogHost: process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com',
   } satisfies ObservabilityConfig,
+  llm: {
+    provider: process.env.LLM_PROVIDER ?? 'stub',
+    replyModel: process.env.LLM_REPLY_MODEL,
+    analysisModel: process.env.LLM_ANALYSIS_MODEL,
+    apiKey: process.env.LLM_API_KEY,
+    baseUrl: process.env.LLM_BASE_URL,
+    requestTimeoutMs: parseInt(
+      process.env.LLM_REQUEST_TIMEOUT_MS ?? '30000',
+      10,
+    ),
+    maxRepairRetries: parseInt(process.env.LLM_MAX_REPAIR_RETRIES ?? '1', 10),
+  } satisfies LlmConfig,
   auth: {
     // A dev/test default keeps the service bootable without secrets, matching
     // the scaffold's local-first philosophy. MUST be overridden in production.
