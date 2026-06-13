@@ -70,8 +70,11 @@ them and logs that they are disabled.
 ## Database & migrations
 
 Schema changes go through TypeORM migrations only (`synchronize` is off). The
-baseline migration `EnablePgvector` turns on the `vector` extension; the actual
-schema (users, conversations, messages, memories, usage) lands in WS-2.
+baseline migration `EnablePgvector` turns on the `vector` extension; the
+`CoreSchema` migration then creates the Phase-1 tables (`users`,
+`auth_sessions`, `conversations`, `messages`, `ai_requests`, `screenshots`,
+`memories`, `usage_counters`). `memories.embedding` is an unbounded, nullable
+`vector` — its dimension is set with the Phase-2 embedding model, not here.
 
 ```bash
 npm run migration:run       # apply pending migrations
