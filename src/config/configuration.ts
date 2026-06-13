@@ -34,9 +34,49 @@ export interface ObservabilityConfig {
   posthogHost: string;
 }
 
+/**
+ * Per-tier usage limits. `null` for a dimension means "unlimited".
+ *
+ * `dailySpendCapMicroUsd` is the per-user, per-day LLM spend ceiling in
+ * micro-USD (1e-6 USD). It bounds abuse on the Pro "unlimited" plan
+ * (DAI-124 §5.10) even when reply/screenshot counts are uncapped.
+ */
+export interface TierLimits {
+  repliesPerDay: number | null;
+  screenshotsPerDay: number | null;
+  dailySpendCapMicroUsd: number | null;
+}
+
+export interface UsageConfig {
+  free: TierLimits;
+  pro: TierLimits;
+}
+
 const toBool = (value: string | undefined, fallback = false): boolean => {
   if (value === undefined) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+};
+
+/** Parse a non-negative integer env var, falling back when unset/blank. */
+const toInt = (value: string | undefined, fallback: number): number => {
+  if (value === undefined || value.trim() === '') return fallback;
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * Parse an optional USD spend cap (e.g. "20" or "20.50") into micro-USD.
+ * An unset/blank/`unlimited`/`0` value disables the cap (returns `null`).
+ */
+const toSpendCapMicroUsd = (value: string | undefined): number | null => {
+  if (value === undefined) return null;
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === '' || trimmed === 'unlimited' || trimmed === 'none') {
+    return null;
+  }
+  const usd = parseFloat(trimmed);
+  if (!Number.isFinite(usd) || usd <= 0) return null;
+  return Math.round(usd * 1_000_000);
 };
 
 export default () => ({
@@ -73,4 +113,22 @@ export default () => ({
     posthogApiKey: process.env.POSTHOG_API_KEY,
     posthogHost: process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com',
   } satisfies ObservabilityConfig,
+  usage: {
+    free: {
+      repliesPerDay: toInt(process.env.USAGE_FREE_REPLIES_PER_DAY, 20),
+      screenshotsPerDay: toInt(process.env.USAGE_FREE_SCREENSHOTS_PER_DAY, 5),
+      // Free tier is bounded by counts; no separate spend cap unless set.
+      dailySpendCapMicroUsd: toSpendCapMicroUsd(
+        process.env.USAGE_FREE_DAILY_SPEND_CAP_USD,
+      ),
+    },
+    pro: {
+      repliesPerDay: null,
+      screenshotsPerDay: null,
+      // Default Pro abuse ceiling: $20/user/day. Set to "unlimited" to disable.
+      dailySpendCapMicroUsd: toSpendCapMicroUsd(
+        process.env.USAGE_PRO_DAILY_SPEND_CAP_USD ?? '20',
+      ),
+    },
+  } satisfies UsageConfig,
 });
