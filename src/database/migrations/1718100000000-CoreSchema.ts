@@ -3,19 +3,22 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /**
  * Core schema for the AIChat backend (DAI-126 / WS-2, per DAI-124 §2).
  *
- * Creates every Phase-1 table and its constraints in one atomic migration:
- * `users`, `auth_sessions`, `conversations`, `messages`, `ai_requests`,
- * `screenshots`, `memories`, and `usage_counters`. The owning feature
- * workstreams (auth, conversations, AI pipeline, screenshots) add their
- * TypeORM entities on top of this schema later — `synchronize` stays off, so
- * the schema is defined here and only here.
+ * Creates the Phase-1 tables this migration owns and their constraints in one
+ * atomic migration: `users`, `auth_sessions`, `conversations`, `messages`,
+ * `ai_requests`, `screenshots`, and `memories`. The owning feature workstreams
+ * (auth, conversations, AI pipeline, screenshots) add their TypeORM entities on
+ * top of this schema later — `synchronize` stays off, so the schema is defined
+ * here and only here.
+ *
+ * `usage_counters` is deliberately NOT created here: the canonical
+ * metric-based table is owned by `CreateUsageCounters1718000100000` (WS-6),
+ * which runs earlier. This migration owns `users`/`auth_sessions` so the former
+ * WS-3 AuthSchema duplicate was removed (DAI-145).
  *
  * Notes on a few deliberate choices:
  * - `memories.embedding` is declared as an unbounded `vector` (pgvector) and is
  *   nullable. The embedding dimension depends on the Phase-2 embedding model
  *   (DAI-121) and is intentionally NOT hardcoded; rows are populated in Phase 2.
- * - `usage_counters` is keyed by `(user_id, date)` with a unique constraint so a
- *   user has exactly one counter row per day (clean daily-quota reset).
  * - Bounded value sets (tier, message sender, request source/type) use native
  *   Postgres enum types so invalid values are rejected at the database layer.
  */
@@ -177,25 +180,16 @@ export class CoreSchema1718100000000 implements MigrationInterface {
       `CREATE INDEX "idx_memories_user" ON "memories" ("user_id");`,
     );
 
-    // ── usage_counters (one row per user per day) ─────────────────────
-    await queryRunner.query(`
-      CREATE TABLE "usage_counters" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        "user_id" uuid NOT NULL,
-        "date" date NOT NULL,
-        "replies_used" integer NOT NULL DEFAULT 0,
-        "screenshots_used" integer NOT NULL DEFAULT 0,
-        CONSTRAINT "fk_usage_counters_user" FOREIGN KEY ("user_id")
-          REFERENCES "users" ("id") ON DELETE CASCADE,
-        CONSTRAINT "uq_usage_counters_user_date" UNIQUE ("user_id", "date")
-      );
-    `);
+    // NOTE: `usage_counters` is intentionally NOT created here. The canonical
+    // metric-based table `(user_id, metric, usage_date, count)` is owned by the
+    // earlier `CreateUsageCounters1718000100000` migration (WS-6); both
+    // `UsageService` and `GET /me` read that shape. See DAI-145.
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop in reverse dependency order. Tables with FKs into `users` /
-    // `conversations` go first; the enum types go last.
-    await queryRunner.query(`DROP TABLE IF EXISTS "usage_counters";`);
+    // `conversations` go first; the enum types go last. `usage_counters` is
+    // owned and dropped by CreateUsageCounters1718000100000, not here.
     await queryRunner.query(`DROP TABLE IF EXISTS "memories";`);
     await queryRunner.query(`DROP TABLE IF EXISTS "screenshots";`);
     await queryRunner.query(`DROP TABLE IF EXISTS "ai_requests";`);

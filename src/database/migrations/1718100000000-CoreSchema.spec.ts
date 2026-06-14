@@ -5,9 +5,9 @@ import { CoreSchema1718100000000 } from './1718100000000-CoreSchema';
  * These tests assert the DDL the migration emits against a recording
  * QueryRunner. They don't need a live database — CI applies the real migration
  * against pgvector:pg16 — but they pin the acceptance criteria for WS-2:
- * all eight tables are created, the unique daily-quota key exists, and
- * `memories.embedding` is a nullable pgvector column with no hardcoded
- * dimension.
+ * all seven tables this migration owns are created, and `memories.embedding`
+ * is a nullable pgvector column with no hardcoded dimension. `usage_counters`
+ * is owned by CreateUsageCounters1718000100000 (WS-6), not this migration.
  */
 describe('CoreSchema1718100000000', () => {
   const runUp = async () => {
@@ -31,14 +31,18 @@ describe('CoreSchema1718100000000', () => {
     'ai_requests',
     'screenshots',
     'memories',
-    'usage_counters',
   ];
 
-  it('creates all eight Phase-1 tables', async () => {
+  it('creates the seven Phase-1 tables it owns', async () => {
     const sql = await runUp();
     for (const table of TABLES) {
       expect(sql).toContain(`CREATE TABLE "${table}"`);
     }
+  });
+
+  it('does not create usage_counters (owned by CreateUsageCounters)', async () => {
+    const sql = await runUp();
+    expect(sql).not.toContain('CREATE TABLE "usage_counters"');
   });
 
   it('declares memories.embedding as a nullable, dimensionless pgvector column', async () => {
@@ -48,11 +52,6 @@ describe('CoreSchema1718100000000', () => {
     expect(sql).not.toMatch(/"embedding" vector\(/);
     // Nullable means no NOT NULL right after the column declaration.
     expect(sql).not.toMatch(/"embedding" vector\s+NOT NULL/);
-  });
-
-  it('enforces a unique (user_id, date) on usage_counters', async () => {
-    const sql = await runUp();
-    expect(sql).toContain('UNIQUE ("user_id", "date")');
   });
 
   it('enforces a unique email on users', async () => {
@@ -68,7 +67,6 @@ describe('CoreSchema1718100000000', () => {
     expect(sql).toContain('"fk_ai_requests_user"');
     expect(sql).toContain('"fk_screenshots_user"');
     expect(sql).toContain('"fk_memories_user"');
-    expect(sql).toContain('"fk_usage_counters_user"');
   });
 
   it('reverses cleanly: down drops every table it created', async () => {
