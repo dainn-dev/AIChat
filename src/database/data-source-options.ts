@@ -12,7 +12,9 @@ export function buildDataSourceOptions(cfg: DatabaseConfig): DataSourceOptions {
   const base = {
     type: 'postgres' as const,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    migrations: [__dirname + '/migrations/*{.ts,.js}'],
+    // Exclude colocated `*.spec.ts` tests — the CLI would otherwise `require`
+    // them and crash on Jest globals (`describe is not defined`).
+    migrations: [__dirname + '/migrations/!(*.spec){.ts,.js}'],
     migrationsTableName: 'migrations',
     synchronize: false,
     logging: false,
