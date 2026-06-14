@@ -53,11 +53,12 @@ export interface UsageConfig {
 }
 
 /**
- * LLM provider configuration. The concrete provider is gated on epic Decision #1
- * (provider + keys); until that lands, `provider` defaults to the deterministic,
- * keyless `stub` so the pipeline is fully exercisable. Swapping in a real
- * provider (e.g. Claude / GPT / Gemini) is a config + binding change only —
- * see `src/ai/provider`.
+ * LLM provider configuration. Per epic Decision #1 the default is the
+ * OpenAI-compatible provider: with `apiKey` set and no explicit `LLM_PROVIDER`,
+ * `provider` resolves to `openai`; keyless (local/test) it stays the
+ * deterministic `stub` so the pipeline is fully exercisable. `baseUrl`
+ * (`LLM_BASE_URL`) repoints the OpenAI client at a proxy/gateway. Swapping
+ * providers is a config + binding change only — see `src/ai/provider`.
  */
 export interface LlmConfig {
   provider: string;
@@ -160,7 +161,11 @@ export default () => ({
     },
   } satisfies UsageConfig,
   llm: {
-    provider: process.env.LLM_PROVIDER ?? 'stub',
+    // Decision #1: default to the OpenAI-compatible provider when a key is
+    // available, else the keyless deterministic stub (local/test). An explicit
+    // LLM_PROVIDER always wins; `LLM_BASE_URL` repoints OpenAI at a proxy.
+    provider:
+      process.env.LLM_PROVIDER ?? (process.env.LLM_API_KEY ? 'openai' : 'stub'),
     replyModel: process.env.LLM_REPLY_MODEL,
     analysisModel: process.env.LLM_ANALYSIS_MODEL,
     apiKey: process.env.LLM_API_KEY,
