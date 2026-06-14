@@ -1,26 +1,15 @@
 /**
- * Monetization tiers and their daily usage limits (DAI-124 §1, epic DAI-119).
+ * Monetization tiers (DAI-124 §1, epic DAI-119).
  *
- *   Free → 20 replies/day, 5 screenshots/day
- *   Pro  → unlimited (represented as `null`)
+ *   Free → metered daily quotas (replies / screenshots)
+ *   Pro  → unlimited
  *
- * Limits are surfaced by `GET /me`; the actual per-request enforcement and
- * counter increments live in the AI pipeline / screenshot workstreams
- * (WS-4 / WS-5). A `null` limit means "no cap".
+ * The concrete per-tier limits live in config (`usage.free` / `usage.pro`) and
+ * are owned by `UsageService` — the single source of truth that both enforces
+ * quotas and reports them via `GET /me`. This module only defines the tier
+ * enum itself, which is shared across auth, usage and the AI pipeline.
  */
 export enum Tier {
   Free = 'free',
   Pro = 'pro',
 }
-
-export interface TierLimits {
-  /** Daily reply quota, or `null` for unlimited. */
-  repliesPerDay: number | null;
-  /** Daily screenshot/analysis quota, or `null` for unlimited. */
-  screenshotsPerDay: number | null;
-}
-
-export const TIER_LIMITS: Record<Tier, TierLimits> = {
-  [Tier.Free]: { repliesPerDay: 20, screenshotsPerDay: 5 },
-  [Tier.Pro]: { repliesPerDay: null, screenshotsPerDay: null },
-};

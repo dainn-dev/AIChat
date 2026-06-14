@@ -6,8 +6,9 @@ import { AuthService } from './auth.service';
 import { AuthConfig } from '../config/configuration';
 import { Tier } from '../common/tiers';
 import { AuthSession } from './entities/auth-session.entity';
-import { UsageCounter } from './entities/usage-counter.entity';
 import { User } from './entities/user.entity';
+import { UsageService } from '../usage/usage.service';
+import { UsageSummary } from '../usage/dto/usage-summary';
 
 const AUTH_CONFIG: AuthConfig = {
   jwtAccessSecret: 'test-secret',
@@ -30,7 +31,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let users: ReturnType<typeof makeRepo>;
   let sessions: ReturnType<typeof makeRepo>;
-  let usageCounters: ReturnType<typeof makeRepo>;
+  let usage: { getUsageSummary: jest.Mock };
   let jwt: JwtService;
 
   const buildUser = async (over: Partial<User> = {}): Promise<User> =>
@@ -48,7 +49,7 @@ describe('AuthService', () => {
   beforeEach(() => {
     users = makeRepo();
     sessions = makeRepo();
-    usageCounters = makeRepo();
+    usage = { getUsageSummary: jest.fn() };
     jwt = new JwtService({});
 
     const config = {
@@ -58,7 +59,7 @@ describe('AuthService', () => {
     service = new AuthService(
       users as never,
       sessions as never,
-      usageCounters as never,
+      usage as unknown as UsageService,
       jwt,
       config,
     );
@@ -218,9 +219,17 @@ describe('AuthService', () => {
   });
 
   describe('getMe', () => {
-    it('returns free-tier limits with zero usage when no counter row exists', async () => {
+    const summary = (over: Partial<UsageSummary> = {}): UsageSummary => ({
+      replies_used: 0,
+      replies_limit: 20,
+      screenshots_used: 0,
+      screenshots_limit: 5,
+      ...over,
+    });
+
+    it('surfaces the canonical usage summary for the user and tier', async () => {
       users.findOne.mockResolvedValue(await buildUser());
-      usageCounters.findOne.mockResolvedValue(null);
+      usage.getUsageSummary.mockResolvedValue(summary());
 
       const res = await service.getMe('user-1');
       expect(res.tier).toBe(Tier.Free);
@@ -230,14 +239,15 @@ describe('AuthService', () => {
         screenshots_used: 0,
         screenshots_limit: 5,
       });
+      // Reads from the metric-based store keyed by the user and their tier.
+      expect(usage.getUsageSummary).toHaveBeenCalledWith('user-1', Tier.Free);
     });
 
-    it('reflects an existing counter row', async () => {
+    it('reflects used counts from the usage service', async () => {
       users.findOne.mockResolvedValue(await buildUser());
-      usageCounters.findOne.mockResolvedValue({
-        repliesUsed: 7,
-        screenshotsUsed: 2,
-      } as UsageCounter);
+      usage.getUsageSummary.mockResolvedValue(
+        summary({ replies_used: 7, screenshots_used: 2 }),
+      );
 
       const res = await service.getMe('user-1');
       expect(res.usage.replies_used).toBe(7);
@@ -246,11 +256,14 @@ describe('AuthService', () => {
 
     it('reports unlimited (null) limits for a Pro user', async () => {
       users.findOne.mockResolvedValue(await buildUser({ tier: Tier.Pro }));
-      usageCounters.findOne.mockResolvedValue(null);
+      usage.getUsageSummary.mockResolvedValue(
+        summary({ replies_limit: null, screenshots_limit: null }),
+      );
 
       const res = await service.getMe('user-1');
       expect(res.usage.replies_limit).toBeNull();
       expect(res.usage.screenshots_limit).toBeNull();
+      expect(usage.getUsageSummary).toHaveBeenCalledWith('user-1', Tier.Pro);
     });
 
     it('rejects when the user no longer exists', async () => {

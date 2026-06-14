@@ -10,9 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { AuthConfig } from '../config/configuration';
-import { Tier, TIER_LIMITS } from '../common/tiers';
+import { Tier } from '../common/tiers';
+import { UsageService } from '../usage/usage.service';
+import { Tier as UsageTier } from '../usage/usage.constants';
 import { AuthSession } from './entities/auth-session.entity';
-import { UsageCounter } from './entities/usage-counter.entity';
 import { User } from './entities/user.entity';
 import { AccessTokenPayload } from './jwt-payload';
 import {
@@ -34,8 +35,7 @@ export class AuthService {
     private readonly users: Repository<User>,
     @InjectRepository(AuthSession)
     private readonly sessions: Repository<AuthSession>,
-    @InjectRepository(UsageCounter)
-    private readonly usageCounters: Repository<UsageCounter>,
+    private readonly usage: UsageService,
     private readonly jwt: JwtService,
     config: ConfigService,
   ) {
@@ -147,20 +147,18 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists.');
     }
 
-    const counter = await this.usageCounters.findOne({
-      where: { userId: user.id, date: this.today() },
-    });
-    const limits = TIER_LIMITS[user.tier];
+    // Today's usage and limits come from the canonical metric-based
+    // `usage_counters` store owned by UsageService (WS-6) — the same source the
+    // AI pipeline enforces against — so `GET /me` never drifts from enforcement.
+    const usage = await this.usage.getUsageSummary(
+      user.id,
+      this.toUsageTier(user.tier),
+    );
 
     return {
       user: toPublicUser(user),
       tier: user.tier,
-      usage: {
-        replies_used: counter?.repliesUsed ?? 0,
-        replies_limit: limits.repliesPerDay,
-        screenshots_used: counter?.screenshotsUsed ?? 0,
-        screenshots_limit: limits.screenshotsPerDay,
-      },
+      usage,
     };
   }
 
@@ -204,8 +202,12 @@ export class AuthService {
     return email.trim().toLowerCase();
   }
 
-  /** Current UTC date as `YYYY-MM-DD` (quota reset boundary, DAI-124 §5.6). */
-  private today(): string {
-    return new Date().toISOString().slice(0, 10);
+  /**
+   * Bridge the auth-side {@link Tier} enum to the usage module's own `Tier`.
+   * The two enums share identical string values (`free`/`pro`); this keeps the
+   * call to UsageService type-safe without a blind cast.
+   */
+  private toUsageTier(tier: Tier): UsageTier {
+    return tier === Tier.Pro ? UsageTier.Pro : UsageTier.Free;
   }
 }

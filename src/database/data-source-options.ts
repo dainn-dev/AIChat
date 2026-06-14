@@ -12,7 +12,9 @@ export function buildDataSourceOptions(cfg: DatabaseConfig): DataSourceOptions {
   const base = {
     type: 'postgres' as const,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    migrations: [__dirname + '/migrations/*{.ts,.js}'],
+    // Exclude colocated `*.spec.ts` migration tests — under ts-node the CLI
+    // would otherwise try to load them as migrations and crash on `describe`.
+    migrations: [__dirname + '/migrations/!(*.spec){.ts,.js}'],
     migrationsTableName: 'migrations',
     synchronize: false,
     logging: false,
