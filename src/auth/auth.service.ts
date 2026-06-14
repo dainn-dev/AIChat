@@ -10,9 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { AuthConfig } from '../config/configuration';
-import { Tier, TIER_LIMITS } from '../common/tiers';
+import { Tier } from '../common/tiers';
+import { UsageService } from '../usage/usage.service';
+import { Tier as UsageTier } from '../usage/usage.constants';
 import { AuthSession } from './entities/auth-session.entity';
-import { UsageCounter } from './entities/usage-counter.entity';
 import { User } from './entities/user.entity';
 import { AccessTokenPayload } from './jwt-payload';
 import {
@@ -34,8 +35,7 @@ export class AuthService {
     private readonly users: Repository<User>,
     @InjectRepository(AuthSession)
     private readonly sessions: Repository<AuthSession>,
-    @InjectRepository(UsageCounter)
-    private readonly usageCounters: Repository<UsageCounter>,
+    private readonly usage: UsageService,
     private readonly jwt: JwtService,
     config: ConfigService,
   ) {
@@ -147,20 +147,19 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists.');
     }
 
-    const counter = await this.usageCounters.findOne({
-      where: { userId: user.id, date: this.today() },
-    });
-    const limits = TIER_LIMITS[user.tier];
+    // Read today's usage from the canonical metric-based `usage_counters` via
+    // UsageService — the same source the quota-enforcement path writes to, so
+    // `GET /me` and enforcement never disagree (DAI-145). `Tier` enums in
+    // `common` and `usage` share identical string values.
+    const usage = await this.usage.getUsageSummary(
+      user.id,
+      user.tier as unknown as UsageTier,
+    );
 
     return {
       user: toPublicUser(user),
       tier: user.tier,
-      usage: {
-        replies_used: counter?.repliesUsed ?? 0,
-        replies_limit: limits.repliesPerDay,
-        screenshots_used: counter?.screenshotsUsed ?? 0,
-        screenshots_limit: limits.screenshotsPerDay,
-      },
+      usage,
     };
   }
 
@@ -202,10 +201,5 @@ export class AuthService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
-  }
-
-  /** Current UTC date as `YYYY-MM-DD` (quota reset boundary, DAI-124 §5.6). */
-  private today(): string {
-    return new Date().toISOString().slice(0, 10);
   }
 }

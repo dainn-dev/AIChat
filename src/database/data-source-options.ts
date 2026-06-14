@@ -12,7 +12,10 @@ export function buildDataSourceOptions(cfg: DatabaseConfig): DataSourceOptions {
   const base = {
     type: 'postgres' as const,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    migrations: [__dirname + '/migrations/*{.ts,.js}'],
+    // `!(*.spec)` excludes colocated migration specs (e.g.
+    // `*-CoreSchema.spec.ts`); under the ts-node CLI the glob would otherwise
+    // import them and crash `migration:run` on Jest globals (`describe`).
+    migrations: [__dirname + '/migrations/!(*.spec){.ts,.js}'],
     migrationsTableName: 'migrations',
     synchronize: false,
     logging: false,
