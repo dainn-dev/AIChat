@@ -1,6 +1,7 @@
 import { Logger, Module, Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LlmConfig } from '../config/configuration';
+import { EmbeddingModule } from './embedding/embedding.module';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { AiPipelineService } from './pipeline/ai-pipeline.service';
@@ -61,6 +62,7 @@ const memoryRetrieverFactory: Provider = {
 };
 
 @Module({
+  imports: [EmbeddingModule],
   controllers: [AiController],
   providers: [
     AiService,

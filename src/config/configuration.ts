@@ -70,6 +70,29 @@ export interface LlmConfig {
   maxRepairRetries: number;
 }
 
+/**
+ * Embedding service configuration (Phase 2 / DAI-146, MS-1). Reuses the
+ * Decision-#1 OpenAI credentials (`LLM_API_KEY` / `LLM_BASE_URL`) so the
+ * embeddings endpoint shares the provider key/base with chat completions — set
+ * once, used by both. `provider` resolves to `openai` when a key is present,
+ * else the keyless deterministic `stub` (local/test), mirroring `LlmConfig`.
+ *
+ * `model` + `dimensions` are the locked working default: OpenAI
+ * `text-embedding-3-small` at N=1536 (cosine distance). `dimensions` is sent to
+ * the OpenAI embeddings API so N is pinned regardless of the model's native
+ * size, and is the value MS-2's `vector(N)` column must match. Overriding to
+ * `text-embedding-3-large` (3072) is a config-only change; the re-embed/backfill
+ * path (FR-E5) migrates existing rows.
+ */
+export interface EmbeddingConfig {
+  provider: string;
+  model: string;
+  dimensions: number;
+  apiKey?: string;
+  baseUrl?: string;
+  requestTimeoutMs: number;
+}
+
 export interface AuthConfig {
   /** Secret used to sign/verify short-lived access JWTs. */
   jwtAccessSecret: string;
@@ -176,6 +199,25 @@ export default () => ({
     ),
     maxRepairRetries: parseInt(process.env.LLM_MAX_REPAIR_RETRIES ?? '1', 10),
   } satisfies LlmConfig,
+  embedding: {
+    // Mirrors the LLM provider resolution: `openai` when a key is present
+    // (shared LLM_API_KEY), else the keyless deterministic stub. An explicit
+    // EMBEDDING_PROVIDER always wins.
+    provider:
+      process.env.EMBEDDING_PROVIDER ??
+      (process.env.LLM_API_KEY ? 'openai' : 'stub'),
+    // Locked working default (DAI-146): text-embedding-3-small @ N=1536, cosine.
+    model: process.env.EMBEDDING_MODEL?.trim() || 'text-embedding-3-small',
+    dimensions: toInt(process.env.EMBEDDING_DIMENSIONS, 1536),
+    // Shares the Decision-#1 OpenAI credentials/base with the chat provider.
+    apiKey: process.env.LLM_API_KEY,
+    baseUrl: process.env.LLM_BASE_URL,
+    // Defaults to the shared LLM timeout unless an embedding-specific one is set.
+    requestTimeoutMs: toInt(
+      process.env.EMBEDDING_REQUEST_TIMEOUT_MS,
+      toInt(process.env.LLM_REQUEST_TIMEOUT_MS, 30000),
+    ),
+  } satisfies EmbeddingConfig,
   auth: {
     // A dev/test default keeps the service bootable without secrets, matching
     // the scaffold's local-first philosophy. MUST be overridden in production.
