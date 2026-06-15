@@ -11,6 +11,7 @@ import { ScreenshotsModule } from './screenshots/screenshots.module';
 import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
 import { KeyboardModule } from './keyboard/keyboard.module';
+import { MemoryModule } from './memory/memory.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { KeyboardModule } from './keyboard/keyboard.module';
     UsageModule,
     AiModule,
     AuthModule,
+    MemoryModule.register(),
     KeyboardModule,
     ScreenshotsModule,
   ],

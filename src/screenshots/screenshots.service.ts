@@ -1,7 +1,9 @@
 import {
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -13,6 +15,10 @@ import { AiPipelineService } from '../ai/pipeline/ai-pipeline.service';
 import { Tier } from '../common/tiers';
 import { Tier as UsageTier, UsageMetric } from '../usage/usage.constants';
 import { UsageService } from '../usage/usage.service';
+import {
+  MEMORY_EXTRACTION_QUEUE,
+  MemoryQueue,
+} from '../memory/memory-queue';
 import { CreateScreenshotDto } from './dto/create-screenshot.dto';
 import {
   CreateScreenshotResponse,
@@ -39,6 +45,11 @@ export class ScreenshotsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly usage: UsageService,
     private readonly pipeline: AiPipelineService,
+    // Optional: present only when the Memory Engine write side is wired (MS-4);
+    // a no-op binding is used when extraction is disabled.
+    @Optional()
+    @Inject(MEMORY_EXTRACTION_QUEUE)
+    private readonly extractionQueue?: MemoryQueue,
   ) {}
 
   /** `POST /screenshots` — persist an OCR'd conversation, metered by quota. */
@@ -71,6 +82,11 @@ export class ScreenshotsService {
       UsageMetric.Screenshot,
       () => this.persist(userId, dto, ocrText, messages),
     );
+
+    // Off-path memory extraction (MS-4): the conversation was created/updated,
+    // so trigger a background extraction. Fire-and-forget and guarded, so it
+    // never affects the screenshot response (AC-M4).
+    void this.extractionQueue?.enqueue(conversationId);
 
     return {
       screenshot_id: screenshotId,
