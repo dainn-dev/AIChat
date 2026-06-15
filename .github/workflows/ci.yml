@@ -65,5 +65,20 @@ jobs:
             "SELECT 1 FROM pg_extension WHERE extname = 'vector';" | grep -q 1
           echo "pgvector extension is present."
 
+      - name: Verify Top-K retrieval uses the HNSW index (DAI-147 AC)
+        run: |
+          # A Top-K cosine query must plan onto idx_memories_embedding_hnsw,
+          # not a seq scan. enable_seqscan=off makes the assertion deterministic
+          # on a fresh DB; if the HNSW index were missing the planner would fall
+          # back to a seq scan and this check would fail.
+          PLAN=$(PGPASSWORD=aichat psql -h localhost -U aichat -d aichat -tAc \
+            "SET enable_seqscan = off;
+             EXPLAIN SELECT id FROM memories
+               ORDER BY embedding <=> array_fill(0.1::real, ARRAY[1536])::vector
+               LIMIT 5;")
+          echo "$PLAN"
+          echo "$PLAN" | grep -q "idx_memories_embedding_hnsw"
+          echo "Top-K query uses the HNSW index."
+
       - name: E2E tests
         run: npm run test:e2e
