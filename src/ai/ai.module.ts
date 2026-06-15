@@ -1,6 +1,6 @@
 import { Logger, Module, Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LlmConfig } from '../config/configuration';
+import { LlmConfig, MemoryConfig } from '../config/configuration';
 import { EmbeddingModule } from './embedding/embedding.module';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
@@ -17,6 +17,7 @@ import {
   MemoryRetriever,
 } from './memory/memory-retriever.interface';
 import { StubMemoryRetriever } from './memory/stub-memory-retriever';
+import { PgVectorMemoryRetriever } from './memory/pgvector-memory-retriever';
 
 /**
  * Selects the active LLM provider from config. Per epic Decision #1 the default
@@ -54,11 +55,22 @@ const llmProviderFactory: Provider = {
   },
 };
 
-/** Phase 1 binds the no-op memory retriever ([]); Phase 2 (DAI-121) swaps it. */
+/**
+ * Phase 2 (DAI-148) binds the real pgvector retriever; ops can fall back to the
+ * no-op via `MEMORY_RETRIEVAL_ENABLED=false`. The pgvector retriever also
+ * degrades to `[]` when no DB is wired or on any error (AC-RT4).
+ */
 const memoryRetrieverFactory: Provider = {
   provide: MEMORY_RETRIEVER,
-  inject: [StubMemoryRetriever],
-  useFactory: (stub: StubMemoryRetriever): MemoryRetriever => stub,
+  inject: [ConfigService, StubMemoryRetriever, PgVectorMemoryRetriever],
+  useFactory: (
+    config: ConfigService,
+    stub: StubMemoryRetriever,
+    pgvector: PgVectorMemoryRetriever,
+  ): MemoryRetriever => {
+    const mem = config.get<MemoryConfig>('memory');
+    return mem?.enabled === false ? stub : pgvector;
+  },
 };
 
 @Module({
@@ -73,6 +85,7 @@ const memoryRetrieverFactory: Provider = {
     AiRequestLogger,
     StubLlmProvider,
     StubMemoryRetriever,
+    PgVectorMemoryRetriever,
     llmProviderFactory,
     memoryRetrieverFactory,
   ],

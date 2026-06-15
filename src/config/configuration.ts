@@ -93,6 +93,31 @@ export interface EmbeddingConfig {
   requestTimeoutMs: number;
 }
 
+/**
+ * Memory Engine knobs (Phase 2 / DAI-121). Retrieval (MS-3 / DAI-148): `enabled`
+ * toggles the no-op fallback; `retrievalTopK` and `cosineThreshold` bound
+ * relevance; `contextCharBudget` caps injected memory text (≈4 chars/token).
+ * Extraction (MS-4 / DAI-149): `extractionEnabled` gates the BullMQ worker (off
+ * unless Redis is configured); `highConfidenceThreshold` routes facts at/above
+ * it to `active`, the rest to `pending_review`. Cost control (MS-6 / DAI-151):
+ * `extractionDailyBudget` caps new extraction runs per user per UTC day.
+ */
+export interface MemoryConfig {
+  enabled: boolean;
+  retrievalTopK: number;
+  cosineThreshold: number;
+  contextCharBudget: number;
+  extractionEnabled: boolean;
+  highConfidenceThreshold: number;
+  extractionDailyBudget: number;
+}
+
+/** Redis connection for the BullMQ extraction queue (MS-4 / DAI-149). */
+export interface RedisConfig {
+  host: string;
+  port: number;
+}
+
 export interface AuthConfig {
   /** Secret used to sign/verify short-lived access JWTs. */
   jwtAccessSecret: string;
@@ -113,6 +138,13 @@ const toBool = (value: string | undefined, fallback = false): boolean => {
 const toInt = (value: string | undefined, fallback: number): number => {
   if (value === undefined || value.trim() === '') return fallback;
   const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/** Parse a float env var, falling back when unset/blank/non-numeric. */
+const toFloat = (value: string | undefined, fallback: number): number => {
+  if (value === undefined || value.trim() === '') return fallback;
+  const n = parseFloat(value);
   return Number.isFinite(n) ? n : fallback;
 };
 
@@ -218,6 +250,27 @@ export default () => ({
       toInt(process.env.LLM_REQUEST_TIMEOUT_MS, 30000),
     ),
   } satisfies EmbeddingConfig,
+  memory: {
+    enabled: !['0', 'false', 'no', 'off'].includes(
+      (process.env.MEMORY_RETRIEVAL_ENABLED ?? 'true').toLowerCase(),
+    ),
+    retrievalTopK: toInt(process.env.MEMORY_RETRIEVAL_TOP_K, 5),
+    cosineThreshold: toFloat(process.env.MEMORY_COSINE_THRESHOLD, 0.75),
+    contextCharBudget: toInt(process.env.MEMORY_CONTEXT_CHAR_BUDGET, 1200),
+    // Off by default: the worker needs Redis, so enable it explicitly.
+    extractionEnabled: ['1', 'true', 'yes', 'on'].includes(
+      (process.env.MEMORY_EXTRACTION_ENABLED ?? 'false').toLowerCase(),
+    ),
+    highConfidenceThreshold: toFloat(
+      process.env.MEMORY_HIGH_CONFIDENCE_THRESHOLD,
+      0.7,
+    ),
+    extractionDailyBudget: toInt(process.env.MEMORY_EXTRACTION_DAILY_BUDGET, 200),
+  } satisfies MemoryConfig,
+  redis: {
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: toInt(process.env.REDIS_PORT, 6379),
+  } satisfies RedisConfig,
   auth: {
     // A dev/test default keeps the service bootable without secrets, matching
     // the scaffold's local-first philosophy. MUST be overridden in production.
