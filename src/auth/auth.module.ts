@@ -24,8 +24,12 @@ import { UsageModule } from '../usage/usage.module';
   imports: [
     TypeOrmModule.forFeature([User, AuthSession]),
     // Secrets/TTLs are passed per-call from AuthConfig, so no static
-    // registration options are needed here.
-    JwtModule.register({}),
+    // registration options are needed here. Registered `global` so `JwtService`
+    // is resolvable wherever `JwtAuthGuard` is instantiated — Nest builds the
+    // guard in the host module of each `@UseGuards()` controller (e.g.
+    // ScreenshotsModule, WS-5), and a non-global registration leaves JwtService
+    // unavailable there, breaking app bootstrap (DAI-143).
+    JwtModule.register({ global: true }),
     UsageModule,
   ],
   controllers: [AuthController, MeController],
