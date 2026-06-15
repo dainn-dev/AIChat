@@ -19,6 +19,7 @@ export enum AiRequestType {
   Reply = 'reply',
   Rewrite = 'rewrite',
   Analysis = 'analysis',
+  Translate = 'translate',
 }
 
 /** Who authored a message in a normalized conversation (DAI-124 §1.2 / FR-P2). */

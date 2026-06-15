@@ -41,6 +41,9 @@ export class StubLlmProvider implements LlmProvider {
 
   private render(request: LlmCompletionRequest, seed: number): string {
     switch (request.type) {
+      case AiRequestType.Translate:
+        // Deterministic stand-in; the real provider returns the translation.
+        return `(translated) ${request.prompt.user}`;
       case AiRequestType.Rewrite:
         return 'Here is a polished take on that — clear, warm, and easy to read.';
       case AiRequestType.Reply:

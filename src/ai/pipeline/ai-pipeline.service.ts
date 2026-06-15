@@ -22,6 +22,7 @@ import {
   ContextBuilder,
   ReplyContext,
   RewriteContext,
+  TranslateContext,
 } from './context-builder';
 import { OutputValidator } from '../validation/output-validator';
 import { AiRequestLogger } from '../logging/ai-request-logger.service';
@@ -35,6 +36,8 @@ export interface PipelineContext {
   source: AiSource;
   userId?: string;
   conversationId?: string;
+  /** Active contact for memory scoping (MS-3); optional, defaults to global. */
+  contactLabel?: string;
 }
 
 export interface ReplyInput {
@@ -54,6 +57,12 @@ export interface AnalyzeInput {
 export interface RewriteInput {
   text: string;
   tone: Tone;
+}
+
+export interface TranslateInput {
+  text: string;
+  targetLang: string;
+  sourceLang?: string;
 }
 
 /**
@@ -88,6 +97,7 @@ export class AiPipelineService {
     const messages = this.normalizer.normalize(input.messages);
     const memories = await this.memory.retrieve({
       userId: ctx.userId,
+      contactLabel: ctx.contactLabel,
       conversationText: this.flatten(messages),
       topK: 5,
     });
@@ -138,6 +148,7 @@ export class AiPipelineService {
     const messages = this.normalizer.normalize(input.messages);
     const memories = await this.memory.retrieve({
       userId: ctx.userId,
+      contactLabel: ctx.contactLabel,
       conversationText: this.flatten(messages),
       topK: 5,
     });
@@ -166,6 +177,28 @@ export class AiPipelineService {
 
     const { result } = await this.complete(prompt, AiRequestType.Rewrite, ctx);
     const text = result.text.trim();
+    return text.length > 0 ? text : input.text;
+  }
+
+  /** Translate `text` into `targetLang` (keyboard surface, P4-1 / DAI-136). */
+  async translate(
+    input: TranslateInput,
+    ctx: PipelineContext,
+  ): Promise<string> {
+    const translateCtx: TranslateContext = {
+      text: input.text,
+      targetLang: input.targetLang,
+      sourceLang: input.sourceLang,
+    };
+    const prompt = this.contextBuilder.buildTranslatePrompt(translateCtx);
+
+    const { result } = await this.complete(
+      prompt,
+      AiRequestType.Translate,
+      ctx,
+    );
+    const text = result.text.trim();
+    // Degrade to the original text rather than returning empty on drift.
     return text.length > 0 ? text : input.text;
   }
 
@@ -213,7 +246,9 @@ export class AiPipelineService {
       const result = await this.provider.complete({
         prompt,
         type,
-        expectJson: type !== AiRequestType.Rewrite,
+        // Reply/analysis expect JSON; rewrite/translate return plain text.
+        expectJson:
+          type !== AiRequestType.Rewrite && type !== AiRequestType.Translate,
       });
       await this.requestLog.record({
         userId: ctx.userId,

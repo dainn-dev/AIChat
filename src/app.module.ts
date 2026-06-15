@@ -10,6 +10,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { ScreenshotsModule } from './screenshots/screenshots.module';
 import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
+import { KeyboardModule } from './keyboard/keyboard.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UsageModule } from './usage/usage.module';
     UsageModule,
     AiModule,
     AuthModule,
+    KeyboardModule,
     ScreenshotsModule,
   ],
 })
