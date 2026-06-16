@@ -12,6 +12,7 @@ import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
 import { KeyboardModule } from './keyboard/keyboard.module';
 import { MemoryModule } from './memory/memory.module';
+import { MemoriesModule } from './memories/memories.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MemoryModule } from './memory/memory.module';
     AiModule,
     AuthModule,
     MemoryModule.register(),
+    MemoriesModule,
     KeyboardModule,
     ScreenshotsModule,
   ],
