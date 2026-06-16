@@ -16,10 +16,23 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    # Backs the BullMQ memory-extraction worker (MS-4 / DAI-149).
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: .
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       NODE_ENV: development
@@ -29,6 +42,9 @@ services:
       DATABASE_USER: aichat
       DATABASE_PASSWORD: aichat
       DATABASE_NAME: aichat
+      MEMORY_EXTRACTION_ENABLED: 'true'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - '3000:3000'
 

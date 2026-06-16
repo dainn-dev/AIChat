@@ -84,7 +84,7 @@ describe('Memory privacy & cost controls MS-6 (e2e)', () => {
   it('§5.7: erasure removes a memory from the next retrieval and the table', async () => {
     const userId = await createUser();
     const content = 'Plays bass in a jazz trio on Fridays';
-    const vec = await embeddings.embed(content);
+    const { vector: vec } = await embeddings.embed(content);
     const rows: Array<{ id: string }> = await ds.query(
       `INSERT INTO memories (user_id, kind, content, embedding, source_ref, status, confidence, content_hash)
        VALUES ($1, 'interest', $2, $3::vector, 'manual', 'active', 1.0, $4) RETURNING id`,
