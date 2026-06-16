@@ -9,6 +9,11 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
 
+    # Backend lives under backend/ (monorepo; mobile/ added in the mobile phase).
+    defaults:
+      run:
+        working-directory: ./backend
+
     services:
       postgres:
         # pgvector image so `CREATE EXTENSION vector` succeeds in migrations.
@@ -40,6 +45,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
         run: npm ci

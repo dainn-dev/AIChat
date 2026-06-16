@@ -1,14 +1,14 @@
 # Dependencies
-/node_modules
+node_modules/
 
 # Build output
-/dist
-/build
+dist/
+build/
 *.tsbuildinfo
 
 # Test / coverage
-/coverage
-/.nyc_output
+coverage/
+.nyc_output/
 
 # Env & secrets
 .env
@@ -26,3 +26,9 @@ yarn-error.log*
 .vscode
 *.swp
 .DS_Store
+
+# Local agent / tooling (not part of the repo)
+.claude/
+.codegraph/
+.cursor/
+.mcp.json
