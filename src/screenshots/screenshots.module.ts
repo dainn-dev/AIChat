@@ -16,5 +16,7 @@ import { ScreenshotsService } from './screenshots.service';
   imports: [AuthModule, UsageModule, AiModule],
   controllers: [ScreenshotsController],
   providers: [ScreenshotsService],
+  // Exported so the Share-Menu surface (P4/P3) can reuse ingest + analyze.
+  exports: [ScreenshotsService],
 })
 export class ScreenshotsModule {}

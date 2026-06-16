@@ -15,10 +15,7 @@ import { AiPipelineService } from '../ai/pipeline/ai-pipeline.service';
 import { Tier } from '../common/tiers';
 import { Tier as UsageTier, UsageMetric } from '../usage/usage.constants';
 import { UsageService } from '../usage/usage.service';
-import {
-  MEMORY_EXTRACTION_QUEUE,
-  MemoryQueue,
-} from '../memory/memory-queue';
+import { MEMORY_EXTRACTION_QUEUE, MemoryQueue } from '../memory/memory-queue';
 import { CreateScreenshotDto } from './dto/create-screenshot.dto';
 import {
   CreateScreenshotResponse,
@@ -97,11 +94,16 @@ export class ScreenshotsService {
     };
   }
 
-  /** `POST /screenshots/:id/analyze` — run the AI analysis on a screenshot. */
+  /**
+   * `POST /screenshots/:id/analyze` — run the AI analysis on a screenshot.
+   * `source` tags the originating surface for analytics (default `ocr`; the
+   * Share-Menu surface passes `share`).
+   */
   async analyze(
     userId: string,
     tier: Tier,
     screenshotId: string,
+    source: AiSource = AiSource.Ocr,
   ): Promise<AnalyzeResponse> {
     const rows: Array<{ conversation_id: string | null }> =
       await this.dataSource.query(
@@ -131,7 +133,7 @@ export class ScreenshotsService {
     const analysis = await this.pipeline.analyze(
       { messages },
       {
-        source: AiSource.Ocr,
+        source,
         userId,
         conversationId: conversationId ?? undefined,
       },

@@ -12,6 +12,7 @@ import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
 import { KeyboardModule } from './keyboard/keyboard.module';
 import { MemoryModule } from './memory/memory.module';
+import { ShareModule } from './share/share.module';
 import { MemoriesModule } from './memories/memories.module';
 
 @Module({
@@ -33,6 +34,7 @@ import { MemoriesModule } from './memories/memories.module';
     MemoriesModule,
     KeyboardModule,
     ScreenshotsModule,
+    ShareModule,
   ],
 })
 export class AppModule {}
