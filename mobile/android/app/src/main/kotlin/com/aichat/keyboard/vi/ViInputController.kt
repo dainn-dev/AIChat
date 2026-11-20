@@ -40,6 +40,9 @@ class ViInputController(private val settings: () -> ViInputSettings) {
     /** Cursor position right after our last edit; used to tell our own selection updates from user moves. */
     private var expectedCursor = NO_CURSOR
 
+    /** Absolute position where the current word starts (as of our last edit). */
+    private var wordStart = NO_CURSOR
+
     /** Stateful [Composer] that FlorisBoard's `commitChar` drives while the Vietnamese subtype is active. */
     val composerAdapter: Composer = object : Composer {
         override val id = ViInputComposer.id
@@ -72,6 +75,7 @@ class ViInputController(private val settings: () -> ViInputSettings) {
             // Without a known cursor, cursor moves could not be detected: drop the word.
             reset()
         } else {
+            wordStart = cursor - state.composingText.length
             expectedCursor = cursor
         }
     }
@@ -118,23 +122,47 @@ class ViInputController(private val settings: () -> ViInputSettings) {
     }
 
     /**
-     * Selection update from the editor. The word is dropped when the user moves the cursor or selects
-     * text. Belated updates for our own earlier edits (fast typing) are recognised the way AOSP LatinIME
-     * does it: a real move starts at the position we expect and ends somewhere else.
+     * Called before FlorisBoard's `commitChar`. Ends the word when the key will not reach the engine:
+     * vi-input is not active (other subtype, symbols layer, password/email/URL field), there is no
+     * cursor (selection, unknown editor state), or the key is several code points (upstream bypasses
+     * the composer for multi-grapheme text, and a combining sequence is easier to commit after the word).
      */
-    fun onSelectionUpdate(oldStart: Int, oldEnd: Int, newStart: Int, newEnd: Int) {
+    fun beforeKey(editor: ViEditorPort, key: String, engineActive: Boolean) {
+        val bypassesEngine = !engineActive ||
+            editor.cursorPosition() == NO_CURSOR ||
+            key.codePointCount(0, key.length) > 1
+        if (bypassesEngine) finishWord(editor)
+    }
+
+    /**
+     * Selection update from the editor. The word is dropped when the user moves the cursor or selects
+     * text, and kept for updates caused by our own edits:
+     *
+     * 1. The cursor is where our last edit put it: ours.
+     * 2. Old and new selection are equal and inside the word: only the composing region changed
+     *    (possibly late, while more keys were typed).
+     * 3. The update starts at our position and ends elsewhere: the user moved (AOSP LatinIME's rule).
+     * 4. Otherwise `old` is stale (fast typing, or Chrome/WebView batching several changes). The update
+     *    is belated only if FlorisBoard still expects the new selection from an edit it made
+     *    ([isExpectedByEditor]); any other position is a real move.
+     *
+     * The word is dropped as shown: the cursor is no longer after it, so a shown `uẻ` is not turned
+     * back into `user` (documented limitation).
+     */
+    fun onSelectionUpdate(oldStart: Int, oldEnd: Int, newStart: Int, newEnd: Int, isExpectedByEditor: Boolean) {
         if (state.isEmpty) return
         if (newStart == expectedCursor && newEnd == expectedCursor) return
-        if (oldStart != expectedCursor || oldEnd != expectedCursor) return
-        if (oldStart != newStart || oldEnd != newEnd) {
-            reset()
-        }
+        if (oldStart == newStart && oldEnd == newEnd && newStart == newEnd && newStart in wordStart..expectedCursor) return
+        val movedFromOurPosition = oldStart == expectedCursor && oldEnd == expectedCursor
+        val belated = !movedFromOurPosition && newStart == newEnd && isExpectedByEditor
+        if (!belated) reset()
     }
 
     /** Forgets the current word without touching the editor (field change, candidate picked, ...). */
     fun reset() {
         state = ComposerState.EMPTY
         expectedCursor = NO_CURSOR
+        wordStart = NO_CURSOR
     }
 
     private fun isWordBeforeCursor(editor: ViEditorPort): Boolean =

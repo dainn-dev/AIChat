@@ -50,7 +50,8 @@ The full delta from upstream is:
       Dependency on com.aichat:vi-input.
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/editor/AbstractEditorInstance.kt
       The "replace N chars before the cursor" body of commitChar() moved unchanged into
-      replaceCharsBeforeCursor(); new public replaceTextBeforeCursor() for the vi-input integration.
+      replaceCharsBeforeCursor(); new public replaceTextBeforeCursor() and isExpectedSelection()
+      for the vi-input integration.
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/editor/EditorInstance.kt
       One-line hooks into com.aichat.keyboard.vi.ViInputBridge (composer swap, commitChar, commitText,
       backspace, selection updates, candidates, editor actions, selection/undo/redo, reset).

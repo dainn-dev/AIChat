@@ -143,10 +143,77 @@ class ViInputControllerTest {
         val kb = ViTestKeyboard()
         kb.type("vi")
 
-        // The editor reports the update for the first key (0 -> 1) after the second key was applied.
-        kb.controller.onSelectionUpdate(0, 0, 1, 1)
-        kb.controller.onSelectionUpdate(1, 1, 2, 2)
+        // The editor reports the updates for the first keys only after the second key was applied.
+        kb.deliverUpdates()
         kb.type("eetj")
+
+        assertEquals("việt", kb.editor.text)
+    }
+
+    @Test
+    fun `belated updates across a word break do not reset the next word`() {
+        val kb = ViTestKeyboard()
+        kb.type("a tooi")
+
+        kb.deliverUpdates(2) // updates for "a" and " " arrive while "tooi" is composing
+        kb.type("j")
+        kb.deliverUpdates()
+        kb.type(" ")
+
+        assertEquals("a tội ", kb.editor.text)
+    }
+
+    @Test
+    fun `out-of-order composing-only update keeps the word`() {
+        val kb = ViTestKeyboard()
+        kb.type("vie")
+        kb.deliverUpdates()
+
+        // FlorisBoard re-sets the composing region late; the editor repeats an old selection.
+        kb.controller.onSelectionUpdate(1, 1, 1, 1, isExpectedByEditor = false)
+        kb.type("etj")
+
+        assertEquals("việt", kb.editor.text)
+    }
+
+    @Test
+    fun `batched update with a stale old selection still detects a tap`() {
+        val kb = ViTestKeyboard()
+        kb.type("xin vie")
+
+        // Chrome/WebView: no update was sent for the typing, then one update for the tap with old = 0.
+        kb.editor.pendingUpdates.clear()
+        kb.editor.select(0)
+        kb.deliverBatchedUpdate()
+
+        assertEquals("", kb.composing)
+        kb.type("e")
+        assertEquals("exin vie", kb.editor.text)
+    }
+
+    @Test
+    fun `stale tap onto a position still pending is caught by the text check`() {
+        val kb = ViTestKeyboard()
+        kb.type("xin vie")
+
+        // Position 1 is still in FlorisBoard's expected queue, so the update looks belated; the
+        // check on the next key (text before the cursor must end with the word) catches the move.
+        kb.editor.pendingUpdates.clear()
+        kb.editor.select(1)
+        kb.deliverBatchedUpdate()
+        kb.type("e")
+
+        assertEquals("xein vie", kb.editor.text)
+        assertEquals("e", kb.composing)
+    }
+
+    @Test
+    fun `batched update that lands on our own position keeps the word`() {
+        val kb = ViTestKeyboard()
+        kb.type("vie")
+
+        kb.deliverBatchedUpdate() // old = 0 (stale), new = 3 = where our last edit put the cursor
+        kb.type("etj")
 
         assertEquals("việt", kb.editor.text)
     }
@@ -155,8 +222,9 @@ class ViInputControllerTest {
     fun `selection update that only changes the composing region keeps the word`() {
         val kb = ViTestKeyboard()
         kb.type("vie")
+        kb.deliverUpdates()
 
-        kb.controller.onSelectionUpdate(3, 3, 3, 3)
+        kb.controller.onSelectionUpdate(3, 3, 3, 3, isExpectedByEditor = false)
         kb.type("etj")
 
         assertEquals("việt", kb.editor.text)
@@ -166,8 +234,45 @@ class ViInputControllerTest {
     fun `selecting text resets the word`() {
         val kb = ViTestKeyboard()
         kb.type("vie")
+        kb.deliverUpdates()
 
-        kb.controller.onSelectionUpdate(3, 3, 0, 3)
+        kb.editor.select(0, 3)
+        kb.deliverBatchedUpdate()
+
+        assertEquals("", kb.composing)
+    }
+
+    @Test
+    fun `typing over a selection bypasses the engine`() {
+        val kb = ViTestKeyboard()
+        kb.type("vie ")
+        kb.editor.select(0, 3)
+        kb.deliverBatchedUpdate()
+
+        kb.type("a")
+
+        assertEquals("a ", kb.editor.text)
+        assertEquals("", kb.composing)
+    }
+
+    @Test
+    fun `backspace with a selection deletes the selection`() {
+        val kb = ViTestKeyboard()
+        kb.type("vieetj")
+        kb.editor.select(0, 2)
+
+        kb.backspace()
+
+        assertEquals("ệt", kb.editor.text)
+        assertEquals("", kb.composing)
+    }
+
+    @Test
+    fun `edit without a known cursor drops the word`() {
+        val kb = ViTestKeyboard()
+        kb.type("vie")
+
+        kb.controller.onEditApplied(ViInputController.NO_CURSOR)
 
         assertEquals("", kb.composing)
     }
@@ -328,16 +433,6 @@ class ViInputControllerTest {
     }
 
     @Test
-    fun `edit without a known cursor drops the word`() {
-        val kb = ViTestKeyboard()
-        kb.type("vie")
-
-        kb.controller.onEditApplied(ViInputController.NO_CURSOR)
-
-        assertEquals("", kb.composing)
-    }
-
-    @Test
     fun `finishing an empty word does nothing`() {
         val kb = ViTestKeyboard()
 
@@ -365,5 +460,112 @@ class ViInputControllerTest {
 
         assertTrue(kb.controller.composerAdapter.toRead >= VietnameseComposer.MAX_WORD_KEYS)
         assertEquals(ViInputComposer.id, kb.controller.composerAdapter.id)
+    }
+
+    @Test
+    fun `phantom space before a new word is kept outside the word`() {
+        val kb = ViTestKeyboard()
+        kb.type("xin")
+        kb.controller.reset() // candidate "xin" picked; FlorisBoard activates phantom space
+
+        kb.key("c", spaceBefore = true)
+        kb.type("hafo")
+
+        assertEquals("xin chào", kb.editor.text)
+    }
+
+    @Test
+    fun `auto space after punctuation does not leak into the next word`() {
+        val kb = ViTestKeyboard()
+        kb.type("xinh")
+
+        kb.key(",", spaceAfter = true)
+        kb.type("ddepj")
+
+        assertEquals("xinh, đẹp", kb.editor.text)
+    }
+
+    @Test
+    fun `supplementary-plane key commits the word`() {
+        val kb = ViTestKeyboard()
+        kb.type("dduowngf")
+
+        kb.key("\uD835\uDD4F") // MATHEMATICAL DOUBLE-STRUCK CAPITAL X: one code point, two chars
+
+        assertEquals("đường\uD835\uDD4F", kb.editor.text)
+        assertEquals("", kb.composing)
+    }
+
+    @Test
+    fun `multi-code-point key finishes the word first`() {
+        val kb = ViTestKeyboard()
+        kb.type("user")
+
+        kb.key("\uD83D\uDC4D\uD83C\uDFFD") // thumbs up + skin tone: two code points
+
+        assertEquals("user\uD83D\uDC4D\uD83C\uDFFD", kb.editor.text)
+        assertEquals(Replace(2, "user"), kb.editor.calls[kb.editor.calls.size - 2])
+    }
+
+    @Test
+    fun `failed final replacement still ends the word`() {
+        val kb = ViTestKeyboard()
+        kb.type("user")
+        kb.editor.rejectEdits = true
+
+        kb.controller.finishWord(kb.editor)
+
+        assertEquals("uẻ", kb.editor.text)
+        assertEquals("", kb.composing)
+    }
+
+    @Test
+    fun `failed key replacement does not corrupt the next key`() {
+        val kb = ViTestKeyboard()
+        kb.type("vie")
+        kb.editor.rejectEdits = true
+        kb.type("e") // engine state says "viê" but the editor still shows "vie"
+        kb.editor.rejectEdits = false
+
+        kb.type("t")
+
+        // The text no longer ends with the composing word, so the engine starts a fresh word.
+        assertEquals("viet", kb.editor.text)
+    }
+
+    @Test
+    fun `switching subtype mid-word commits the final text`() {
+        val kb = ViTestKeyboard()
+        kb.type("user")
+
+        kb.engineActive = false // globe key: English subtype
+        kb.type("s")
+
+        assertEquals("users", kb.editor.text)
+        assertEquals("", kb.composing)
+    }
+
+    @Test
+    fun `undo after a replacement starts a fresh word`() {
+        val kb = ViTestKeyboard()
+        kb.type("vieetj")
+
+        kb.controller.reset() // EditorInstance.performUndo
+        kb.editor.replaceAllExternally("viêt") // the editor undid the last replacement
+        kb.type("s")
+
+        assertEquals("viêts", kb.editor.text)
+    }
+
+    @Test
+    fun `redo after a replacement starts a fresh word`() {
+        val kb = ViTestKeyboard()
+        kb.type("vieet")
+
+        kb.controller.reset() // EditorInstance.performRedo
+        kb.editor.replaceAllExternally("việt")
+        kb.type("j")
+
+        assertEquals("việtj", kb.editor.text)
     }
 }

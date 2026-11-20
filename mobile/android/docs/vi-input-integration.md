@@ -56,7 +56,7 @@ How it fits together:
   edit it checks that the text before the cursor still ends with the word; if not (the app or the user
   changed the text), it drops the word and starts fresh instead of corrupting text.
 - `VI/ViInputBridge.kt` is the Android glue: it reads the settings, decides whether vi-input is active
-  (vi-input subtype, letters layer shown, not a password field), implements `ViEditorPort` on top of `EditorInstance`, and
+  (vi-input subtype, letters layer shown, text field that is not a password field; see `ViInputGate`), implements `ViEditorPort` on top of `EditorInstance`, and
   finishes the word when the user leaves the Vietnamese subtype.
 
 Event mapping (each hook is one line in `FB/ime/editor/EditorInstance.kt`, marked `AIChat MODIFIED`):
@@ -68,19 +68,51 @@ Event mapping (each hook is one line in `FB/ime/editor/EditorInstance.kt`, marke
 | Space, enter, paste, media emoji | `commitText` | `finishWord`: replace the shown word with `composer.commitText(state)` (e.g. `uẻ` → `user`), reset, then FlorisBoard commits the text. |
 | Send / Go / Search action | `performEnterAction` | `finishWord` first, so the app receives the final text. |
 | Backspace | `deleteBackwards` | While composing: `composer.backspace(state)` and replace the word. Otherwise the normal delete. |
-| Cursor move / selection | `handleSelectionUpdate` | Reset, unless the update is ours. LatinIME's rule: a user move starts at the cursor position we expect and ends elsewhere; belated updates from fast typing are ignored. |
+| Cursor move / selection | `handleSelectionUpdate` | Reset, unless the update is ours (see "Selection updates" below). |
 | Keyboard moves the cursor / selects | `setSelection`, `setSelectionSurrounding`, `performClipboardSelectAll` | `finishWord` first. |
 | Undo / redo | `performUndo`, `performRedo` | Reset (the editor rewrites the text itself). |
 | Suggestion tapped | `commitCompletion` | Reset (the candidate replaces the word). |
 | New field / input finished / restart | `handleStartInputView`, `reset()` | Reset. |
-| Subtype switched away from VI | `activeSubtypeFlow` collector in `ViInputBridge` | `finishWord`. |
-| Settings changed | read on every key | The next key uses the new composer; a half-typed word is dropped from the state (its text stays). |
+| Subtype switched away from VI | `activeSubtypeFlow` collector in `ViInputBridge`, plus `beforeCommitChar` | `finishWord`. |
+| Settings changed | pref flows collected by `ViInputBridge` | The next key uses the new composer; a half-typed word is dropped from the state (its text stays). |
 
 Not routed through the engine (same as upstream Telex): raw editors (`TYPE_NULL`, e.g. terminals), editors that
 do not report text/selection to FlorisBoard, and text typed while a selection is active. Password fields use
 plain input. Keys from the symbols / numeric layers are typed as is and end the word, so in VNI the tone
 digits come from the number row (Settings > Keyboard > Number row) or the long-press digit hints on the letter
 keys.
+
+### Selection updates
+
+Editors report selection changes asynchronously, often after further keys were typed, and Chrome/WebView
+may batch several changes into one update whose `old` selection is stale. `ViInputController.onSelectionUpdate`
+keeps the word when:
+
+1. the new cursor is where our last edit put it;
+2. old and new selection are equal and inside the word (only the composing region changed, possibly late);
+3. the update does not start at our position and FlorisBoard still expects the new selection from one of its
+   own edits (`AbstractEditorInstance.isExpectedSelection`, checked before FlorisBoard pops its queue): a
+   belated update.
+
+Anything else (a move that starts at our position, a selection, a stale update to an unknown position) drops
+the word. As a second line of defence, every key checks that the text before the cursor still ends with the
+word; if not, the engine starts a fresh word instead of rewriting the wrong characters.
+
+Known limitation: when the cursor moves away, the word is dropped as it is shown. A word shown as `uẻ` stays
+`uẻ` (it would have become `user` on space), because the cursor is no longer after it and rewriting it would
+need a second cursor move. A suggestion tap replaces the word anyway, so it is not affected.
+
+### Lifecycle
+
+`ViInputBridge` is a field of `EditorInstance`, which FlorisApplication builds inside its lazy singletons.
+Its constructor therefore touches no manager or preference; reaching `keyboardManager` from there would re-enter
+the lazies. The collectors (settings, active subtype) start in `onStartInputView` on the non-immediate main
+dispatcher, and `close()` cancels them when the input session ends (`EditorInstance.reset()`).
+
+### Saved subtypes from before the switch
+
+Subtypes saved with upstream's `org.florisboard.composers:telex` (the removed rule table) are treated as
+vi-input (`ViInputComposer.LEGACY_TELEX`) instead of silently falling back to `Appender`.
 
 ## Subtypes (EN ⟷ VI)
 
@@ -115,7 +147,13 @@ key, so a change applies to the next word without restarting the keyboard.
 - `app/src/test/kotlin/com/aichat/keyboard/vi/ViInputControllerTest.kt`: key sequences against a fake editor
   (`FakeViEditor`, which records replace/commit/delete calls like a fake `InputConnection`) driven the way
   `EditorInstance` drives the controller (`ViTestKeyboard`).
+- `ViInputGateTest.kt`: which fields / layers compose, and the legacy `telex` alias.
 - `ViInputConfigTest.kt`: default subtypes JSON, and the real composers / localization `extension.json` assets
   parse to `vi-input` with no Telex table.
 
 Run: `./gradlew :app:testDebugUnitTest :vi-input:check`.
+
+## Future work
+
+- Backspace right after a committed word could re-open it for editing (some Vietnamese keyboards do this).
+  Out of scope for Phase 1.

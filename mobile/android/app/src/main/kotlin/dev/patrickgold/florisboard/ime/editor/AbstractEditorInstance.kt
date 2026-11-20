@@ -101,6 +101,11 @@ abstract class AbstractEditorInstance(context: Context) {
         return runBlocking { expectedContentQueue.peekNewestOrNull() }
     }
 
+    // AIChat MODIFIED: lets the vi-input integration tell belated selection updates for our own edits from user moves.
+    fun isExpectedSelection(selection: EditorRange): Boolean {
+        return runBlocking { expectedContentQueue.containsSelection(selection) }
+    }
+
     private fun currentInputConnection() = FlorisImeService.currentInputConnection()
 
     open fun handleStartInput(editorInfo: FlorisEditorInfo) {
@@ -701,6 +706,11 @@ abstract class AbstractEditorInstance(context: Context) {
             list.withLock { list ->
                 list.add(item)
             }
+        }
+
+        // AIChat MODIFIED: see isExpectedSelection().
+        suspend fun containsSelection(selection: EditorRange): Boolean {
+            return list.withLock { list -> list.any { it.selection == selection } }
         }
 
         suspend fun peekNewestOrNull(): EditorContent? {

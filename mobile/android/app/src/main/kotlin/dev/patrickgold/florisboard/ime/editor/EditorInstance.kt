@@ -20,7 +20,7 @@ import android.content.ClipDescription
 import android.content.ContentUris
 import android.content.Context
 import android.view.KeyEvent
-import com.aichat.keyboard.vi.ViInputBridge
+import com.aichat.keyboard.vi.ViInputBridge // AIChat MODIFIED: vi-input integration.
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
 import dev.patrickgold.florisboard.FlorisImeService
@@ -73,8 +73,8 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
         }
         activeState.isActionsOverflowVisible = false
         activeState.isActionsEditorVisible = false
-        viInput.reset() // AIChat MODIFIED: new field, new word.
         super.handleStartInputView(editorInfo, isRestart)
+        viInput.onStartInputView() // AIChat MODIFIED: new field, new word; starts the vi-input watchers.
         val keyboardMode = when (editorInfo.inputAttributes.type) {
             InputAttributes.Type.NUMBER -> {
                 activeState.keyVariation = KeyVariation.NORMAL
@@ -134,7 +134,8 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     override fun handleSelectionUpdate(oldSelection: EditorRange, newSelection: EditorRange, composing: EditorRange) {
         autoSpace.setInactiveFromUpdate()
         phantomSpace.setInactiveFromUpdate()
-        viInput.onSelectionUpdate(oldSelection, newSelection) // AIChat MODIFIED: cursor moves end the word.
+        // AIChat MODIFIED: cursor moves end the word (checked before super pops the expected-content queue).
+        viInput.onSelectionUpdate(oldSelection, newSelection, isExpectedSelection(newSelection))
         if (massSelection.isActive) {
             super.handleMassSelectionUpdate(newSelection, composing)
         } else {
@@ -148,7 +149,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
 
     override fun determineComposer(composerName: ExtensionComponentName): Composer {
         // AIChat MODIFIED: the vi-input marker composer is swapped for the stateful vi-input adapter.
-        return viInput.resolveComposer(keyboardManager.resources.composers.value?.get(composerName) ?: Appender)
+        return viInput.resolveComposer(composerName, keyboardManager.resources.composers.value?.get(composerName) ?: Appender)
     }
 
     override fun shouldDetermineComposingRegion(editorInfo: FlorisEditorInfo): Boolean {
@@ -567,7 +568,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
 
     override fun reset() {
         super.reset()
-        viInput.reset() // AIChat MODIFIED: field finished or input restarted.
+        viInput.close() // AIChat MODIFIED: field finished or input restarted: drop the word, stop the watchers.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         massSelection.reset()
