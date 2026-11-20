@@ -226,6 +226,8 @@ dependencies {
     implementation(projects.lib.kotlin)
     implementation(projects.lib.native)
     implementation(projects.lib.snygg)
+    // AIChat MODIFIED: Vietnamese input engine, resolved from the included build in settings.gradle.kts.
+    implementation("com.aichat:vi-input")
 
     testImplementation(libs.kotlin.test.junit5)
     androidTestImplementation(libs.androidx.test.ext)

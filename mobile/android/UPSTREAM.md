@@ -100,6 +100,7 @@ in-app backup/restore screen (Settings > Advanced) still works.
 | CMake | **4.0.2 exactly** (`gradle/tools.versions.toml`) | AGP does not auto-install it. Install it with SDK Manager > SDK Tools > CMake 4.0.2, or `sdkmanager "cmake;4.0.2"`. |
 | Rust (rustup + cargo) | stable; targets are added automatically by CMake (`rustup target add`) | Needed by `lib/native`. |
 | `local.properties` | `sdk.dir=...` (git-ignored) | |
+| Network access to the Gradle Plugin Portal | | `vi-input/` is a composite build (`includeBuild("vi-input")`) with its own Kotlin Gradle plugin (2.4.21), resolved on first build. |
 
 Build with `./gradlew assembleDebug`. The output is `app/build/outputs/apk/debug/app-debug.apk`, with the
 application ID `com.aichat.keyboard.debug`. On machines with limited RAM, add `--no-parallel --max-workers=2`.

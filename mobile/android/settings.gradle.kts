@@ -51,3 +51,7 @@ include(":lib:compose")
 include(":lib:kotlin")
 include(":lib:native")
 include(":lib:snygg")
+
+// AIChat MODIFIED: Vietnamese input engine (pure Kotlin/JVM, standalone Gradle build) consumed as
+// `com.aichat:vi-input` through a composite build. See docs/vi-input-integration.md.
+includeBuild("vi-input")
