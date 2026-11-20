@@ -49,11 +49,16 @@ export class ScreenshotsService {
     private readonly extractionQueue?: MemoryQueue,
   ) {}
 
-  /** `POST /screenshots` — persist an OCR'd conversation, metered by quota. */
+  /**
+   * `POST /screenshots` — persist an OCR'd conversation, metered by quota.
+   * `source` records the creating surface on a NEW conversation (`ocr` by
+   * default; the Share-Menu surface passes `share`) — Android Phase 0.
+   */
   async ingest(
     userId: string,
     tier: Tier,
     dto: CreateScreenshotDto,
+    source: AiSource.Ocr | AiSource.Share = AiSource.Ocr,
   ): Promise<CreateScreenshotResponse> {
     const messages = this.cleanMessages(dto.extracted_messages);
     const ocrText = dto.ocr_text.trim();
@@ -77,7 +82,7 @@ export class ScreenshotsService {
       userId,
       usageTier,
       UsageMetric.Screenshot,
-      () => this.persist(userId, dto, ocrText, messages),
+      () => this.persist(userId, dto, ocrText, messages, source),
     );
 
     // Off-path memory extraction (MS-4): the conversation was created/updated,
@@ -154,11 +159,12 @@ export class ScreenshotsService {
     dto: CreateScreenshotDto,
     ocrText: string,
     messages: ExtractedMessageView[],
+    source: AiSource,
   ): Promise<{ screenshotId: string; conversationId: string }> {
     return this.dataSource.transaction(async (manager) => {
       const conversationId =
         dto.conversation_id ??
-        (await this.createConversation(manager, userId, dto));
+        (await this.createConversation(manager, userId, dto, source));
       const startPosition = await this.nextPosition(manager, conversationId);
       await this.insertMessages(
         manager,
@@ -180,12 +186,13 @@ export class ScreenshotsService {
     manager: EntityManager,
     userId: string,
     dto: CreateScreenshotDto,
+    source: AiSource,
   ): Promise<string> {
     const rows: Array<{ id: string }> = await manager.query(
-      `INSERT INTO conversations (user_id, platform, contact_label)
-       VALUES ($1, $2, $3)
+      `INSERT INTO conversations (user_id, platform, contact_label, source)
+       VALUES ($1, $2, $3, $4)
        RETURNING id`,
-      [userId, dto.platform ?? 'unknown', dto.contact_label ?? null],
+      [userId, dto.platform ?? 'unknown', dto.contact_label ?? null, source],
     );
     return rows[0].id;
   }

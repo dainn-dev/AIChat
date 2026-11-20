@@ -174,6 +174,44 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
     expect(await storedMessages(r1.body.conversation_id)).toHaveLength(6);
   });
 
+  it('never merges into a screenshot/share conversation for the same contact', async () => {
+    const { token } = await signup();
+    await optIn(token, true);
+    const shot = {
+      platform: 'zalo',
+      contact_label: 'Linh',
+      ocr_text: 'them: tối nay đi ăn không? / me: ok luôn',
+      extracted_messages: first,
+    };
+    const s1 = await http().post('/screenshots').set(auth(token)).send(shot);
+    expect(s1.status).toBe(201);
+    const s2 = await http()
+      .post('/v1/share/analyze')
+      .set(auth(token))
+      .send(shot);
+    expect(s2.status).toBe(200);
+
+    const kb = await reply(token, {
+      platform: 'zalo',
+      contact_label: 'Linh',
+      conversation: second,
+    });
+    const kbId = kb.body.conversation_id as string;
+    expect(kbId).not.toBe(s1.body.conversation_id);
+    expect(kbId).not.toBe(s2.body.conversation_id);
+
+    const sources: Array<{ id: string; source: string }> = await ds.query(
+      `SELECT id, source FROM conversations WHERE id = ANY($1::uuid[])`,
+      [[s1.body.conversation_id, s2.body.conversation_id, kbId]],
+    );
+    const byId = Object.fromEntries(sources.map((r) => [r.id, r.source]));
+    expect(byId[s1.body.conversation_id]).toBe('ocr');
+    expect(byId[s2.body.conversation_id]).toBe('share');
+    expect(byId[kbId]).toBe('keyboard');
+    // Only the keyboard capture is in the keyboard conversation.
+    expect(await storedMessages(kbId)).toHaveLength(2);
+  });
+
   it('keys conversations by (platform, contact_label)', async () => {
     const { token } = await signup();
     await optIn(token, true);

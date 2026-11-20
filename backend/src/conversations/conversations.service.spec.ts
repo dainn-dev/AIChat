@@ -140,6 +140,17 @@ describe('ConversationsService.persistKeyboardCapture — writes', () => {
     expect(queue.enqueue).toHaveBeenCalledWith('conv-new');
   });
 
+  it("only reuses keyboard-created conversations and creates new ones with source='keyboard'", async () => {
+    const { service, calls } = build({ optIn: true });
+    await service.persistKeyboardCapture(capture());
+    const lookup = calls.find((c) =>
+      /SELECT id FROM conversations\s+WHERE user_id/.test(c.sql),
+    );
+    expect(lookup?.sql).toMatch(/source = 'keyboard'/);
+    const create = calls.find((c) => /INSERT INTO conversations/.test(c.sql));
+    expect(create?.sql).toMatch(/'keyboard'/);
+  });
+
   it('appends only the non-overlapping remainder with increasing positions', async () => {
     const { service, insertedMessages, queue } = build({
       optIn: true,

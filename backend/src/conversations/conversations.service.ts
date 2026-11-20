@@ -38,7 +38,8 @@ interface StoredMessageRow {
  * Keyboard captures are stored ONLY when the user opted into memory
  * (`users.memory_opt_in`), the request names both `platform` and
  * `contact_label`, and `remember` is not `false`. Each capture is merged into
- * the find-or-created `(user_id, platform, contact_label)` conversation with
+ * the find-or-created keyboard (`source = 'keyboard'`) conversation for
+ * `(user_id, platform, contact_label)` with
  * {@link messagesToAppend}, so overlapping or scrolled-up re-captures do not
  * duplicate messages. Persistence is best-effort: every failure is logged and swallowed
  * and the caller gets `null`, so it can never fail the keyboard reply.
@@ -206,9 +207,12 @@ export class ConversationsService {
     platform: string,
     contactLabel: string,
   ): Promise<string> {
+    // Only keyboard-created conversations: a screenshot/share conversation for
+    // the same contact is never merged into (conversations.source).
     const existing: Array<{ id: string }> = await manager.query(
       `SELECT id FROM conversations
-        WHERE user_id = $1 AND platform = $2 AND contact_label = $3
+        WHERE user_id = $1 AND source = 'keyboard'
+          AND platform = $2 AND contact_label = $3
         ORDER BY updated_at DESC
         LIMIT 1`,
       [userId, platform, contactLabel],
@@ -216,8 +220,8 @@ export class ConversationsService {
     if (existing.length > 0) return existing[0].id;
 
     const created: Array<{ id: string }> = await manager.query(
-      `INSERT INTO conversations (user_id, platform, contact_label)
-       VALUES ($1, $2, $3)
+      `INSERT INTO conversations (user_id, platform, contact_label, source)
+       VALUES ($1, $2, $3, 'keyboard')
        RETURNING id`,
       [userId, platform, contactLabel],
     );
