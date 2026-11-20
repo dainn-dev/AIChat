@@ -226,6 +226,8 @@ dependencies {
     implementation(projects.lib.kotlin)
     implementation(projects.lib.native)
     implementation(projects.lib.snygg)
+    // AIChat MODIFIED: AIChat backend client and session store.
+    implementation(projects.core.network)
 
     testImplementation(libs.kotlin.test.junit5)
     androidTestImplementation(libs.androidx.test.ext)

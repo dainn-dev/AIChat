@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.aichat.keyboard.app.account.AiChatAccountPreference
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
@@ -105,6 +106,8 @@ fun HomeScreen() = FlorisScreen {
                 }
             }
         }*/
+        // AIChat MODIFIED: "Tài khoản AIChat" (AIChat account) entry at the top of the settings list.
+        AiChatAccountPreference()
         Preference(
             icon = Icons.Default.Language,
             title = stringRes(R.string.settings__localization__title),

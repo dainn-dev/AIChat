@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    AIChat: strings for the AIChat account, memory and privacy screens (new file, not part of upstream).
+    English is the fallback; the Vietnamese translation is in values-vi/aichat_strings.xml.
+    Placeholders use FlorisBoard's {name} syntax (org.florisboard.lib.compose.stringRes).
+-->
+<resources>
+    <!-- Settings home entry -->
+    <string name="aichat__account__title">AIChat account</string>
+    <string name="aichat__account__summary_signed_out">Sign in to get AI reply suggestions</string>
+    <string name="aichat__account__summary_signed_in">Signed in</string>
+
+    <!-- Sign in / sign up -->
+    <string name="aichat__auth__login_title">Sign in to AIChat</string>
+    <string name="aichat__auth__signup_title">Create an AIChat account</string>
+    <string name="aichat__auth__email">Email</string>
+    <string name="aichat__auth__password">Password</string>
+    <string name="aichat__auth__password_confirm">Confirm password</string>
+    <string name="aichat__auth__display_name">Display name (optional)</string>
+    <string name="aichat__auth__login_action">Sign in</string>
+    <string name="aichat__auth__signup_action">Create account</string>
+    <string name="aichat__auth__to_signup">No account yet? Create one</string>
+    <string name="aichat__auth__to_login">Already have an account? Sign in</string>
+    <string name="aichat__auth__show_password">Show password</string>
+    <string name="aichat__auth__hide_password">Hide password</string>
+    <string name="aichat__auth__error_email_invalid">Enter a valid email address.</string>
+    <string name="aichat__auth__error_password_empty">Enter your password.</string>
+    <string name="aichat__auth__error_password_short">The password must be at least {min} characters.</string>
+    <string name="aichat__auth__error_password_long">The password must be at most {max} characters.</string>
+    <string name="aichat__auth__error_password_mismatch">The passwords do not match.</string>
+    <string name="aichat__auth__error_wrong_credentials">Wrong email or password.</string>
+    <string name="aichat__auth__error_email_taken">An account with this email already exists.</string>
+
+    <!-- Account screen -->
+    <string name="aichat__account__email">Email</string>
+    <string name="aichat__account__tier">Plan</string>
+    <string name="aichat__account__tier_free">Free</string>
+    <string name="aichat__account__tier_pro">Pro</string>
+    <string name="aichat__account__usage_title">Today\'s usage</string>
+    <string name="aichat__account__usage_replies">AI replies: {used} / {limit}</string>
+    <string name="aichat__account__usage_replies_unlimited">AI replies: {used} (unlimited)</string>
+    <string name="aichat__account__usage_screenshots">Screenshots: {used} / {limit}</string>
+    <string name="aichat__account__usage_screenshots_unlimited">Screenshots: {used} (unlimited)</string>
+    <string name="aichat__account__reload">Reload</string>
+    <string name="aichat__account__logout">Sign out</string>
+    <string name="aichat__account__logout_confirm_title">Sign out?</string>
+    <string name="aichat__account__logout_confirm_message">The keyboard stops making AI suggestions until you sign in again. Your saved data stays on the server.</string>
+
+    <!-- Memory opt-in -->
+    <string name="aichat__memory__opt_in_title">Allow AIChat to remember</string>
+    <string name="aichat__memory__opt_in_disclosure">When this is on, the chat text the keyboard reads to make suggestions, including messages written by the other people in the chat, is sent to and stored on the AIChat server. AIChat uses it to build memories (for example a contact\'s birthday or interests) so suggestions fit better. You can delete stored chats and memories at any time below. Turning this off stops new storage; data already stored stays until you delete it.</string>
+    <string name="aichat__memory__opt_in_confirm_title">Turn on memory?</string>
+    <string name="aichat__memory__opt_in_confirm_action">Turn on</string>
+
+    <!-- Conversations -->
+    <string name="aichat__conversations__title">Saved conversations</string>
+    <string name="aichat__conversations__summary">See and delete the chats stored on the server</string>
+    <string name="aichat__conversations__empty">No conversations are stored.</string>
+    <string name="aichat__conversations__unnamed">(no name)</string>
+    <string name="aichat__conversations__item_details">{platform} · {count} messages · {updated}</string>
+    <string name="aichat__conversations__load_more">Load more</string>
+    <string name="aichat__conversations__delete_title">Delete this conversation?</string>
+    <string name="aichat__conversations__delete_message">The conversation, its messages and the memories learned from it are permanently deleted from the server. If memory stays on, new messages from this chat can be stored again.</string>
+
+    <!-- Memories -->
+    <string name="aichat__memories__title">Memories</string>
+    <string name="aichat__memories__summary">See and delete what AIChat has remembered</string>
+    <string name="aichat__memories__empty">AIChat has not remembered anything yet.</string>
+    <string name="aichat__memories__general">General</string>
+    <string name="aichat__memories__kind_interest">Interest</string>
+    <string name="aichat__memories__kind_job">Job</string>
+    <string name="aichat__memories__kind_birthday">Birthday</string>
+    <string name="aichat__memories__kind_fact">Fact</string>
+    <string name="aichat__memories__status_active">Active</string>
+    <string name="aichat__memories__status_pending_review">Waiting for review</string>
+    <string name="aichat__memories__status_superseded">Replaced</string>
+    <string name="aichat__memories__status_dismissed">Dismissed</string>
+    <string name="aichat__memories__delete_title">Delete this memory?</string>
+    <string name="aichat__memories__delete_message">The memory is permanently deleted from the server.</string>
+
+    <!-- Common -->
+    <string name="aichat__action__delete">Delete</string>
+    <string name="aichat__action__cancel">Cancel</string>
+    <string name="aichat__action__retry">Try again</string>
+    <string name="aichat__error__network">Cannot reach the AIChat server. Check your connection and try again.</string>
+    <string name="aichat__error__unauthorized">Your session has expired. Please sign in again.</string>
+    <string name="aichat__error__quota">You have reached today\'s limit.</string>
+    <string name="aichat__error__quota_with_limit">You have used all {limit} of today\'s AI replies.</string>
+    <string name="aichat__error__upstream">The AI service is busy. Try again in a moment.</string>
+    <string name="aichat__error__validation">The server rejected the request: {message}</string>
+    <string name="aichat__error__not_found">It no longer exists.</string>
+    <string name="aichat__error__unknown">Something went wrong ({message}).</string>
+</resources>

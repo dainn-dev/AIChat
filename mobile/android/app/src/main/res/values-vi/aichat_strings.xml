@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AIChat: Vietnamese strings for the AIChat account, memory and privacy screens (English fallback in values/). -->
+<resources>
+    <!-- Settings home entry -->
+    <string name="aichat__account__title">Tài khoản AIChat</string>
+    <string name="aichat__account__summary_signed_out">Đăng nhập để nhận gợi ý trả lời bằng AI</string>
+    <string name="aichat__account__summary_signed_in">Đã đăng nhập</string>
+
+    <!-- Sign in / sign up -->
+    <string name="aichat__auth__login_title">Đăng nhập AIChat</string>
+    <string name="aichat__auth__signup_title">Tạo tài khoản AIChat</string>
+    <string name="aichat__auth__email">Email</string>
+    <string name="aichat__auth__password">Mật khẩu</string>
+    <string name="aichat__auth__password_confirm">Nhập lại mật khẩu</string>
+    <string name="aichat__auth__display_name">Tên hiển thị (không bắt buộc)</string>
+    <string name="aichat__auth__login_action">Đăng nhập</string>
+    <string name="aichat__auth__signup_action">Tạo tài khoản</string>
+    <string name="aichat__auth__to_signup">Chưa có tài khoản? Tạo tài khoản mới</string>
+    <string name="aichat__auth__to_login">Đã có tài khoản? Đăng nhập</string>
+    <string name="aichat__auth__show_password">Hiện mật khẩu</string>
+    <string name="aichat__auth__hide_password">Ẩn mật khẩu</string>
+    <string name="aichat__auth__error_email_invalid">Vui lòng nhập email hợp lệ.</string>
+    <string name="aichat__auth__error_password_empty">Vui lòng nhập mật khẩu.</string>
+    <string name="aichat__auth__error_password_short">Mật khẩu phải có ít nhất {min} ký tự.</string>
+    <string name="aichat__auth__error_password_long">Mật khẩu không được dài quá {max} ký tự.</string>
+    <string name="aichat__auth__error_password_mismatch">Mật khẩu nhập lại không khớp.</string>
+    <string name="aichat__auth__error_wrong_credentials">Email hoặc mật khẩu không đúng.</string>
+    <string name="aichat__auth__error_email_taken">Email này đã được đăng ký.</string>
+
+    <!-- Account screen -->
+    <string name="aichat__account__email">Email</string>
+    <string name="aichat__account__tier">Gói</string>
+    <string name="aichat__account__tier_free">Miễn phí</string>
+    <string name="aichat__account__tier_pro">Pro</string>
+    <string name="aichat__account__usage_title">Đã dùng hôm nay</string>
+    <string name="aichat__account__usage_replies">Trả lời AI: {used} / {limit}</string>
+    <string name="aichat__account__usage_replies_unlimited">Trả lời AI: {used} (không giới hạn)</string>
+    <string name="aichat__account__usage_screenshots">Ảnh chụp màn hình: {used} / {limit}</string>
+    <string name="aichat__account__usage_screenshots_unlimited">Ảnh chụp màn hình: {used} (không giới hạn)</string>
+    <string name="aichat__account__reload">Tải lại</string>
+    <string name="aichat__account__logout">Đăng xuất</string>
+    <string name="aichat__account__logout_confirm_title">Đăng xuất?</string>
+    <string name="aichat__account__logout_confirm_message">Bàn phím sẽ ngừng gợi ý bằng AI cho đến khi bạn đăng nhập lại. Dữ liệu đã lưu vẫn còn trên máy chủ.</string>
+
+    <!-- Memory opt-in -->
+    <string name="aichat__memory__opt_in_title">Cho phép AIChat ghi nhớ</string>
+    <string name="aichat__memory__opt_in_disclosure">Khi bật, nội dung cuộc trò chuyện mà bàn phím đọc để gợi ý, bao gồm cả tin nhắn do người khác trong cuộc trò chuyện viết, sẽ được gửi lên và lưu trên máy chủ AIChat. AIChat dùng nội dung này để tạo trí nhớ (ví dụ ngày sinh hoặc sở thích của một người liên hệ) để gợi ý phù hợp hơn. Bạn có thể xoá các cuộc trò chuyện và ghi nhớ đã lưu bất cứ lúc nào ở bên dưới. Tắt tuỳ chọn này sẽ ngừng lưu dữ liệu mới; dữ liệu đã lưu vẫn còn cho đến khi bạn xoá.</string>
+    <string name="aichat__memory__opt_in_confirm_title">Bật ghi nhớ?</string>
+    <string name="aichat__memory__opt_in_confirm_action">Bật</string>
+
+    <!-- Conversations -->
+    <string name="aichat__conversations__title">Cuộc trò chuyện đã lưu</string>
+    <string name="aichat__conversations__summary">Xem và xoá các cuộc trò chuyện đã lưu trên máy chủ</string>
+    <string name="aichat__conversations__empty">Chưa có cuộc trò chuyện nào được lưu.</string>
+    <string name="aichat__conversations__unnamed">(không có tên)</string>
+    <string name="aichat__conversations__item_details">{platform} · {count} tin nhắn · {updated}</string>
+    <string name="aichat__conversations__load_more">Tải thêm</string>
+    <string name="aichat__conversations__delete_title">Xoá cuộc trò chuyện này?</string>
+    <string name="aichat__conversations__delete_message">Cuộc trò chuyện, các tin nhắn và những ghi nhớ được tạo từ nó sẽ bị xoá vĩnh viễn khỏi máy chủ. Nếu vẫn bật ghi nhớ, tin nhắn mới từ cuộc trò chuyện này có thể được lưu lại.</string>
+
+    <!-- Memories -->
+    <string name="aichat__memories__title">Memories</string>
+    <string name="aichat__memories__summary">Xem và xoá những gì AIChat đã ghi nhớ</string>
+    <string name="aichat__memories__empty">AIChat chưa ghi nhớ điều gì.</string>
+    <string name="aichat__memories__general">Chung</string>
+    <string name="aichat__memories__kind_interest">Sở thích</string>
+    <string name="aichat__memories__kind_job">Công việc</string>
+    <string name="aichat__memories__kind_birthday">Ngày sinh</string>
+    <string name="aichat__memories__kind_fact">Thông tin</string>
+    <string name="aichat__memories__status_active">Đang dùng</string>
+    <string name="aichat__memories__status_pending_review">Chờ xem lại</string>
+    <string name="aichat__memories__status_superseded">Đã được thay thế</string>
+    <string name="aichat__memories__status_dismissed">Đã bỏ qua</string>
+    <string name="aichat__memories__delete_title">Xoá ghi nhớ này?</string>
+    <string name="aichat__memories__delete_message">Ghi nhớ này sẽ bị xoá vĩnh viễn khỏi máy chủ.</string>
+
+    <!-- Common -->
+    <string name="aichat__action__delete">Xoá</string>
+    <string name="aichat__action__cancel">Huỷ</string>
+    <string name="aichat__action__retry">Thử lại</string>
+    <string name="aichat__error__network">Không kết nối được máy chủ AIChat. Hãy kiểm tra kết nối mạng và thử lại.</string>
+    <string name="aichat__error__unauthorized">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</string>
+    <string name="aichat__error__quota">Bạn đã dùng hết lượt hôm nay.</string>
+    <string name="aichat__error__quota_with_limit">Bạn đã dùng hết {limit} lượt trả lời AI hôm nay.</string>
+    <string name="aichat__error__upstream">Dịch vụ AI đang bận. Vui lòng thử lại sau giây lát.</string>
+    <string name="aichat__error__validation">Máy chủ từ chối yêu cầu: {message}</string>
+    <string name="aichat__error__not_found">Mục này không còn tồn tại.</string>
+    <string name="aichat__error__unknown">Đã xảy ra lỗi ({message}).</string>
+</resources>

@@ -36,6 +36,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
+import com.aichat.keyboard.app.account.aichatAccountGraph
 import dev.patrickgold.florisboard.app.devtools.AndroidLocalesScreen
 import dev.patrickgold.florisboard.app.devtools.AndroidSettingsScreen
 import dev.patrickgold.florisboard.app.devtools.DevtoolsScreen
@@ -364,6 +365,9 @@ object Routes {
             composableWithDeepLink(Ext.CheckUpdates::class) {
                 CheckUpdatesScreen()
             }
+
+            // AIChat MODIFIED: AIChat account, saved conversations and memories screens (no deep links on purpose).
+            aichatAccountGraph()
         }
     }
 }
