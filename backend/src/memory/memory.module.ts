@@ -1,4 +1,10 @@
-import { DynamicModule, Global, Logger, Module, Provider } from '@nestjs/common';
+import {
+  DynamicModule,
+  Global,
+  Logger,
+  Module,
+  Provider,
+} from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { LlmConfig, RedisConfig } from '../config/configuration';

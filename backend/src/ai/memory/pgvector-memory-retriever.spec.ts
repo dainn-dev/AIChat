@@ -25,9 +25,11 @@ describe('PgVectorMemoryRetriever', () => {
 
   beforeEach(() => {
     query = jest.fn();
-    embedOrNull = jest
-      .fn()
-      .mockResolvedValue({ vector: [0.1, 0.2, 0.3], model: 'stub', dimensions: 3 });
+    embedOrNull = jest.fn().mockResolvedValue({
+      vector: [0.1, 0.2, 0.3],
+      model: 'stub',
+      dimensions: 3,
+    });
     retriever = build({ query } as unknown as DataSource);
   });
 
