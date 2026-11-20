@@ -361,7 +361,31 @@ abstract class AbstractEditorInstance(context: Context) {
         }
         if (rm <= 0) {
             commitTextInternal(finalText)
-        } else runBlocking {
+        } else {
+            // AIChat MODIFIED: body moved to replaceCharsBeforeCursor() so the vi-input integration can reuse it.
+            replaceCharsBeforeCursor(ic, content, rm, finalText)
+        }
+        return true
+    }
+
+    // AIChat MODIFIED: new entry point for the vi-input integration (com.aichat.keyboard.vi). Replaces the [rm] chars
+    // before the cursor with [text] the same way commitChar() applies a composer action, keeping the expected-content
+    // tracking consistent.
+    fun replaceTextBeforeCursor(rm: Int, text: String): Boolean {
+        val content = activeContent
+        val selection = content.selection
+        if (selection.isNotValid || selection.isSelectionMode || activeInfo.isRawInputEditor) return false
+        if (rm <= 0) return text.isEmpty() || commitTextInternal(text)
+        if (rm > content.textBeforeSelection.length) return false
+        val ic = currentInputConnection() ?: return false
+        replaceCharsBeforeCursor(ic, content, rm, text)
+        return true
+    }
+
+    // AIChat MODIFIED: extracted unchanged from commitChar().
+    private fun replaceCharsBeforeCursor(ic: InputConnection, content: EditorContent, rm: Int, finalText: String) {
+        val selection = content.selection
+        runBlocking {
             ic.beginBatchEdit()
             val newSelection = EditorRange.cursor(selection.start - rm + finalText.length)
             val newContent = content.generateCopy(
@@ -381,7 +405,6 @@ abstract class AbstractEditorInstance(context: Context) {
             ic.setComposingRegion(newContent.composing)
             ic.endBatchEdit()
         }
-        return true
     }
 
     open fun commitText(text: String): Boolean = commitTextInternal(text)

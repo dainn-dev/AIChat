@@ -20,6 +20,7 @@ import android.content.ClipDescription
 import android.content.ContentUris
 import android.content.Context
 import android.view.KeyEvent
+import com.aichat.keyboard.vi.ViInputBridge
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
 import dev.patrickgold.florisboard.FlorisImeService
@@ -61,6 +62,8 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     val autoSpace = AutoSpaceState()
     val phantomSpace = PhantomSpaceState()
     val massSelection = MassSelectionState()
+    // AIChat MODIFIED: Vietnamese composing (vi-input), see docs/vi-input-integration.md.
+    val viInput = ViInputBridge(context, this)
 
     private fun currentInputConnection() = FlorisImeService.currentInputConnection()
 
@@ -70,6 +73,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
         }
         activeState.isActionsOverflowVisible = false
         activeState.isActionsEditorVisible = false
+        viInput.reset() // AIChat MODIFIED: new field, new word.
         super.handleStartInputView(editorInfo, isRestart)
         val keyboardMode = when (editorInfo.inputAttributes.type) {
             InputAttributes.Type.NUMBER -> {
@@ -130,6 +134,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     override fun handleSelectionUpdate(oldSelection: EditorRange, newSelection: EditorRange, composing: EditorRange) {
         autoSpace.setInactiveFromUpdate()
         phantomSpace.setInactiveFromUpdate()
+        viInput.onSelectionUpdate(oldSelection, newSelection) // AIChat MODIFIED: cursor moves end the word.
         if (massSelection.isActive) {
             super.handleMassSelectionUpdate(newSelection, composing)
         } else {
@@ -142,7 +147,8 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     }
 
     override fun determineComposer(composerName: ExtensionComponentName): Composer {
-        return keyboardManager.resources.composers.value?.get(composerName) ?: Appender
+        // AIChat MODIFIED: the vi-input marker composer is swapped for the stateful vi-input adapter.
+        return viInput.resolveComposer(keyboardManager.resources.composers.value?.get(composerName) ?: Appender)
     }
 
     override fun shouldDetermineComposingRegion(editorInfo: FlorisEditorInfo): Boolean {
@@ -160,6 +166,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success or if the selection is already at specified position, false otherwise.
      */
     fun setSelection(start: Int, end: Int): Boolean {
+        viInput.finishWord() // AIChat MODIFIED: the cursor leaves the composed word.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         val selection = EditorRange.normalized(start, end)
@@ -197,6 +204,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     }
 
     override fun commitChar(char: String): Boolean {
+        viInput.beforeCommitChar(char) // AIChat MODIFIED: end the word if the key bypasses the engine.
         val isInsertAutoSpaceBeforeChar = shouldInsertAutoSpaceBefore(char)
         val isInsertAutoSpaceAfterChar = shouldInsertAutoSpaceAfter(char)
         val isDeletePreviousSpace = isInsertAutoSpaceAfterChar && autoSpace.isActive
@@ -212,7 +220,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
             deletePreviousSpace = isDeletePreviousSpace,
             insertSpaceBeforeChar = isInsertAutoSpaceBeforeChar || isPhantomSpaceActive,
             insertSpaceAfterChar = isInsertAutoSpaceAfterChar,
-        )
+        ).also { viInput.afterCommitChar() } // AIChat MODIFIED: remember where the composed word ends.
     }
 
     /**
@@ -228,6 +236,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success, false if an error occurred or the input connection is invalid.
      */
     override fun commitText(text: String): Boolean {
+        viInput.finishWord() // AIChat MODIFIED: space, enter, emoji, paste: commit the composed word first.
         val isPhantomSpaceActive = phantomSpace.determine(text)
         autoSpace.setInactive()
         phantomSpace.setInactive()
@@ -252,6 +261,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     fun commitCompletion(candidate: SuggestionCandidate): Boolean {
         val text = candidate.text.toString()
         if (text.isEmpty() || activeInfo.isRawInputEditor) return false
+        viInput.reset() // AIChat MODIFIED: the candidate replaces the composed word.
         val content = activeContent
         return if (content.composing.isValid) {
             phantomSpace.setActive(showComposingRegion = false, candidate = candidate)
@@ -282,6 +292,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      */
     fun commitGesture(text: String): Boolean {
         if (text.isEmpty() || activeInfo.isRawInputEditor) return false
+        viInput.finishWord() // AIChat MODIFIED: commit the composed word first.
         val isPhantomSpaceActive = phantomSpace.determine(text, forceActive = true)
         phantomSpace.setActive(showComposingRegion = true)
         return if (isPhantomSpaceActive) {
@@ -304,6 +315,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      */
     fun commitClipboardItem(item: ClipboardItem?): Boolean {
         if (item == null) return false
+        viInput.finishWord() // AIChat MODIFIED: commit the composed word first.
         val mimeTypes = item.mimeTypes
         return when (item.type) {
             ItemType.TEXT -> {
@@ -341,6 +353,13 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success, false if an error occurred or the input connection is invalid.
      */
     fun deleteBackwards(unit: OperationUnit): Boolean {
+        // AIChat MODIFIED: backspace inside a composed word goes through the vi-input engine.
+        if (unit == OperationUnit.CHARACTERS && viInput.backspace()) {
+            autoSpace.setInactive()
+            phantomSpace.setInactive()
+            return true
+        }
+        viInput.reset()
         val content = activeContent
         if (unit == OperationUnit.CHARACTERS) {
             if (phantomSpace.isActive && content.currentWord.isValid && prefs.glide.immediateBackspaceDeletesWord.get()) {
@@ -375,6 +394,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     }
 
     fun setSelectionSurrounding(n: Int, unit: OperationUnit, scope: OperationScope): Boolean {
+        viInput.finishWord() // AIChat MODIFIED: the cursor leaves the composed word.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         val content = activeContent
@@ -471,6 +491,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success, false if an error occurred or the input connection is invalid.
      */
     fun performClipboardSelectAll(): Boolean {
+        viInput.finishWord() // AIChat MODIFIED: commit the composed word first.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         val ic = currentInputConnection() ?: return false
@@ -513,6 +534,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success, false if an error occurred or the input connection is invalid.
      */
     fun performEnterAction(action: ImeOptions.Action): Boolean {
+        viInput.finishWord() // AIChat MODIFIED: send/go/search must see the final word.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         val ic = currentInputConnection() ?: return false
@@ -525,6 +547,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success, false if an error occurred or the input connection is invalid.
      */
     fun performUndo(): Boolean {
+        viInput.reset() // AIChat MODIFIED: the editor rewrites text on its own.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         return sendDownUpKeyEvent(KeyEvent.KEYCODE_Z, meta(ctrl = true))
@@ -536,6 +559,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
      * @return True on success, false if an error occurred or the input connection is invalid.
      */
     fun performRedo(): Boolean {
+        viInput.reset() // AIChat MODIFIED: the editor rewrites text on its own.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         return sendDownUpKeyEvent(KeyEvent.KEYCODE_Z, meta(ctrl = true, shift = true))
@@ -543,6 +567,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
 
     override fun reset() {
         super.reset()
+        viInput.reset() // AIChat MODIFIED: field finished or input restarted.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         massSelection.reset()

@@ -74,6 +74,8 @@ val ExtensionJsonConfig = Json {
             subclass(HangulUnicode::class, HangulUnicode.serializer())
             subclass(KanaUnicode::class, KanaUnicode.serializer())
             subclass(WithRules::class, WithRules.serializer())
+            // AIChat MODIFIED: vi-input marker composer (replaces the with-rules Telex table).
+            subclass(com.aichat.keyboard.vi.ViInputComposer::class, com.aichat.keyboard.vi.ViInputComposer.serializer())
             defaultDeserializer { Appender.serializer() }
         }
     }
