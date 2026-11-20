@@ -10,7 +10,8 @@ import { ExtractedFact } from './extraction/extraction-provider.interface';
 export interface WriteFactsParams {
   userId: string;
   contactLabel?: string;
-  facts: ExtractedFact[];
+  /** `requireReview` forces `pending_review` (scope policy, security M3). */
+  facts: Array<ExtractedFact & { requireReview?: boolean }>;
   /** Provenance written to memories.source_ref, e.g. "conversation:<id>". */
   sourceRef: string;
   /**
@@ -90,7 +91,7 @@ export class MemoryWriterService {
           f.scope === 'contact' ? (params.contactLabel ?? null) : null,
         confidence: f.confidence,
         status:
-          f.confidence >= this.highConfidenceThreshold
+          !f.requireReview && f.confidence >= this.highConfidenceThreshold
             ? 'active'
             : 'pending_review',
         contentHash: this.hash(f.content),

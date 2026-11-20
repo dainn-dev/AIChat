@@ -9,6 +9,8 @@ import {
 } from './extraction/extraction-provider.interface';
 import { MemoryWriterService } from './memory-writer.service';
 import { SensitiveDataFilter } from './privacy/sensitive-data.filter';
+import { applyFactScopePolicy } from './fact-scope-policy';
+import { sanitizeLabel } from '../common/text-sanitize';
 
 export interface ExtractionOutcome {
   status:
@@ -65,7 +67,12 @@ export class MemoryExtractionService {
     if (convRows.length === 0) {
       return { status: 'no-conversation', factsExtracted: 0, factsWritten: 0 };
     }
-    const { user_id: userId, contact_label: contactLabel } = convRows[0];
+    const userId = convRows[0].user_id;
+    // Stored labels may predate input sanitization (or come from the
+    // screenshot path): neutralize before any prompt interpolation (M3).
+    const contactLabel = convRows[0].contact_label
+      ? sanitizeLabel(convRows[0].contact_label) || null
+      : null;
 
     // Keyboard captures are opt-in (Android Phase 0): skip before spending any
     // LLM/embedding cost. The writer re-checks inside its transaction.
@@ -101,7 +108,9 @@ export class MemoryExtractionService {
         const scan = this.sensitive.scan(f.content);
         return scan.dropped ? null : { ...f, content: scan.content };
       })
-      .filter((f): f is (typeof extracted)[number] => f !== null);
+      .filter((f): f is (typeof extracted)[number] => f !== null)
+      // Global facts only auto-accepted when stated by "me" (security M3).
+      .map((f) => applyFactScopePolicy(f, contactLabel ?? undefined));
 
     let written = 0;
     if (facts.length > 0) {

@@ -132,3 +132,20 @@ describe('MemoryWriterService (Android Phase 0)', () => {
     expect(sqls).toHaveLength(0);
   });
 });
+
+describe('MemoryWriterService scope policy (security M3)', () => {
+  it('stores a requireReview fact as pending_review even at high confidence', async () => {
+    const { writer, sqls } = build({
+      guard: [{ source: 'ocr', memory_opt_in: false }],
+    });
+    await writer.writeFacts({
+      ...params,
+      facts: [
+        { ...fact, scope: 'user', confidence: 0.99, requireReview: true },
+      ],
+    });
+    const insert = sqls.find((q) => /INSERT INTO memories/.test(q.sql))!;
+    expect(insert.params).toContain('pending_review');
+    expect(insert.params[1]).toBeNull(); // global (user scope)
+  });
+});

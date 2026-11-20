@@ -62,6 +62,19 @@ by compliance.
   `memory_sources`. Extraction also skips opted-out keyboard conversations
   before any LLM call (`opted-out`).
 
+- **Persistent prompt-injection guard (security M3):** a memory with
+  `contact_label = NULL` is global and reaches every future prompt. A fact
+  that would be stored globally is only auto-accepted when the extractor
+  attributes it to "me". Facts attributed to "them" are re-scoped to the
+  contact, and anything still global and not from "me" (including unknown
+  attribution) is stored `pending_review`, which retrieval never uses until
+  the user confirms it. The extraction prompt marks the transcript as
+  untrusted data. `contact_label` is sanitized before it is stored (keyboard)
+  and before it is interpolated into the extraction prompt (all sources):
+  control characters and newlines are stripped, quotes and backticks
+  neutralized, and whitespace collapsed. Attribution (`from`) comes from the
+  model, so this narrows the injection surface but does not eliminate it.
+
 **Closed in Phase 0 follow-up:** dedupe losing provenance (old gap 1) and the
 in-flight extraction race (old gap 3).
 

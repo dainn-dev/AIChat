@@ -514,6 +514,40 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       expect(await memoriesOf(userId)).toHaveLength(0);
     });
 
+    it('M3: a fact stated by "them" never becomes an active GLOBAL memory', async () => {
+      const extraction = app.get(MemoryExtractionService);
+      const { userId } = await signup();
+      // No contact_label → anything stored would be global (contact_label NULL).
+      const rows: Array<{ id: string }> = await ds.query(
+        `INSERT INTO conversations (user_id, platform, source)
+         VALUES ($1, 'whatsapp', 'ocr') RETURNING id`,
+        [userId],
+      );
+      await ds.query(
+        `INSERT INTO messages (conversation_id, sender, content, position, source)
+         VALUES ($1, 'them', 'I work as a chef at a bistro downtown', 0, 'ocr'),
+                ($1, 'me', 'I love hiking on the weekends', 1, 'ocr')`,
+        [rows[0].id],
+      );
+      await extraction.extractForConversation(rows[0].id);
+
+      const stored: Array<{ content: string; status: string }> = await ds.query(
+        `SELECT content, status FROM memories
+          WHERE user_id = $1 AND contact_label IS NULL ORDER BY content`,
+        [userId],
+      );
+      const byContent = Object.fromEntries(
+        stored.map((m) => [m.content, m.status]),
+      );
+      // "them" → global → held for review; "me" → accepted.
+      expect(Object.entries(byContent)).toEqual(
+        expect.arrayContaining([
+          [expect.stringMatching(/chef/), 'pending_review'],
+          [expect.stringMatching(/hiking/), 'active'],
+        ]),
+      );
+    });
+
     it('M1: after opt-out, keyboard-only memories are not retrieved (but kept); screenshot/manual ones are', async () => {
       const extraction = app.get(MemoryExtractionService);
       const retriever = app.get<MemoryRetriever>(MEMORY_RETRIEVER);
