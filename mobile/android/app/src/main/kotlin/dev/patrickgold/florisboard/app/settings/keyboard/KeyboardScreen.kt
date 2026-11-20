@@ -17,6 +17,7 @@
 package dev.patrickgold.florisboard.app.settings.keyboard
 
 import androidx.compose.runtime.Composable
+import com.aichat.keyboard.vi.ViInputPreferenceGroup
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
@@ -46,6 +47,9 @@ fun KeyboardScreen() = FlorisScreen {
     val navController = LocalNavController.current
 
     content {
+        // AIChat MODIFIED: "Tiếng Việt" settings of the vi-input engine (Kiểu gõ, Kiểu đặt dấu, auto-restore).
+        ViInputPreferenceGroup()
+
         SwitchPreference(
             prefs.keyboard.numberRow,
             title = stringRes(R.string.pref__keyboard__number_row__label),
