@@ -33,8 +33,27 @@ internal class BambooEngine(private val im: InputMethodRules, private val classi
         val lower = key.lowercaseChar()
         val upper = key.isUpperCase()
         if (!canProcessKey(lower)) return composition + Transformation.appending(lower, upper)
+        if (repeatsEscape(composition, lower)) return expandEscape(composition, lower, upper)
         val (previous, syllable) = splitLastSyllable(composition)
         return previous + generate(syllable, lower, upper)
+    }
+
+    /** True when [key] is pressed a third time after a double-key escape (`ww` = w, then `w`). */
+    fun repeatsEscape(composition: Composition, key: Char): Boolean {
+        val last = composition.lastOrNull() ?: return false
+        return last.rule.effectType == EffectType.MARK && last.rule.mark == Mark.RAW &&
+            last.rule.key == key.lowercaseChar() && last.target != null
+    }
+
+    /** Turns the escaped letter back into its literal keys and adds the new one: `www`. */
+    private fun expandEscape(composition: Composition, lower: Char, upper: Boolean): Composition {
+        val raw = composition.last()
+        val letter = checkNotNull(raw.target)
+        val kept = composition.filter { it !== raw && it !== letter && it.target !== letter }
+        return kept +
+            Transformation.appending(letter.rule.key, letter.isUpperCase) +
+            Transformation.appending(lower, raw.isUpperCase) +
+            Transformation.appending(lower, upper)
     }
 
     /** Appends [key] literally, without any transformation. */
@@ -110,7 +129,13 @@ internal class BambooEngine(private val im: InputMethodRules, private val classi
         val vowels = vo.filter { it.isAppending }
         return when (vowels.size) {
             1 -> vowels[0]
-            2 -> if (classicToneStyle) classicTwoVowelTarget(vo, vowels, lc) else modernTwoVowelTarget(vowels, lc)
+            2 -> when {
+                // iê/yê/uô/ươ carry the tone on the marked second vowel in both styles, even while
+                // the syllable is still open (`tiế` before its final `ng`).
+                lc.isEmpty() && flatten(vo, FlattenMode.VI_TONELESS_LOWER) in MARKED_SECOND_VOWEL_PAIRS -> vowels[1]
+                classicToneStyle -> classicTwoVowelTarget(vo, vowels, lc)
+                else -> modernTwoVowelTarget(vowels, lc)
+            }
             3 -> if (flatten(vowels, FlattenMode.ENGLISH_BASE_LOWER) == "uye") vowels[2] else vowels[1]
             else -> null
         }
@@ -216,7 +241,9 @@ internal class BambooEngine(private val im: InputMethodRules, private val classi
         // Typing a letter-producing key twice gives the key itself: w + w -> w.
         val last = composition.lastOrNull()
         if (last != null && last.isAppending && last.rule.key == lowerKey && last.rule.key != last.rule.result) {
-            return listOf(Transformation.virtual(EffectType.MARK, Mark.RAW.ordinal, last))
+            // The RAW mark keeps the typed key so the raw text stays exactly what was typed.
+            val raw = Rule(lowerKey, EffectType.MARK, Mark.RAW.ordinal, VIRTUAL_KEY, VIRTUAL_KEY)
+            return listOf(Transformation(raw, last, upper))
         }
         val found = findTarget(composition, rules)
         if (found != null) return applyFound(composition, rules, found, upper)
@@ -277,6 +304,7 @@ internal class BambooEngine(private val im: InputMethodRules, private val classi
 
     private companion object {
         val MODERN_SECOND_VOWEL_PAIRS = setOf("oa", "oe", "uy", "ue", "uo")
+        val MARKED_SECOND_VOWEL_PAIRS = setOf("iê", "yê", "uô", "ươ")
         val UO_TAIL = Regex("(uơ|ưo)\\p{L}+")
         val UHO = Regex("(ưo|ươ)")
 

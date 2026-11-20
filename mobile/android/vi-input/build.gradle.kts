@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     kotlin("jvm") version "2.4.21"
@@ -20,8 +21,13 @@ java {
 
 kotlin {
     explicitApi()
+    // Keep the published metadata and stdlib dependency old enough for the keyboard app
+    // (FlorisBoard base builds with Kotlin 2.2.20) to consume this library.
+    coreLibrariesVersion = "2.2.20"
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
+        languageVersion.set(KotlinVersion.KOTLIN_2_2)
+        apiVersion.set(KotlinVersion.KOTLIN_2_2)
     }
 }
 

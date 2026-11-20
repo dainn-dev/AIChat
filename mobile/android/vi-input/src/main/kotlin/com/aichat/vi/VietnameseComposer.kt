@@ -14,6 +14,12 @@ public class ComposerState internal constructor(
 ) {
     public val isEmpty: Boolean get() = composition.isEmpty()
 
+    /** Value equality on what the user sees and typed ([composingText], [rawText]). */
+    override fun equals(other: Any?): Boolean =
+        other is ComposerState && composingText == other.composingText && rawText == other.rawText
+
+    override fun hashCode(): Int = 31 * composingText.hashCode() + rawText.hashCode()
+
     override fun toString(): String = "ComposerState(composing=$composingText, raw=$rawText)"
 
     public companion object {
@@ -54,12 +60,18 @@ public class VietnameseComposer(
     /** True if [key] ends the current word (space, punctuation, digits in Telex, ...). */
     public fun isWordBreak(key: Char): Boolean = !isWordKey(key)
 
-    /** Applies one keystroke. Non-word keys are appended literally. */
+    /**
+     * Applies one keystroke. Non-word keys are appended literally.
+     *
+     * @throws IllegalArgumentException for a surrogate half (emoji, other non-BMP text); send such
+     *   text through [type] with a String instead.
+     */
     public fun process(state: ComposerState, key: Char): ComposerState {
+        requireBmp(key)
         val composition = state.composition
         val (_, word) = engine.splitLastWord(composition, rules.effectKeys)
         val locked = autoRestoreEnglish && isWordKey(key) && word.isNotEmpty() &&
-            !engine.isValid(word, complete = false)
+            !engine.repeatsEscape(composition, key) && !engine.isValid(word, complete = false)
         val next = if (locked) engine.appendRaw(composition, key) else engine.processKey(composition, key)
         return stateOf(next)
     }
@@ -75,14 +87,39 @@ public class VietnameseComposer(
 
     /**
      * IME helper: a word-break key commits the current word followed by the key and resets the state;
-     * any other key is processed into the composing word.
+     * any other key is processed into the composing word. A word that already holds
+     * [MAX_WORD_KEYS] keys is committed first, so the composing region never grows without bound.
+     *
+     * @throws IllegalArgumentException for a lone surrogate half; pass emoji and other non-BMP
+     *   text as a String to the other [type] overload so it is committed whole.
      */
-    public fun type(state: ComposerState, key: Char): KeyOutcome =
-        if (isWordBreak(key)) {
-            KeyOutcome(commitText(state) + key, ComposerState.EMPTY)
-        } else {
-            KeyOutcome("", process(state, key))
+    public fun type(state: ComposerState, key: Char): KeyOutcome {
+        requireBmp(key)
+        return when {
+            isWordBreak(key) -> KeyOutcome(commitText(state) + key, ComposerState.EMPTY)
+            state.rawText.length >= MAX_WORD_KEYS -> KeyOutcome(commitText(state), process(ComposerState.EMPTY, key))
+            else -> KeyOutcome("", process(state, key))
         }
+    }
+
+    /**
+     * IME helper for the text of one key event. A single BMP char goes through [type]; anything
+     * else (an emoji surrogate pair, a multi-char key) commits the current word followed by [text].
+     */
+    public fun type(state: ComposerState, text: CharSequence): KeyOutcome =
+        if (text.length == 1 && !text[0].isSurrogate()) {
+            type(state, text[0])
+        } else {
+            KeyOutcome(commitText(state) + text, ComposerState.EMPTY)
+        }
+
+    public companion object {
+        /** Longest word [type] composes before force-committing it. */
+        public const val MAX_WORD_KEYS: Int = 64
+    }
+
+    private fun requireBmp(key: Char) =
+        require(!key.isSurrogate()) { "Lone surrogate U+%04X: pass non-BMP text with type(state, text)".format(key.code) }
 
     private fun stateOf(composition: List<Transformation>): ComposerState =
         if (composition.isEmpty()) {
