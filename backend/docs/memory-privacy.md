@@ -18,6 +18,19 @@ by compliance.
 - Verified end-to-end: after delete, the memory is absent from the dashboard
   **and** from the next retrieval, and no row remains in the table.
 - There is no soft-delete/tombstone for memories: erasure is real.
+- **Scope of "erased":** every erasure in this document (memory delete,
+  conversation delete, opt-out purge) means **deleted from live storage**: the
+  rows are gone from the primary database and its indexes in the committing
+  transaction. Copies that already exist in **database backups and retained
+  WAL/PITR archives** are not rewritten. They age out with the backup
+  retention window (a managed-Postgres/infra setting, not configured in this
+  repo; compliance should confirm it), and a restore from a backup
+  taken before an erasure would bring the data back unless the erasure is
+  replayed.
+- **What remains after erasure (metadata only):** `memory_extractions` audit
+  rows (user, timestamp, model name and the number of memories written; the
+  conversation link is nulled) and `ai_requests` rows (token/cost accounting
+  with a nulled conversation link). Neither holds message or memory content.
 
 ### 1.1 Conversation erasure + keyboard capture opt-in (Android Phase 0) — IMPLEMENTED
 
@@ -25,7 +38,8 @@ by compliance.
   when `users.memory_opt_in = true` (default `false`, set via
   `PATCH /me/settings`), the request names `platform` + `contact_label`, and the
   per-request `remember` flag is not `false`. Turning the setting off stops new
-  storage; it does **not** delete what is already stored.
+  storage **and erases what keyboard capture already stored** (see the
+  opt-out purge below).
 - **Separate keyboard conversations:** `conversations.source`
   (`app | keyboard | share | ocr`) records the creating surface. Keyboard
   captures only ever merge into `source = 'keyboard'` conversations, never into
@@ -53,14 +67,64 @@ by compliance.
     `source_ref = 'conversation:<id>'`.
   `ai_requests` and `memory_extractions` rows keep only a nulled
   `conversation_id` (audit metadata, no message content).
+- **Opt-out purge** (`PATCH /me/settings` with `memory_opt_in: false`, whatever
+  the stored value): in the same transaction as the flag change, every
+  `source = 'keyboard'` conversation of the user is erased exactly as
+  `DELETE /conversations/:id` erases one (messages, linked screenshots,
+  extracted memories left with no other source; shared memories survive and
+  are re-pointed). Screenshot, share, app and manual data are untouched. It
+  runs on **every** `false` request, so it is idempotent: a repeat costs one
+  empty `SELECT`, and a user who opted out before this release is cleaned up
+  by their next `false` request. The response carries
+  `deleted: { conversations, memories }` whenever it ran (counts may be 0).
+  `memory_opt_in: true` only writes the flag and omits `deleted`.
+  - **Locking:** the user row is locked `FOR NO KEY UPDATE` first; keyboard
+    capture re-checks the opt-in under `FOR SHARE` on that row, so a capture
+    racing the opt-out either commits before it (and is purged) or sees
+    `memory_opt_in = false` and stores nothing.
+  - **Bounds (security M2):** the purge transaction sets
+    `SET LOCAL lock_timeout = 5s` and `statement_timeout = 30s`
+    (`PURGE_LOCK_TIMEOUT_MS` / `PURGE_STATEMENT_TIMEOUT_MS`). On timeout it
+    rolls back (flag unchanged, nothing erased) and returns
+    `503 ERASURE_TIMEOUT`; the client retries. Conversations are erased in
+    batches of 100 in that one transaction, and survivors' `source_ref`s are
+    re-pointed once at the end. A deadlock victim (`40P01`) is retried once,
+    as is `DELETE /conversations/:id`.
+  - **Follow-up (not done):** there is no request throttler in the project, so
+    `PATCH /me/settings` is not rate limited. Each `false` request costs at
+    most the bounded transaction above. Add per-user rate limiting when a
+    throttler is introduced.
+- **Deploy step, run once: legacy opt-out backfill.** Users who opted out
+  before this release still hold keyboard conversations/memories from when
+  opt-out deleted nothing. After deploying, run once:
+  `npm run purge:legacy-optout` (source checkout, uses ts-node), or
+  `npm run purge:legacy-optout:prod` (`node dist/scripts/purge-legacy-optout.js`,
+  built image). It pages through users with `memory_opt_in = false` who still
+  own keyboard conversations and runs the same purge per user, each in its own
+  transaction (same lock re-check, timeouts and deadlock retry; a user who
+  opted back in meanwhile is skipped). It logs counts only (users,
+  conversations, memories, failed), exits `1` if any user failed, and is
+  idempotent, so re-run it until `failed=0`.
+- **Screenshots never join keyboard conversations:** `POST /screenshots` /
+  `POST /share` with the `conversation_id` of a keyboard conversation is
+  rejected `400 CONVERSATION_NOT_APPENDABLE` (checked before quota is reserved
+  and again under the row lock; a rejection inside the transaction refunds
+  the quota). Screenshot content therefore can't be swept up by the keyboard
+  purge or hidden behind the keyboard opt-in.
 - **Extraction race / opt-out:** the writer re-checks, inside its write
   transaction, that the source conversation still exists and, for keyboard
   conversations, that the owner is still opted in. It locks the row
   `FOR SHARE`, and erasure locks it `FOR UPDATE`, so the two serialize: either
   the delete runs first and the job drops its results (`aborted`, no audit
   row), or the job commits first and the delete then erases what it wrote via
-  `memory_sources`. Extraction also skips opted-out keyboard conversations
-  before any LLM call (`opted-out`).
+  `memory_sources`. Extraction skips opted-out keyboard conversations before
+  loading any text (`opted-out`), and **re-checks consent immediately before
+  the LLM provider call** (security M3): if the owner opted out or the
+  conversation was erased after the messages were read, nothing is sent.
+  **Remaining window:** consent withdrawn in the sub-second gap between that
+  re-check and the provider request, or while a provider request is already
+  in flight, can't stop that one request. Its results are still dropped by
+  the writer's re-check and never stored.
 
 - **Persistent prompt-injection guard (security M3):** a memory with
   `contact_label = NULL` is global and reaches every future prompt. A fact
@@ -98,17 +162,14 @@ in-flight extraction race (old gap 3).
    conversation still existed and belonged to the same user at migration time.
    Additional pre-migration dedupe sources can't be recovered, because
    `source_ref` held only the first one.
-4. **Opt-out does not delete stored data, and screenshot/share conversations
-   are not gated by `memory_opt_in`.** This is open product question 4.
-   Opting out stops new keyboard storage and new extraction of keyboard
-   conversations. Retrieval also stops using **memories derived only from
-   keyboard conversations**: the pgvector retriever excludes them while
-   `memory_opt_in = false`, so they are no longer injected into prompts.
+4. **Opt-out erases keyboard data only; screenshot/share conversations are
+   not gated by `memory_opt_in`** (product question 4, resolved). Opting out
+   purges keyboard conversations and the memories only they backed (§1.1).
    Memories with any screenshot/share/app source, manual memories, and legacy
-   unlinked rows remain retrievable. The excluded rows, and the stored
-   keyboard conversations, are kept, still visible on the memory dashboard,
-   and become retrievable again if the user opts back in. Erasing them
-   requires `DELETE /conversations/:id` / `DELETE /memories/:id`.
+   unlinked rows are kept and stay retrievable. Re-opting in does not restore
+   anything. The pgvector retriever still excludes keyboard-only memories
+   while `memory_opt_in = false`; after the purge none should exist, so this
+   is defence in depth only.
 5. **Merge history window:** scrolled-up re-captures are recognised only
    within the last 500 stored messages of a conversation (`MERGE_HISTORY_LIMIT`).
 
@@ -136,13 +197,18 @@ categories) before sign-off.
   recent `EXTRACTION_MAX_MESSAGES` (200) messages, further trimmed from the
   oldest end to `EXTRACTION_MAX_CHARS` (20 000) characters, are sent to the
   extractor, so per-run LLM cost is bounded however long a conversation grows.
-- **Per-conversation retention cap (keyboard):** a keyboard conversation keeps
-  only its newest `MAX_STORED_MESSAGES_PER_CONVERSATION` (2 000) messages. Older
-  ones are hard-deleted on the next append (rolling window). Memories already
-  extracted from dropped messages stay, linked to the conversation via
-  `memory_sources`. Screenshot/share conversations are bounded per upload
-  (≤ 200 messages each) but not capped in total. That is left for the
-  retention-policy decision in §4.
+- **Per-conversation retention cap (all sources):** every conversation
+  (keyboard, screenshot, share) keeps only its newest
+  `MAX_STORED_MESSAGES_PER_CONVERSATION` (2 000) messages. Older ones are
+  hard-deleted on the next append (rolling window), in the append transaction:
+  keyboard capture via `ConversationsService`, screenshot/share ingest
+  (including appends to an existing `conversation_id`) via
+  `ScreenshotsService`, which locks the conversation `FOR UPDATE` before it
+  appends. Positions are never renumbered, so order is preserved. Memories
+  already extracted from dropped messages stay, linked to the conversation via
+  `memory_sources`. The cap covers `messages` only: each `screenshots` row
+  still keeps its own `ocr_text` until the screenshot or its conversation is
+  deleted.
 - **Batching**: embeddings for a conversation's facts are sent in one batch
   (`embedBatch`); rapid updates to a conversation debounce to a single queued job.
 
@@ -156,6 +222,9 @@ Proposed defaults for review:
   auto-dismissed.
 - `superseded`/`dismissed` rows retained **M days** (proposed 30) for audit, then
   purged by a retention sweep (not yet scheduled — depends on the chosen value).
+
+**Decided:** stored messages are capped at 2 000 per conversation for every
+source (keyboard, screenshot, share), with the oldest dropped on append (§3).
 
 **Decision required:** N, M, and whether a scheduled retention job is in Phase-2
 scope or deferred.

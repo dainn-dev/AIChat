@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ConversationErasureModule } from './conversation-erasure.module';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
 
@@ -9,7 +10,7 @@ import { ConversationsService } from './conversations.service';
  * queue is injected from the global `MemoryModule`.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ConversationErasureModule],
   controllers: [ConversationsController],
   providers: [ConversationsService],
   exports: [ConversationsService],

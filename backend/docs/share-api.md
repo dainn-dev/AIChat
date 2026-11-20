@@ -17,8 +17,10 @@
 - **No raw image stored** (retention policy): the client sends OCR text +
   extracted messages; `s3_key` stays NULL.
 - **Errors:** common envelope `{ "error": { "code", "message", "details"? } }`
-  (400 validation, 401 unauthorized, 422 `OCR_FAILED` on blank/garbled input,
-  429 quota, 502 provider unavailable).
+  (400 validation, 400 `CONVERSATION_NOT_APPENDABLE` when `conversation_id`
+  is a keyboard-captured conversation, 401 unauthorized, 404
+  `CONVERSATION_NOT_FOUND`, 422 `OCR_FAILED` on blank/garbled input,
+  429 quota, 502 provider unavailable). Rejected requests use no quota.
 
 ## POST /v1/share/analyze
 
@@ -60,4 +62,6 @@ Response `200`:
   is fully exercisable without an `LLM_API_KEY`; with a key the same endpoint
   calls the real provider — no client change.
 - This composes the existing WS-5 ingest + analyze; persistence, quota, and the
-  retention policy are shared with `POST /screenshots`.
+  retention policy are shared with `POST /screenshots`, including the
+  per-conversation cap: a conversation keeps only its newest 2 000 messages,
+  and appending past that drops the oldest (`docs/memory-privacy.md` §3).

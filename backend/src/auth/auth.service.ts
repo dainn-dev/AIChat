@@ -25,6 +25,11 @@ import {
   toSettingsView,
 } from './dto/auth-response';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { ConversationErasureService } from '../conversations/conversation-erasure.service';
+import {
+  erasureTimeoutAsUnavailable,
+  retryOnceOnDeadlock,
+} from '../common/pg-errors';
 
 /** Postgres unique-violation SQLSTATE. */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -41,6 +46,7 @@ export class AuthService {
     private readonly usage: UsageService,
     private readonly jwt: JwtService,
     config: ConfigService,
+    private readonly erasure: ConversationErasureService,
   ) {
     this.authConfig = config.getOrThrow<AuthConfig>('auth');
   }
@@ -169,22 +175,55 @@ export class AuthService {
 
   /**
    * Backs `PATCH /me/settings` (Android Phase 0): toggles the memory opt-in
-   * that gates keyboard conversation persistence. Turning it off stops future
-   * capture; already-stored conversations are erased via
-   * `DELETE /conversations/:id`.
+   * that gates keyboard conversation persistence.
+   *
+   * Every request with `memory_opt_in: false` also purges every
+   * keyboard-captured conversation and the memories only they backed, in the
+   * same transaction as the flag change (product question 4), whatever the
+   * stored value was. That makes it idempotent, and it also cleans up users
+   * who opted out before opt-out erased anything (when nothing is left it
+   * costs one empty `SELECT`). The user row is locked first
+   * (`FOR NO KEY UPDATE`), which conflicts with the `FOR SHARE` re-check in
+   * keyboard capture, so no capture can land after the purge. Screenshot/share
+   * data is untouched. `memory_opt_in: true` only writes the flag.
+   *
+   * The purge transaction is bounded by `lock_timeout`/`statement_timeout`
+   * (a timeout → `503 ERASURE_TIMEOUT`, nothing changed) and retried once
+   * if Postgres picks it as a deadlock victim.
    */
   async updateSettings(
     userId: string,
     dto: UpdateSettingsDto,
   ): Promise<SettingsResponse> {
-    const result = await this.users.update(
-      { id: userId },
-      { memoryOptIn: dto.memory_opt_in },
-    );
-    if (!result.affected) {
-      throw new UnauthorizedException('User no longer exists.');
+    const purge = dto.memory_opt_in === false;
+    try {
+      return await retryOnceOnDeadlock(() =>
+        this.users.manager.transaction(async (manager) => {
+          if (purge) await this.erasure.applyPurgeTimeouts(manager);
+          const rows: Array<{ id: string }> = await manager.query(
+            `SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE`,
+            [userId],
+          );
+          if (rows.length === 0) {
+            throw new UnauthorizedException('User no longer exists.');
+          }
+          await manager.query(
+            `UPDATE users SET memory_opt_in = $2, updated_at = now() WHERE id = $1`,
+            [userId, dto.memory_opt_in],
+          );
+          const settings = { memory_opt_in: dto.memory_opt_in };
+          if (!purge) return { settings };
+
+          const deleted = await this.erasure.purgeKeyboardConversations(
+            manager,
+            userId,
+          );
+          return { settings, deleted };
+        }),
+      );
+    } catch (err) {
+      throw erasureTimeoutAsUnavailable(err);
     }
-    return { settings: { memory_opt_in: dto.memory_opt_in } };
   }
 
   /** Mints an access JWT and persists a hashed refresh-token session. */

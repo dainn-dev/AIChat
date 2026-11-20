@@ -4,6 +4,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { ScreenshotsService } from '../src/screenshots/screenshots.service';
 
 /**
  * End-to-end QA of WS-5 screenshots (DAI-129 / DAI-143) against a real
@@ -15,6 +16,8 @@ import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter
  *  - AC-O2: blank/garbled input -> 422 OCR_FAILED, screenshot counter unchanged.
  *  - AC-O3: Free tier -> 5 screenshots/day succeed, 6th rejected; counter shows
  *    exactly 5, no over-count under concurrent calls.
+ *  - Retention cap: a conversation keeps only its newest 2,000 messages
+ *    (oldest dropped on append), same as keyboard captures.
  *  - POST /screenshots/:id/analyze: analysis for an owned id; 404 for
  *    missing/foreign id; not separately metered.
  */
@@ -197,6 +200,163 @@ describe('Screenshots WS-5 (e2e)', () => {
     expect(limited).toBe(3);
     // The DB counter must equal the limit — proof the reservation is atomic.
     expect(await screenshotsUsed(token)).toBe(5);
+  });
+
+  it('retention cap (security M4): appending past 2,000 messages via ingest keeps only the newest 2,000, in order; memory_sources links survive', async () => {
+    const token = await signup();
+    const first = await http()
+      .post('/screenshots')
+      .set(auth(token))
+      .send(validBody());
+    expect(first.status).toBe(201);
+    const conv = first.body.conversation_id as string;
+    const userId: string = (
+      await ds.query(`SELECT user_id FROM conversations WHERE id = $1`, [conv])
+    )[0].user_id;
+
+    // Fill positions 2..1989 directly (ingest accepts at most 200 per call
+    // and Free allows 5/day), so the conversation holds 1,990 messages.
+    await ds.query(
+      `INSERT INTO messages (conversation_id, sender, content, position, source)
+       SELECT $1, (CASE WHEN n % 2 = 0 THEN 'them' ELSE 'me' END)::message_sender,
+              'seed-' || n, n, 'ocr'
+         FROM generate_series(2, 1989) AS n`,
+      [conv],
+    );
+    // A memory extracted from this conversation (link is per conversation).
+    const [mem] = await ds.query(
+      `INSERT INTO memories (user_id, contact_label, kind, content, source, source_ref, status)
+       VALUES ($1, 'Alex', 'interest', 'Likes weekends', 'extracted', $2, 'active')
+       RETURNING id`,
+      [userId, `conversation:${conv}`],
+    );
+    await ds.query(
+      `INSERT INTO memory_sources (memory_id, conversation_id) VALUES ($1, $2)`,
+      [mem.id, conv],
+    );
+
+    // Append 20 more → positions 1990..2009; the oldest 10 (0..9) go.
+    const appended = Array.from({ length: 20 }, (_, i) => ({
+      sender: i % 2 === 0 ? 'them' : 'me',
+      content: `new-${i}`,
+    }));
+    const res = await http()
+      .post('/screenshots')
+      .set(auth(token))
+      .send({
+        ocr_text: appended.map((m) => `${m.sender}: ${m.content}`).join('\n'),
+        extracted_messages: appended,
+        conversation_id: conv,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.conversation_id).toBe(conv);
+
+    const rows: Array<{ position: number; content: string }> = await ds.query(
+      `SELECT position, content FROM messages
+        WHERE conversation_id = $1 ORDER BY position ASC`,
+      [conv],
+    );
+    expect(rows).toHaveLength(2000);
+    expect(rows.map((r) => Number(r.position))).toEqual(
+      Array.from({ length: 2000 }, (_, i) => i + 10),
+    );
+    expect(rows[0].content).toBe('seed-10');
+    expect(rows.slice(-20).map((r) => r.content)).toEqual(
+      appended.map((m) => m.content),
+    );
+
+    const links = await ds.query(
+      `SELECT 1 FROM memory_sources WHERE memory_id = $1 AND conversation_id = $2`,
+      [mem.id, conv],
+    );
+    expect(links).toHaveLength(1);
+    const kept = await ds.query(`SELECT 1 FROM memories WHERE id = $1`, [
+      mem.id,
+    ]);
+    expect(kept).toHaveLength(1);
+  });
+
+  it('retention cap: concurrent appends to one conversation keep distinct, contiguous positions', async () => {
+    const token = await signup();
+    const first = await http()
+      .post('/screenshots')
+      .set(auth(token))
+      .send(validBody());
+    const conv = first.body.conversation_id as string;
+    const results = await Promise.all(
+      [0, 1, 2].map((k) =>
+        http()
+          .post('/screenshots')
+          .set(auth(token))
+          .send({
+            ocr_text: `me: c${k}`,
+            extracted_messages: [
+              { sender: 'me', content: `c${k}-a` },
+              { sender: 'them', content: `c${k}-b` },
+            ],
+            conversation_id: conv,
+          }),
+      ),
+    );
+    results.forEach((r) => expect(r.status).toBe(201));
+    const rows: Array<{ position: number }> = await ds.query(
+      `SELECT position FROM messages WHERE conversation_id = $1 ORDER BY position`,
+      [conv],
+    );
+    expect(rows.map((r) => Number(r.position))).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7,
+    ]);
+  });
+
+  it('rejects appending to a keyboard conversation (400 CONVERSATION_NOT_APPENDABLE); counter unchanged', async () => {
+    const token = await signup();
+    const me = await http().get('/me').set(auth(token));
+    const [kb] = await ds.query(
+      `INSERT INTO conversations (user_id, platform, contact_label, source)
+       VALUES ($1, 'zalo', 'Alex', 'keyboard') RETURNING id`,
+      [me.body.user.id],
+    );
+    const res = await http()
+      .post('/screenshots')
+      .set(auth(token))
+      .send({ ...validBody(), conversation_id: kb.id });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('CONVERSATION_NOT_APPENDABLE');
+    expect(await screenshotsUsed(token)).toBe(0);
+    const msgs = await ds.query(
+      `SELECT 1 FROM messages WHERE conversation_id = $1`,
+      [kb.id],
+    );
+    expect(msgs).toHaveLength(0);
+  });
+
+  it('a conversation gone by the in-transaction re-check is a 404 and the reserved quota is released', async () => {
+    const token = await signup();
+    // Simulate the race: the pre-quota ownership check passed, then the
+    // conversation was erased before the append transaction locked it.
+    const precheck = jest
+      .spyOn(
+        ScreenshotsService.prototype as unknown as {
+          assertConversationOwned: () => Promise<void>;
+        },
+        'assertConversationOwned',
+      )
+      .mockResolvedValueOnce(undefined);
+    try {
+      const res = await http()
+        .post('/screenshots')
+        .set(auth(token))
+        .send({
+          ...validBody(),
+          conversation_id: '00000000-0000-4000-8000-000000000000',
+        });
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('CONVERSATION_NOT_FOUND');
+      expect(precheck).toHaveBeenCalledTimes(1);
+    } finally {
+      precheck.mockRestore();
+    }
+    expect(await screenshotsUsed(token)).toBe(0);
   });
 
   describe('POST /screenshots/:id/analyze', () => {
