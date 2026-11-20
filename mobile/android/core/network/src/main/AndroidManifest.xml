@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AIChat: the INTERNET permission is declared in app/src/main/AndroidManifest.xml next to the network security
+     config, so the whole network surface of the app is visible in one place. -->
+<manifest />

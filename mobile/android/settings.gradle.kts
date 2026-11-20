@@ -51,3 +51,5 @@ include(":lib:compose")
 include(":lib:kotlin")
 include(":lib:native")
 include(":lib:snygg")
+// AIChat MODIFIED: AIChat backend client, auth/session and encrypted token store (docs/integration-points.md (e)).
+include(":core:network")
