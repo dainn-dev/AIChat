@@ -25,13 +25,13 @@ class ViInputConfigTest {
     }
 
     @Test
-    fun `default subtypes are English then Vietnamese with vi-input`() {
+    fun `default subtypes are Vietnamese with vi-input then English`() {
         val subtypes = SubtypeJsonConfig.decodeFromString<List<Subtype>>(AiChatDefaultSubtypes.PREFERENCE_JSON)
 
         assertEquals(AiChatDefaultSubtypes.ALL, subtypes)
-        assertEquals(listOf("en-US", "vi-VN"), subtypes.map { it.primaryLocale.languageTag() })
-        assertEquals(extCoreComposer("appender"), subtypes[0].composer)
-        assertEquals(extCoreComposer("vi-input"), subtypes[1].composer)
+        assertEquals(listOf("vi-VN", "en-US"), subtypes.map { it.primaryLocale.languageTag() })
+        assertEquals(extCoreComposer("vi-input"), subtypes[0].composer)
+        assertEquals(extCoreComposer("appender"), subtypes[1].composer)
         assertTrue(subtypes.all { it.layoutMap.characters.componentId == "qwerty" })
     }
 

@@ -14,7 +14,8 @@ import dev.patrickgold.florisboard.ime.keyboard.extCorePopupMapping
 import dev.patrickgold.florisboard.lib.FlorisLocale
 
 /**
- * The two subtypes AIChat Keyboard ships with: English and Tiếng Việt, both QWERTY. They are the
+ * The two subtypes AIChat Keyboard ships with: Tiếng Việt first (active on first run), then English,
+ * both QWERTY. They are the
  * default value of the `localization__subtypes` preference, so the globe / language key toggles
  * between them from the first run. FlorisBoard persists the active subtype id, so the last choice
  * survives restarts.
@@ -44,7 +45,8 @@ object AiChatDefaultSubtypes {
         layoutMap = SubtypeLayoutMap(characters = extCoreLayout("qwerty")),
     )
 
-    val ALL: List<Subtype> = listOf(ENGLISH, VIETNAMESE)
+    /** Order matters: with no saved active subtype, FlorisBoard activates the first one. */
+    val ALL: List<Subtype> = listOf(VIETNAMESE, ENGLISH)
 
     /** JSON in the format of the `localization__subtypes` preference. */
     val PREFERENCE_JSON: String by lazy { SubtypeJsonConfig.encodeToString(ALL) }

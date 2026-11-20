@@ -117,16 +117,16 @@ vi-input (`ViInputComposer.LEGACY_TELEX`) instead of silently falling back to `A
 ## Subtypes (EN ⟷ VI)
 
 - The default of the `localization__subtypes` preference (`FB/app/AppPrefs.kt`) is now
-  `VI/AiChatDefaultSubtypes.kt`: English (`en-US`, QWERTY, `appender`) and Tiếng Việt (`vi-VN`, QWERTY,
-  `org.florisboard.composers:vi-input`, `vietnamese_dong`, `vi-VN` popups), with fixed ids 1 and 2.
+  `VI/AiChatDefaultSubtypes.kt`: Tiếng Việt (`vi-VN`, QWERTY, `org.florisboard.composers:vi-input`,
+  `vietnamese_dong`, `vi-VN` popups) first, then English (`en-US`, QWERTY, `appender`), with fixed ids 2 and 1.
 - The upstream Telex table is removed from the composers extension and the `vi-VN` preset points at `vi-input`,
   so a Vietnamese subtype added in settings also uses our engine. There is one Vietnamese path.
 - With two subtypes, `KeyboardManager.shouldShowLanguageSwitch()` is true and the utility key (default
   `DYNAMIC_SWITCH_LANGUAGE_EMOJIS`) shows the language key, which calls `SubtypeManager.switchToNextSubtype()`.
   With two subtypes that is a toggle.
 - The last choice is remembered: `SubtypeManager` writes `localization__active_subtype_id` on every switch and
-  restores it on start (`evaluateActiveSubtype`). The first run starts in English (the default id `-1`
-  matches neither subtype, so the first one is chosen).
+  restores it on start (`evaluateActiveSubtype`). The first run starts in Tiếng Việt (the default id `-1`
+  matches neither subtype, so the first one in the list is chosen).
 
 ## Settings
 

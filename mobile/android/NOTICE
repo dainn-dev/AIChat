@@ -58,7 +58,7 @@ The full delta from upstream is:
   app/src/main/kotlin/dev/patrickgold/florisboard/lib/ext/ExtensionManager.kt
       Registers the vi-input marker composer (aichat-vi-input) as a Composer subclass.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt
-      Default subtypes = English + Tiếng Việt (vi-input); new aichatVietnamese preference group.
+      Default subtypes = Tiếng Việt (vi-input) + English; new aichatVietnamese preference group.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/keyboard/KeyboardScreen.kt
       Shows the "Tiếng Việt" settings group (Kiểu gõ, Kiểu đặt dấu, Tự khôi phục từ tiếng Anh).
   app/src/main/assets/ime/keyboard/org.florisboard.composers/extension.json

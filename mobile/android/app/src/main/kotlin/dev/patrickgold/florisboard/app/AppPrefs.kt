@@ -627,7 +627,7 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val subtypes = string(
             key = "localization__subtypes",
-            // AIChat MODIFIED: ship English + Tiếng Việt (vi-input) instead of an empty list.
+            // AIChat MODIFIED: ship Tiếng Việt (vi-input, active on first run) + English instead of an empty list.
             default = com.aichat.keyboard.vi.AiChatDefaultSubtypes.PREFERENCE_JSON,
         )
     }
