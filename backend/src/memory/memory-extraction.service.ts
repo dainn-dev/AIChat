@@ -103,6 +103,14 @@ export class MemoryExtractionService {
       );
     const messages = boundExtractionWindow([...recentDesc].reverse());
 
+    // Consent re-check (security M3) right before the text leaves for the LLM
+    // provider: the opt-in may have been withdrawn (or the conversation
+    // erased) since the first check. A sub-second window remains between this
+    // read and the provider request, and a request already in flight can't be
+    // recalled; the writer's in-transaction re-check still drops its results.
+    const gate = await this.consentGate(conversationId);
+    if (gate) return { status: gate, factsExtracted: 0, factsWritten: 0 };
+
     const extracted = await this.extractor.extract({
       messages,
       contactLabel: contactLabel ?? undefined,
@@ -155,6 +163,27 @@ export class MemoryExtractionService {
       factsExtracted: extracted.length,
       factsWritten: written,
     };
+  }
+
+  /**
+   * Fresh read of the conversation and its owner's opt-in. Returns why the
+   * text must not be sent, or null when extraction may proceed.
+   */
+  private async consentGate(
+    conversationId: string,
+  ): Promise<'no-conversation' | 'opted-out' | null> {
+    const rows: Array<{ source: string; memory_opt_in: boolean }> =
+      await this.dataSource.query(
+        `SELECT c.source, u.memory_opt_in
+           FROM conversations c JOIN users u ON u.id = c.user_id
+          WHERE c.id = $1`,
+        [conversationId],
+      );
+    if (rows.length === 0) return 'no-conversation';
+    if (rows[0].source === 'keyboard' && !rows[0].memory_opt_in) {
+      return 'opted-out';
+    }
+    return null;
   }
 
   /** New extraction runs recorded for this user today (UTC). */
