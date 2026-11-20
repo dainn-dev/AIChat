@@ -80,12 +80,9 @@
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/FlorisAppTheme.Splash"
             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="ui" android:host="florisboard" android:pathPrefix="/" />
-            </intent-filter>
+            <!-- AIChat MODIFIED: removed the BROWSABLE ui://florisboard/... deep-link intent-filter. It let any web
+                 page or app open arbitrary settings screens. Nothing in the app needs it (internal navigation uses the
+                 NavController directly), and Routes.composableWithDeepLink no longer registers the deep links. -->
             <!-- AIChat MODIFIED: removed the two exported "Import Extension" intent-filters (VIEW with a content: URI
                  and SEND, for application/vnd.florisboard.extension+zip and the catch-all application/octet-stream).
                  They let any app hand this activity an arbitrary file. Extensions can still be imported from inside

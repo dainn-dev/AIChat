@@ -30,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -44,10 +43,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.apptheme.FlorisAppTheme
-import dev.patrickgold.florisboard.app.ext.ExtensionImportScreenType
 import dev.patrickgold.florisboard.app.setup.NotificationPermissionState
 import dev.patrickgold.florisboard.appContext
-import dev.patrickgold.florisboard.cacheManager
 import dev.patrickgold.florisboard.lib.FlorisLocale
 import dev.patrickgold.florisboard.lib.compose.LocalPreviewFieldController
 import dev.patrickgold.florisboard.lib.compose.PreviewKeyboardField
@@ -79,11 +76,9 @@ val LocalNavController = staticCompositionLocalOf<NavController> {
 class FlorisAppActivity : ComponentActivity() {
     private val prefs by FlorisPreferenceStore
     private val appContext by appContext()
-    private val cacheManager by cacheManager()
     private var appTheme by mutableStateOf(AppTheme.AUTO)
     private var showAppIcon = true
     private var resourcesContext by mutableStateOf(this as Context)
-    private var intentToBeHandled by mutableStateOf<Intent?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Splash screen should be installed before calling super.onCreate()
@@ -153,16 +148,10 @@ class FlorisAppActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-
-        if (intent.action == Intent.ACTION_VIEW && intent.categories?.contains(Intent.CATEGORY_BROWSABLE) == true) {
-            intentToBeHandled = intent
-            return
-        }
-        // AIChat MODIFIED: external "Import Extension" intents (ACTION_VIEW with a file URI, ACTION_SEND) are no
-        // longer accepted. Their intent-filters were removed from the manifest, but this activity is exported, so
-        // another app could still target it with an explicit intent and hand it an arbitrary file. Extensions are
-        // imported from inside the app through the system file picker instead (ExtensionImportScreen).
-        intentToBeHandled = null
+        // AIChat MODIFIED: external intents are no longer handled at all. Upstream accepted ui://florisboard deep
+        // links (BROWSABLE VIEW) and "Import Extension" files (VIEW with a file URI, SEND). Their intent-filters were
+        // removed from the manifest, but this activity is exported, so another app could still target it with an
+        // explicit intent. Extensions are imported in-app through the system file picker (ExtensionImportScreen).
     }
 
     @Composable
@@ -200,22 +189,7 @@ class FlorisAppActivity : ComponentActivity() {
             }
         }
 
-        LaunchedEffect(intentToBeHandled) {
-            val intent = intentToBeHandled
-            if (intent != null) {
-                if (intent.action == Intent.ACTION_VIEW && intent.categories?.contains(Intent.CATEGORY_BROWSABLE) == true) {
-                    navController.handleDeepLink(intent)
-                } else {
-                    val data = if (intent.action == Intent.ACTION_VIEW) {
-                        intent.data!!
-                    } else {
-                        intent.clipData!!.getItemAt(0).uri
-                    }
-                    val workspace = runCatching { cacheManager.readFromUriIntoCache(data) }.getOrNull()
-                    navController.navigate(Routes.Ext.Import(ExtensionImportScreenType.EXT_ANY, workspace?.uuid))
-                }
-            }
-            intentToBeHandled = null
-        }
+        // AIChat MODIFIED: removed the LaunchedEffect that turned external intents into navigation (deep links and
+        // extension import), see onNewIntent.
     }
 }

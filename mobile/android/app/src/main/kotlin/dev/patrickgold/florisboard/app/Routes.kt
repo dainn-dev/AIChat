@@ -34,7 +34,6 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.aichat.keyboard.app.account.aichatAccountGraph
 import dev.patrickgold.florisboard.app.devtools.AndroidLocalesScreen
@@ -89,13 +88,13 @@ inline fun <reified T : Any> NavGraphBuilder.composableWithDeepLink(
     kClass: KClass<T>,
     noinline content: @Composable (AnimatedContentScope.(NavBackStackEntry) -> Unit),
 ) {
-    val deeplink = requireNotNull(kClass.annotations.firstOrNull { it is Deeplink } as? Deeplink) {
+    requireNotNull(kClass.annotations.firstOrNull { it is Deeplink } as? Deeplink) {
         "faulty class: $kClass with annotations ${kClass.annotations}"
     }
-    composable<T>(
-        deepLinks = listOf(navDeepLink<T>(basePath = "ui://florisboard/${deeplink.path}")),
-        content = content,
-    )
+    // AIChat MODIFIED: the ui://florisboard deep links are no longer registered. The NavController handles the
+    // launch intent's deep link on its own, so with them any app could open settings screens via an explicit intent
+    // to the exported FlorisAppActivity. The @Deeplink annotation is kept (still validated) to keep the diff small.
+    composable<T>(content = content)
 }
 
 object Routes {
