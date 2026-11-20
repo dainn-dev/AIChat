@@ -41,11 +41,12 @@ interface StoredMessageRow {
  * the find-or-created keyboard (`source = 'keyboard'`) conversation for
  * `(user_id, platform, contact_label)` with
  * {@link messagesToAppend}, so overlapping or scrolled-up re-captures do not
- * duplicate messages. Persistence is best-effort: every failure is logged and swallowed
- * and the caller gets `null`, so it can never fail the keyboard reply.
+ * duplicate messages. Persistence is best-effort: every failure is logged and
+ * swallowed and the caller gets `null`, so it can never fail the keyboard reply.
  *
  * Erasure (`remove`) hard-deletes the conversation, its messages (FK cascade),
- * its screenshots, and the memories extracted from it (`source_ref`).
+ * its screenshots, and every extracted memory with no other source
+ * conversation left (`memory_sources`).
  */
 @Injectable()
 export class ConversationsService {
@@ -106,11 +107,14 @@ export class ConversationsService {
   /**
    * `DELETE /conversations/:id` — owner-scoped hard delete. A conversation that
    * does not exist OR belongs to another user is a 404 (no IDOR, and no
-   * existence oracle). Messages go via `ON DELETE CASCADE`; screenshots and
-   * extracted memories are removed explicitly because their FK/ref would
-   * otherwise keep the content around.
+   * existence oracle). Messages and `memory_sources` links go via
+   * `ON DELETE CASCADE`; screenshots and now-unsourced extracted memories are
+   * removed explicitly because their FK/ref would otherwise keep the content.
+   * The `FOR UPDATE` lock serializes with an in-flight extraction write, which
+   * holds the row `FOR SHARE` (see MemoryWriterService).
    */
   async remove(userId: string, conversationId: string): Promise<void> {
+    const sourceRef = `conversation:${conversationId}`;
     await this.dataSource.transaction(async (manager) => {
       const owned: Array<{ id: string }> = await manager.query(
         `SELECT id FROM conversations WHERE id = $1 AND user_id = $2 FOR UPDATE`,
@@ -123,11 +127,23 @@ export class ConversationsService {
         });
       }
 
-      // Memories extracted from this conversation (MS-4 writes
-      // source_ref = 'conversation:<id>').
+      // Extracted memories left with NO other source once this conversation
+      // goes (memory_sources). Manual memories are never touched. Legacy rows
+      // with no links at all fall back to their source_ref.
       await manager.query(
-        `DELETE FROM memories WHERE user_id = $1 AND source_ref = $2`,
-        [userId, `conversation:${conversationId}`],
+        `DELETE FROM memories m
+          WHERE m.user_id = $1
+            AND m.source = 'extracted'
+            AND (
+              EXISTS (SELECT 1 FROM memory_sources s
+                       WHERE s.memory_id = m.id AND s.conversation_id = $2)
+              OR (m.source_ref = $3
+                  AND NOT EXISTS (SELECT 1 FROM memory_sources s
+                                   WHERE s.memory_id = m.id))
+            )
+            AND NOT EXISTS (SELECT 1 FROM memory_sources s
+                             WHERE s.memory_id = m.id AND s.conversation_id <> $2)`,
+        [userId, conversationId, sourceRef],
       );
       // screenshots.conversation_id is ON DELETE SET NULL, which would orphan
       // the stored OCR text — remove those rows instead.
@@ -140,6 +156,19 @@ export class ConversationsService {
       await manager.query(
         `DELETE FROM conversations WHERE id = $1 AND user_id = $2`,
         [conversationId, userId],
+      );
+      // Surviving memories that named this conversation as source_ref now
+      // point at one of their remaining sources (links cascaded above).
+      await manager.query(
+        `UPDATE memories m
+            SET source_ref = 'conversation:' || (
+                  SELECT s.conversation_id::text FROM memory_sources s
+                   WHERE s.memory_id = m.id
+                   ORDER BY s.created_at ASC
+                   LIMIT 1)
+          WHERE m.user_id = $1 AND m.source_ref = $2
+            AND EXISTS (SELECT 1 FROM memory_sources s WHERE s.memory_id = m.id)`,
+        [userId, sourceRef],
       );
     });
   }

@@ -4,6 +4,8 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { MemoryExtractionService } from '../src/memory/memory-extraction.service';
+import { MemoryWriterService } from '../src/memory/memory-writer.service';
 
 /**
  * Android Phase 0 against a real, migrated Postgres:
@@ -314,6 +316,128 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
         .delete(`/conversations/${id}`)
         .set(auth(token));
       expect(again.status).toBe(404);
+    });
+  });
+
+  describe('precise erasure via memory_sources', () => {
+    const HIKING = 'I love hiking on the weekends';
+
+    const createConversation = async (
+      userId: string,
+      content: string,
+      source = 'app',
+    ): Promise<string> => {
+      const rows: Array<{ id: string }> = await ds.query(
+        `INSERT INTO conversations (user_id, platform, contact_label, source)
+         VALUES ($1, 'whatsapp', 'Alex', $2) RETURNING id`,
+        [userId, source],
+      );
+      await ds.query(
+        `INSERT INTO messages (conversation_id, sender, content, position, source)
+         VALUES ($1, 'them', $2, 0, $3)`,
+        [rows[0].id, content, source === 'keyboard' ? 'keyboard' : 'app'],
+      );
+      return rows[0].id;
+    };
+
+    const memoriesOf = (userId: string) =>
+      ds.query(
+        `SELECT m.id, m.content, m.source, m.source_ref,
+                ARRAY(SELECT s.conversation_id::text FROM memory_sources s
+                       WHERE s.memory_id = m.id ORDER BY s.conversation_id) AS sources
+           FROM memories m WHERE m.user_id = $1 ORDER BY m.created_at`,
+        [userId],
+      ) as Promise<
+        Array<{
+          id: string;
+          content: string;
+          source: string;
+          source_ref: string;
+          sources: string[];
+        }>
+      >;
+
+    it('keeps a fact while another conversation still backs it, then erases it', async () => {
+      const extraction = app.get(MemoryExtractionService);
+      const { token, userId } = await signup();
+      const convA = await createConversation(userId, HIKING);
+      const convB = await createConversation(userId, HIKING);
+
+      await extraction.extractForConversation(convA);
+      await extraction.extractForConversation(convB); // dedupes into A's row
+
+      const [hiking] = (await memoriesOf(userId)).filter(
+        (m) => m.source === 'extracted',
+      );
+      expect(hiking).toBeDefined();
+      expect(hiking.sources).toEqual([convA, convB].sort());
+
+      // A manual memory must never be touched by conversation erasure.
+      await ds.query(
+        `INSERT INTO memories (user_id, contact_label, kind, content, source, source_ref, status)
+         VALUES ($1, 'Alex', 'interest', 'Collects vinyl', 'manual', 'manual', 'active')`,
+        [userId],
+      );
+
+      const delA = await http()
+        .delete(`/conversations/${convA}`)
+        .set(auth(token));
+      expect(delA.status).toBe(204);
+      let left = await memoriesOf(userId);
+      const survivor = left.find((m) => m.id === hiking.id);
+      expect(survivor?.sources).toEqual([convB]);
+      expect(survivor?.source_ref).toBe(`conversation:${convB}`);
+
+      const delB = await http()
+        .delete(`/conversations/${convB}`)
+        .set(auth(token));
+      expect(delB.status).toBe(204);
+      left = await memoriesOf(userId);
+      expect(left.find((m) => m.id === hiking.id)).toBeUndefined();
+      expect(left.map((m) => m.content)).toEqual(['Collects vinyl']);
+    });
+
+    it('drops extraction results for a conversation erased mid-run (race guard)', async () => {
+      const writer = app.get(MemoryWriterService);
+      const { token, userId } = await signup();
+      const conv = await createConversation(userId, HIKING);
+      await http().delete(`/conversations/${conv}`).set(auth(token));
+
+      // The worker had already extracted facts before the delete committed.
+      const res = await writer.writeFacts({
+        userId,
+        contactLabel: 'Alex',
+        facts: [
+          {
+            kind: 'interest',
+            content: 'Loves hiking',
+            confidence: 0.9,
+            scope: 'contact',
+          },
+        ],
+        sourceRef: `conversation:${conv}`,
+        conversationId: conv,
+      });
+      expect(res.aborted).toBe('conversation-gone');
+      expect(await memoriesOf(userId)).toHaveLength(0);
+    });
+
+    it('does not extract a keyboard conversation after its owner opts out', async () => {
+      const extraction = app.get(MemoryExtractionService);
+      const { token, userId } = await signup();
+      await optIn(token, true);
+      const r = await reply(token, {
+        platform: 'zalo',
+        contact_label: 'Alex',
+        conversation: [{ sender: 'them', content: HIKING }],
+      });
+      const conv = r.body.conversation_id as string;
+      expect(conv).toEqual(expect.any(String));
+
+      await optIn(token, false);
+      const res = await extraction.extractForConversation(conv);
+      expect(res.status).toBe('opted-out');
+      expect(await memoriesOf(userId)).toHaveLength(0);
     });
   });
 });

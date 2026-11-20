@@ -278,8 +278,34 @@ describe('ConversationsService.remove (erasure)', () => {
       'screenshots',
       'conversations',
     ]);
-    expect(deletes[0].params).toEqual(['user-1', 'conversation:conv-1']);
+    expect(deletes[0].params).toEqual([
+      'user-1',
+      'conv-1',
+      'conversation:conv-1',
+    ]);
     expect(deletes[1].params).toEqual(['user-1', 'conv-1']);
     expect(deletes[2].params).toEqual(['conv-1', 'user-1']);
+  });
+
+  it('only removes extracted memories with no other remaining source', async () => {
+    const { service, calls } = build({ ownedForDelete: true });
+    await service.remove('user-1', 'conv-1');
+    const sql = calls.find((c) => /DELETE FROM memories/.test(c.sql))!.sql;
+    expect(sql).toMatch(/m\.source = 'extracted'/);
+    expect(sql).toMatch(
+      /NOT EXISTS \(SELECT 1 FROM memory_sources s\s+WHERE s\.memory_id = m\.id AND s\.conversation_id <> \$2\)/,
+    );
+  });
+
+  it('re-points surviving memories whose source_ref named the erased conversation', async () => {
+    const { service, calls } = build({ ownedForDelete: true });
+    await service.remove('user-1', 'conv-1');
+    const update = calls.find((c) => /UPDATE memories/.test(c.sql));
+    expect(update?.params).toEqual(['user-1', 'conversation:conv-1']);
+    // Runs after the conversation (and so its links) is gone.
+    const order = calls.map((c) => c.sql);
+    expect(order.findIndex((s) => /UPDATE memories/.test(s))).toBeGreaterThan(
+      order.findIndex((s) => /DELETE FROM conversations/.test(s)),
+    );
   });
 });
