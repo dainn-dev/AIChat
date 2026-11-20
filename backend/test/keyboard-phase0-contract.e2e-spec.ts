@@ -29,7 +29,7 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
     translate: jest.fn(),
   };
   const auth = { getMe: jest.fn(), updateSettings: jest.fn() };
-  const conversations = { remove: jest.fn() };
+  const conversations = { remove: jest.fn(), list: jest.fn() };
 
   const http = () => request(app.getHttpServer());
   const bearer = () => ({ Authorization: `Bearer ${token}` });
@@ -186,6 +186,38 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
         .patch('/me/settings')
         .send({ memory_opt_in: true });
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /conversations', () => {
+    it('lists for the caller with parsed pagination', async () => {
+      conversations.list.mockResolvedValue({
+        conversations: [],
+        total: 0,
+        limit: 5,
+        offset: 10,
+      });
+      const res = await http()
+        .get('/conversations?limit=5&offset=10')
+        .set(bearer());
+      expect(res.status).toBe(200);
+      expect(conversations.list).toHaveBeenCalledWith('user-1', {
+        limit: 5,
+        offset: 10,
+      });
+    });
+
+    it.each(['limit=0', 'limit=101', 'limit=abc', 'offset=-1', 'user_id=x'])(
+      '400s on %s',
+      async (qs) => {
+        const res = await http().get(`/conversations?${qs}`).set(bearer());
+        expect(res.status).toBe(400);
+        expect(conversations.list).not.toHaveBeenCalled();
+      },
+    );
+
+    it('401s without a token', async () => {
+      expect((await http().get('/conversations')).status).toBe(401);
     });
   });
 

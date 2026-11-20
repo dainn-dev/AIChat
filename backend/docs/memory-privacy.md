@@ -35,6 +35,12 @@ by compliance.
   derived from. The extraction writer links the memory even when the fact
   deduplicates into an existing row. Existing data was backfilled from
   `source_ref` (migration `MemorySources1718900000000`).
+- **Discoverability:** `GET /conversations` (owner-scoped, paginated,
+  metadata only: id, platform, contact_label, source, message_count,
+  updated_at) lists every stored conversation. A capture can be stored even
+  when its reply returned `conversation_id: null` (the write outlived the
+  ~1.5 s reply budget, or the response was lost), so the list is what makes
+  every stored conversation erasable.
 - **`DELETE /conversations/:id`** (owner-scoped; another user's id → `404`, no
   IDOR) deletes, in one transaction:
   - the conversation row and its `messages` (`ON DELETE CASCADE`);

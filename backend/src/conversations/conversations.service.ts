@@ -9,6 +9,11 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { MEMORY_EXTRACTION_QUEUE, MemoryQueue } from '../memory/memory-queue';
 import { MergeableMessage, messagesToAppend } from './conversation-merge';
+import {
+  ConversationListResponse,
+  DEFAULT_CONVERSATION_PAGE_SIZE,
+  ListConversationsQueryDto,
+} from './dto/list-conversations.dto';
 
 /** One keyboard (AccessibilityService) capture of the visible chat. */
 export interface KeyboardCapture {
@@ -102,6 +107,65 @@ export class ConversationsService {
       );
       return null;
     }
+  }
+
+  /**
+   * `GET /conversations` — owner-scoped, newest first, metadata only (no
+   * message content). Lets a client find stored conversations to erase even
+   * when the reply that stored one returned `conversation_id: null`
+   * (persist timeout / lost response — security H1).
+   */
+  async list(
+    userId: string,
+    query: ListConversationsQueryDto,
+  ): Promise<ConversationListResponse> {
+    const limit = query.limit ?? DEFAULT_CONVERSATION_PAGE_SIZE;
+    const offset = query.offset ?? 0;
+    const rows: Array<{
+      id: string;
+      platform: string;
+      contact_label: string | null;
+      source: string;
+      message_count: string | number;
+      updated_at: Date;
+      total: string | number;
+    }> = await this.dataSource.query(
+      `SELECT c.id, c.platform, c.contact_label, c.source, c.updated_at,
+              (SELECT count(*) FROM messages m WHERE m.conversation_id = c.id)
+                AS message_count,
+              count(*) OVER () AS total
+         FROM conversations c
+        WHERE c.user_id = $1
+        ORDER BY c.updated_at DESC, c.id ASC
+        LIMIT $2 OFFSET $3`,
+      [userId, limit, offset],
+    );
+    const total =
+      rows.length > 0
+        ? Number(rows[0].total)
+        : await this.countConversations(userId);
+    return {
+      conversations: rows.map((r) => ({
+        id: r.id,
+        platform: r.platform,
+        contact_label: r.contact_label,
+        source: r.source,
+        message_count: Number(r.message_count),
+        updated_at: new Date(r.updated_at).toISOString(),
+      })),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  /** Total for an out-of-range page (window count needs at least one row). */
+  private async countConversations(userId: string): Promise<number> {
+    const rows: Array<{ total: string }> = await this.dataSource.query(
+      `SELECT count(*)::text AS total FROM conversations WHERE user_id = $1`,
+      [userId],
+    );
+    return Number(rows[0]?.total ?? 0);
   }
 
   /**

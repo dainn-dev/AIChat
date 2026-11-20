@@ -64,7 +64,10 @@ Response `200`:
 }
 ```
 - `conversation_id` is always present: the stored conversation this capture
-  was merged into, or `null` when nothing was stored (see below).
+  was merged into, or `null`. **`null` does not mean "nothing was stored".** It
+  is also returned when the write was slower than the ~1.5 s budget and
+  finished in the background, or when the response was lost. Use
+  `GET /conversations` to see what is actually stored.
 
 ### Conversation storage (Android Phase 0)
 
@@ -158,10 +161,33 @@ These live outside `/v1/keyboard` but gate/undo keyboard storage. Both need
 and must be a JSON boolean; unknown fields → `400`. Turning it off stops future
 storage; already-stored conversations stay until deleted.
 
+**`GET /conversations?limit=20&offset=0`** → `200`
+```json
+{
+  "conversations": [
+    { "id": "…", "platform": "zalo", "contact_label": "Linh", "source": "keyboard",
+      "message_count": 12, "updated_at": "2026-11-20T09:15:00.000Z" }
+  ],
+  "total": 1, "limit": 20, "offset": 0
+}
+```
+Owner-scoped and newest first. It returns metadata only, never message
+content. `limit` is 1–100 (default 20) and `offset` ≥ 0; other query params →
+`400`. It lists every stored conversation (`source`: `keyboard | ocr | share | app`).
+This is how a client finds conversations to erase, including ones whose reply
+returned `conversation_id: null`.
+
 **`DELETE /conversations/:id`** → `204` (no body). Hard-deletes the conversation,
 its messages, screenshots linked to it, and memories extracted from it.
 `404 CONVERSATION_NOT_FOUND` when it does not exist **or belongs to another
 user**; `400` when `:id` is not a UUID. See `docs/memory-privacy.md` §1.1.
+
+**Erasing does not stop re-capture.** The backend keeps no tombstone, so the
+next `reply` for the same `(platform, contact_label)` from an opted-in user
+creates a new conversation. After a user erases a chat ("Forget this chat"),
+the **client must keep a per-contact exclusion** (keyed by `platform` +
+`contact_label`) and send `remember: false` for that contact from then on,
+until the user explicitly re-enables it.
 
 ## Notes for client devs
 

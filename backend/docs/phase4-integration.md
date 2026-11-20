@@ -76,8 +76,13 @@ iOS additionally requires **"Allow Full Access"** before any network call.
   `platform` and `contact_label` are present, and `remember` is not `false`.
   Send `remember: false` for chats the user marked private/incognito.
 - **`conversation_id`** in the reply is the stored conversation (or `null`).
-  Keep it if you offer "Forget this chat", which calls
+  `null` does **not** guarantee nothing was stored (a slow write may finish in
+  the background), so build "Forget this chat" / privacy screens on
+  `GET /conversations` (metadata only, paginated) and
   `DELETE /conversations/:id` → `204` (`404` if missing/not yours).
+- **After erasure, keep a local per-contact exclusion** (`platform` +
+  `contact_label`) and send `remember: false` for that contact. Otherwise the
+  next capture stores the chat again (there is no server-side tombstone).
 - Storage is best-effort and never fails the reply. `conversation_id: null` on
   an opted-in request means it was skipped or slow, not that the reply failed.
 
@@ -119,7 +124,7 @@ iOS additionally requires **"Allow Full Access"** before any network call.
 | DAI-137 session bridge | `/auth/login`, `/auth/refresh`, `/me` (WS-3) | ✅ on `main` |
 | DAI-138 / 139 IME + ext | the three `/v1/keyboard` endpoints | ✅ on `main` |
 | DAI-140 analytics/UX/QA | PostHog `ai_request` (server-side) + error/`usage` contract | ✅ on `main` |
-| Android Phase 0 | `lang`, `contact_label`, `remember`, `conversation_id`; `PATCH /me/settings`; `DELETE /conversations/:id` | branch `feat/backend-phase0` |
+| Android Phase 0 | `lang`, `contact_label`, `remember`, `conversation_id`; `PATCH /me/settings`; `GET /conversations`; `DELETE /conversations/:id` | branch `feat/backend-phase0` |
 
 All Phase-4 endpoints are exercisable keyless (stub LLM provider) for client
 dev/test. Related contracts: `docs/keyboard-api.md`, `docs/share-api.md`,

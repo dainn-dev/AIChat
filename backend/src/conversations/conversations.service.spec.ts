@@ -309,3 +309,60 @@ describe('ConversationsService.remove (erasure)', () => {
     );
   });
 });
+
+describe('ConversationsService.list (security H1)', () => {
+  const make = (pages: unknown[][]) => {
+    const query = jest.fn();
+    pages.forEach((p) => query.mockResolvedValueOnce(p));
+    const service = new ConversationsService({
+      query,
+    } as unknown as DataSource);
+    return { service, query };
+  };
+
+  it('is owner-scoped, paginated, metadata-only and newest first', async () => {
+    const { service, query } = make([
+      [
+        {
+          id: 'c1',
+          platform: 'zalo',
+          contact_label: 'Linh',
+          source: 'keyboard',
+          message_count: '3',
+          updated_at: new Date('2026-11-20T00:00:00Z'),
+          total: '7',
+        },
+      ],
+    ]);
+    const res = await service.list('user-1', { limit: 1, offset: 2 });
+
+    const [sql, params] = query.mock.calls[0];
+    expect(params).toEqual(['user-1', 1, 2]);
+    expect(sql).toMatch(/WHERE c\.user_id = \$1/);
+    expect(sql).toMatch(/ORDER BY c\.updated_at DESC/);
+    expect(sql).not.toMatch(/\bcontent\b/);
+    expect(res).toEqual({
+      conversations: [
+        {
+          id: 'c1',
+          platform: 'zalo',
+          contact_label: 'Linh',
+          source: 'keyboard',
+          message_count: 3,
+          updated_at: '2026-11-20T00:00:00.000Z',
+        },
+      ],
+      total: 7,
+      limit: 1,
+      offset: 2,
+    });
+  });
+
+  it('defaults to limit 20 / offset 0 and still reports total past the last page', async () => {
+    const { service, query } = make([[], [{ total: '4' }]]);
+    const res = await service.list('user-1', {});
+    expect(query.mock.calls[0][1]).toEqual(['user-1', 20, 0]);
+    expect(query.mock.calls[1][1]).toEqual(['user-1']);
+    expect(res).toEqual({ conversations: [], total: 4, limit: 20, offset: 0 });
+  });
+});

@@ -260,6 +260,76 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
     expect(rows).toHaveLength(0);
   });
 
+  describe('GET /conversations', () => {
+    it('lists only the caller conversations, metadata only, so they can be erased', async () => {
+      const owner = await signup();
+      await optIn(owner.token, true);
+      const r = await reply(owner.token, {
+        platform: 'zalo',
+        contact_label: 'Linh',
+        conversation: first,
+      });
+      const id = r.body.conversation_id as string;
+
+      const res = await http().get('/conversations').set(auth(owner.token));
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe(1);
+      expect(res.body.conversations).toEqual([
+        {
+          id,
+          platform: 'zalo',
+          contact_label: 'Linh',
+          source: 'keyboard',
+          message_count: 2,
+          updated_at: expect.any(String),
+        },
+      ]);
+      expect(JSON.stringify(res.body)).not.toContain('tối nay');
+
+      const other = await signup();
+      const theirs = await http().get('/conversations').set(auth(other.token));
+      expect(theirs.body).toEqual({
+        conversations: [],
+        total: 0,
+        limit: 20,
+        offset: 0,
+      });
+
+      // Find → erase round trip.
+      expect(
+        (await http().delete(`/conversations/${id}`).set(auth(owner.token)))
+          .status,
+      ).toBe(204);
+      const after = await http().get('/conversations').set(auth(owner.token));
+      expect(after.body.total).toBe(0);
+    });
+
+    it('paginates newest first', async () => {
+      const { token } = await signup();
+      await optIn(token, true);
+      for (const contact of ['A', 'B', 'C']) {
+        await reply(token, {
+          platform: 'zalo',
+          contact_label: contact,
+          conversation: first,
+        });
+      }
+      const page = await http()
+        .get('/conversations?limit=2&offset=0')
+        .set(auth(token));
+      expect(page.body.total).toBe(3);
+      expect(
+        page.body.conversations.map(
+          (c: { contact_label: string }) => c.contact_label,
+        ),
+      ).toEqual(['C', 'B']);
+      const last = await http()
+        .get('/conversations?limit=2&offset=2')
+        .set(auth(token));
+      expect(last.body.conversations).toHaveLength(1);
+    });
+  });
+
   describe('DELETE /conversations/:id', () => {
     it('404s for another user (no IDOR) and leaves the data intact', async () => {
       const owner = await signup();
