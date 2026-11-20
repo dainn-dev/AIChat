@@ -20,8 +20,11 @@ import {
   AuthTokensResponse,
   MeResponse,
   RefreshResponse,
+  SettingsResponse,
   toPublicUser,
+  toSettingsView,
 } from './dto/auth-response';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 /** Postgres unique-violation SQLSTATE. */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -160,7 +163,28 @@ export class AuthService {
       user: toPublicUser(user),
       tier: user.tier,
       usage,
+      settings: toSettingsView(user),
     };
+  }
+
+  /**
+   * Backs `PATCH /me/settings` (Android Phase 0): toggles the memory opt-in
+   * that gates keyboard conversation persistence. Turning it off stops future
+   * capture; already-stored conversations are erased via
+   * `DELETE /conversations/:id`.
+   */
+  async updateSettings(
+    userId: string,
+    dto: UpdateSettingsDto,
+  ): Promise<SettingsResponse> {
+    const result = await this.users.update(
+      { id: userId },
+      { memoryOptIn: dto.memory_opt_in },
+    );
+    if (!result.affected) {
+      throw new UnauthorizedException('User no longer exists.');
+    }
+    return { settings: { memory_opt_in: dto.memory_opt_in } };
   }
 
   /** Mints an access JWT and persists a hashed refresh-token session. */

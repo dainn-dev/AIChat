@@ -44,9 +44,25 @@ export interface UsageView {
   screenshots_limit: number | null;
 }
 
+/** User-controlled settings (Android Phase 0). */
+export interface UserSettingsView {
+  /** Store keyboard-captured conversations so the Memory engine learns from them. */
+  memory_opt_in: boolean;
+}
+
+export function toSettingsView(user: User): UserSettingsView {
+  return { memory_opt_in: user.memoryOptIn };
+}
+
 /** Response for `GET /me`. */
 export interface MeResponse {
   user: PublicUser;
   tier: Tier;
   usage: UsageView;
+  settings: UserSettingsView;
+}
+
+/** Response for `PATCH /me/settings`. */
+export interface SettingsResponse {
+  settings: UserSettingsView;
 }

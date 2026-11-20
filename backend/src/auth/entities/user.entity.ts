@@ -30,6 +30,13 @@ export class User {
   @Column({ type: 'varchar', length: 16, default: Tier.Free })
   tier: Tier;
 
+  /**
+   * Opt-in for keyboard conversation capture + memory learning (Android
+   * Phase 0). Defaults to false; see migration UserMemoryOptIn1718700000000.
+   */
+  @Column({ name: 'memory_opt_in', type: 'boolean', default: false })
+  memoryOptIn: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
