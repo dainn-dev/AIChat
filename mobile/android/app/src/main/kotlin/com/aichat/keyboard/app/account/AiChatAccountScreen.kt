@@ -1,5 +1,9 @@
 package com.aichat.keyboard.app.account
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,20 +29,25 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aichat.keyboard.core.network.AiChat
 import com.aichat.keyboard.core.network.error.ApiError
@@ -82,39 +91,28 @@ fun AiChatAccountScreen() = FlorisScreen {
 
 @Composable
 private fun AuthForm(viewModel: AuthViewModel, state: AuthViewModel.State) {
-    var email by rememberSaveable { mutableStateOf("") }
-    // Passwords are deliberately not saved across process death.
-    var password by remember { mutableStateOf("") }
-    var confirm by remember { mutableStateOf("") }
-    var displayName by rememberSaveable { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
-    var attempted by rememberSaveable(state.isSignup) { mutableStateOf(false) }
+    SecureWindowWhileShown()
+    // Hide the password again whenever the app goes to the background (recents, someone else picking up the phone).
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.setShowPassword(false) }
 
-    val validation = if (state.isSignup) {
-        AuthValidation.validateSignup(email, password, confirm)
-    } else {
-        AuthValidation.validateLogin(email, password)
-    }
-    val submit = {
-        attempted = true
-        if (validation.isValid && !state.submitting) {
-            viewModel.submit(email, password, displayName.takeIf { state.isSignup })
-        }
-    }
+    val validation = state.validation
+    val showErrors = state.attempted
+    val passwordTransformation =
+        if (state.showPassword) VisualTransformation.None else PasswordVisualTransformation()
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it.take(AuthValidation.EMAIL_MAX_LENGTH); viewModel.clearError() },
-            modifier = Modifier.fillMaxWidth(),
+            value = state.email,
+            onValueChange = viewModel::setEmail,
+            modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Username + ContentType.EmailAddress },
             label = { Text(stringRes(R.string.aichat__auth__email)) },
             singleLine = true,
             enabled = !state.submitting,
-            isError = attempted && validation.email != null,
-            supportingText = if (attempted && validation.email != null) {
+            isError = showErrors && validation.email != null,
+            supportingText = if (showErrors && validation.email != null) {
                 { Text(stringRes(R.string.aichat__auth__error_email_invalid)) }
             } else {
                 null
@@ -123,9 +121,9 @@ private fun AuthForm(viewModel: AuthViewModel, state: AuthViewModel.State) {
         )
         if (state.isSignup) {
             OutlinedTextField(
-                value = displayName,
-                onValueChange = { displayName = it.take(AuthValidation.DISPLAY_NAME_MAX_LENGTH) },
-                modifier = Modifier.fillMaxWidth(),
+                value = state.displayName,
+                onValueChange = viewModel::setDisplayName,
+                modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.PersonFullName },
                 label = { Text(stringRes(R.string.aichat__auth__display_name)) },
                 singleLine = true,
                 enabled = !state.submitting,
@@ -133,25 +131,27 @@ private fun AuthForm(viewModel: AuthViewModel, state: AuthViewModel.State) {
             )
         }
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it; viewModel.clearError() },
-            modifier = Modifier.fillMaxWidth(),
+            value = state.password,
+            onValueChange = viewModel::setPassword,
+            modifier = Modifier.fillMaxWidth().semantics {
+                contentType = if (state.isSignup) ContentType.NewPassword else ContentType.Password
+            },
             label = { Text(stringRes(R.string.aichat__auth__password)) },
             singleLine = true,
             enabled = !state.submitting,
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = passwordTransformation,
             trailingIcon = {
-                IconButton(onClick = { showPassword = !showPassword }) {
+                IconButton(onClick = { viewModel.setShowPassword(!state.showPassword) }) {
                     Icon(
-                        imageVector = if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                        imageVector = if (state.showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                         contentDescription = stringRes(
-                            if (showPassword) R.string.aichat__auth__hide_password else R.string.aichat__auth__show_password,
+                            if (state.showPassword) R.string.aichat__auth__hide_password else R.string.aichat__auth__show_password,
                         ),
                     )
                 }
             },
-            isError = attempted && validation.password != null,
-            supportingText = passwordErrorText(attempted, validation.password),
+            isError = showErrors && validation.password != null,
+            supportingText = passwordErrorText(showErrors, validation.password),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
                 imeAction = if (state.isSignup) ImeAction.Next else ImeAction.Done,
@@ -159,15 +159,15 @@ private fun AuthForm(viewModel: AuthViewModel, state: AuthViewModel.State) {
         )
         if (state.isSignup) {
             OutlinedTextField(
-                value = confirm,
-                onValueChange = { confirm = it },
-                modifier = Modifier.fillMaxWidth(),
+                value = state.confirm,
+                onValueChange = viewModel::setConfirm,
+                modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.NewPassword },
                 label = { Text(stringRes(R.string.aichat__auth__password_confirm)) },
                 singleLine = true,
                 enabled = !state.submitting,
-                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                isError = attempted && validation.confirmMismatch,
-                supportingText = if (attempted && validation.confirmMismatch) {
+                visualTransformation = passwordTransformation,
+                isError = showErrors && validation.confirmMismatch,
+                supportingText = if (showErrors && validation.confirmMismatch) {
                     { Text(stringRes(R.string.aichat__auth__error_password_mismatch)) }
                 } else {
                     null
@@ -184,7 +184,7 @@ private fun AuthForm(viewModel: AuthViewModel, state: AuthViewModel.State) {
             )
         }
 
-        Button(onClick = submit, enabled = !state.submitting, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = viewModel::submit, enabled = !state.submitting, modifier = Modifier.fillMaxWidth()) {
             if (state.submitting) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             } else {
@@ -196,13 +196,29 @@ private fun AuthForm(viewModel: AuthViewModel, state: AuthViewModel.State) {
             }
         }
         TextButton(
-            onClick = { viewModel.toggleMode(); confirm = "" },
+            onClick = viewModel::toggleMode,
             enabled = !state.submitting,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringRes(if (state.isSignup) R.string.aichat__auth__to_login else R.string.aichat__auth__to_signup))
         }
     }
+}
+
+/** FLAG_SECURE while the credentials form is on screen: no screenshots, screen recording or recents thumbnail. */
+@Composable
+private fun SecureWindowWhileShown() {
+    val activity = LocalContext.current.findActivity() ?: return
+    DisposableEffect(activity) {
+        activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable
@@ -228,7 +244,8 @@ private fun passwordErrorText(
 @Composable
 private fun authErrorMessage(error: ApiError, isSignup: Boolean): String = when {
     !isSignup && error is ApiError.Unauthorized -> stringRes(R.string.aichat__auth__error_wrong_credentials)
-    isSignup && error is ApiError.Conflict -> stringRes(R.string.aichat__auth__error_email_taken)
+    // Deliberately generic: do not confirm that an account exists for this email.
+    isSignup && error is ApiError.Conflict -> stringRes(R.string.aichat__auth__error_signup_failed)
     else -> apiErrorMessage(error)
 }
 
@@ -237,6 +254,7 @@ private fun AccountDetails(viewModel: AccountViewModel) {
     val navController = LocalNavController.current
     val state by viewModel.state.collectAsState()
     var confirmOptIn by remember { mutableStateOf(false) }
+    var confirmOptOut by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
 
     val me = state.me
@@ -257,9 +275,23 @@ private fun AccountDetails(viewModel: AccountViewModel) {
     MemoryOptInRow(
         checked = me?.settings?.memoryOptIn ?: false,
         enabled = me != null && !state.savingOptIn,
-        onCheckedChange = { enabled -> if (enabled) confirmOptIn = true else viewModel.setMemoryOptIn(false) },
+        // Both directions need confirmation: turning it off deletes the keyboard-captured data server-side.
+        onCheckedChange = { enabled -> if (enabled) confirmOptIn = true else confirmOptOut = true },
     )
     state.optInError?.let { AiChatErrorText(it) }
+    state.optOutResult?.let { result ->
+        AiChatInfoText(
+            if (result.conversations != null && result.memories != null) {
+                stringRes(
+                    R.string.aichat__memory__opt_out_done_counts,
+                    "conversations" to result.conversations,
+                    "memories" to result.memories,
+                )
+            } else {
+                stringRes(R.string.aichat__memory__opt_out_done)
+            },
+        )
+    }
 
     Preference(
         icon = Icons.AutoMirrored.Outlined.Chat,
@@ -291,6 +323,16 @@ private fun AccountDetails(viewModel: AccountViewModel) {
             confirmLabel = stringRes(R.string.aichat__memory__opt_in_confirm_action),
             onConfirm = { confirmOptIn = false; viewModel.setMemoryOptIn(true) },
             onDismiss = { confirmOptIn = false },
+        )
+    }
+    if (confirmOptOut) {
+        // Cancel keeps memory on: the switch only reflects the server state, which is unchanged.
+        AiChatConfirmDialog(
+            title = stringRes(R.string.aichat__memory__opt_out_confirm_title),
+            message = stringRes(R.string.aichat__memory__opt_out_confirm_message),
+            confirmLabel = stringRes(R.string.aichat__memory__opt_out_confirm_action),
+            onConfirm = { confirmOptOut = false; viewModel.setMemoryOptIn(false) },
+            onDismiss = { confirmOptOut = false },
         )
     }
     if (confirmLogout) {

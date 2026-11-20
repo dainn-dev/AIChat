@@ -47,14 +47,17 @@ fun AiChatAccountPreference() {
     val navController = LocalNavController.current
     val context = LocalContext.current
     val client = remember { AiChat.client(context) }
-    val signedIn by client.isSignedIn.collectAsState(initial = false)
+    // null until the stored session has been read, so a signed-in user never sees a "signed out" flash.
+    val signedIn by client.isSignedIn.collectAsState(initial = null)
 
     Preference(
         icon = Icons.Outlined.AccountCircle,
         title = stringRes(R.string.aichat__account__title),
-        summary = stringRes(
-            if (signedIn) R.string.aichat__account__summary_signed_in else R.string.aichat__account__summary_signed_out,
-        ),
+        summary = when (signedIn) {
+            true -> stringRes(R.string.aichat__account__summary_signed_in)
+            false -> stringRes(R.string.aichat__account__summary_signed_out)
+            null -> null
+        },
         onClick = { navController.navigate(AiChatRoutes.Account) },
     )
 }

@@ -21,7 +21,7 @@ import com.aichat.keyboard.core.network.model.Memory
 import com.aichat.keyboard.core.network.model.PublicUser
 import com.aichat.keyboard.core.network.model.SignupRequest
 import com.aichat.keyboard.core.network.model.UpdateSettingsRequest
-import com.aichat.keyboard.core.network.model.UserSettings
+import com.aichat.keyboard.core.network.model.SettingsResponse
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -86,8 +86,12 @@ class AiChatClient internal constructor(
 
     suspend fun me(): ApiResult<MeResponse> = authed { api.me() }
 
-    suspend fun setMemoryOptIn(enabled: Boolean): ApiResult<UserSettings> =
-        authed { api.updateSettings(UpdateSettingsRequest(enabled)).settings }
+    /**
+     * `PATCH /me/settings`. Turning it off also deletes the keyboard-captured conversations and the memories
+     * learned only from them server-side; [SettingsResponse.deleted] reports the counts when the backend sends them.
+     */
+    suspend fun setMemoryOptIn(enabled: Boolean): ApiResult<SettingsResponse> =
+        authed { api.updateSettings(UpdateSettingsRequest(enabled)) }
 
     // -- Conversations and memories ---------------------------------------------------------------------------
 

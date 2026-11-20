@@ -22,7 +22,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-/** Localized, user-facing text for an [ApiError]. The server's English message is only shown as a detail. */
+/**
+ * Localized, user-facing text for an [ApiError]. Only our own strings are shown: never the server's message or an
+ * exception text, which are English, may leak internals, and are kept in [ApiError.message] for logs only.
+ */
 @Composable
 fun apiErrorMessage(error: ApiError): String = when (error) {
     is ApiError.Network -> stringRes(R.string.aichat__error__network)
@@ -33,12 +36,9 @@ fun apiErrorMessage(error: ApiError): String = when (error) {
         stringRes(R.string.aichat__error__quota)
     }
     is ApiError.Upstream -> stringRes(R.string.aichat__error__upstream)
-    is ApiError.Validation -> stringRes(
-        R.string.aichat__error__validation,
-        "message" to (error.fields.firstOrNull() ?: error.message),
-    )
+    is ApiError.Validation -> stringRes(R.string.aichat__error__validation)
     is ApiError.NotFound -> stringRes(R.string.aichat__error__not_found)
-    is ApiError.Conflict, is ApiError.Unknown -> stringRes(R.string.aichat__error__unknown, "message" to error.message)
+    is ApiError.Conflict, is ApiError.Unknown -> stringRes(R.string.aichat__error__unknown)
 }
 
 @Composable

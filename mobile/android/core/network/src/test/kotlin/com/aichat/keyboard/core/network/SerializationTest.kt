@@ -16,6 +16,7 @@ import com.aichat.keyboard.core.network.model.MeResponse
 import com.aichat.keyboard.core.network.model.Memory
 import com.aichat.keyboard.core.network.model.MessageSender
 import com.aichat.keyboard.core.network.model.OutputLang
+import com.aichat.keyboard.core.network.model.SettingsResponse
 import com.aichat.keyboard.core.network.model.SignupRequest
 import com.aichat.keyboard.core.network.model.Tier
 import com.aichat.keyboard.core.network.model.Tone
@@ -170,6 +171,20 @@ class SerializationTest {
         assertEquals(0.92, memories[0].confidence)
         assertNull(memories[1].contactLabel)
         assertEquals("pending_review", memories[1].status)
+    }
+
+    @Test
+    fun `settings response decodes with and without the optional deleted counts`() {
+        val plain = json.decodeFromString(SettingsResponse.serializer(), """{"settings":{"memory_opt_in":true}}""")
+        assertNull(plain.deleted)
+
+        val withCounts = json.decodeFromString(
+            SettingsResponse.serializer(),
+            """{"settings":{"memory_opt_in":false},"deleted":{"conversations":3,"memories":5}}""",
+        )
+        assertFalse(withCounts.settings.memoryOptIn)
+        assertEquals(3, withCounts.deleted?.conversations)
+        assertEquals(5, withCounts.deleted?.memories)
     }
 
     @Test

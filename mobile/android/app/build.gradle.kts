@@ -231,6 +231,9 @@ dependencies {
 
     testImplementation(libs.kotlin.test.junit5)
     androidTestImplementation(libs.androidx.test.ext)
+    // AIChat MODIFIED: AIChat ViewModel tests (Main dispatcher + MockWebServer-backed AiChatClient).
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.squareup.okhttp.mockwebserver)
     androidTestImplementation(libs.androidx.test.espresso.core)
 }
 

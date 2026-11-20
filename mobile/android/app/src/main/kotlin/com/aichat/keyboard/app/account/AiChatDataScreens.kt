@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,7 @@ import com.aichat.keyboard.core.network.AiChat
 import com.aichat.keyboard.core.network.model.ConversationSummary
 import com.aichat.keyboard.core.network.model.Memory
 import dev.patrickgold.florisboard.R
+import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import org.florisboard.lib.compose.stringRes
 
@@ -43,6 +45,7 @@ fun AiChatConversationsScreen() = FlorisScreen {
     val context = LocalContext.current
     val viewModel: ConversationsViewModel = viewModel { ConversationsViewModel(AiChat.client(context)) }
     val state by viewModel.state.collectAsState()
+    PopBackOnSignOut(state.signedOut)
     var pendingDelete by remember { mutableStateOf<ConversationSummary?>(null) }
 
     content {
@@ -94,6 +97,7 @@ fun AiChatMemoriesScreen() = FlorisScreen {
     val context = LocalContext.current
     val viewModel: MemoriesViewModel = viewModel { MemoriesViewModel(AiChat.client(context)) }
     val state by viewModel.state.collectAsState()
+    PopBackOnSignOut(state.signedOut)
     var pendingDelete by remember { mutableStateOf<Memory?>(null) }
 
     content {
@@ -124,6 +128,15 @@ fun AiChatMemoriesScreen() = FlorisScreen {
             onConfirm = { pendingDelete = null; viewModel.delete(memory.id) },
             onDismiss = { pendingDelete = null },
         )
+    }
+}
+
+/** Forced sign-out: leave the data screen. The account screen underneath shows the sign-in form. */
+@Composable
+private fun PopBackOnSignOut(signedOut: Boolean) {
+    val navController = LocalNavController.current
+    LaunchedEffect(signedOut) {
+        if (signedOut) navController.popBackStack()
     }
 }
 

@@ -121,9 +121,21 @@ data class UpdateSettingsRequest(
     @SerialName("memory_opt_in") val memoryOptIn: Boolean,
 )
 
+/**
+ * Response of `PATCH /me/settings`. Turning `memory_opt_in` off deletes every keyboard-captured conversation and
+ * the memories learned only from them (screenshot/share data is untouched); [deleted] then reports what was
+ * removed. Optional, so responses from backends that do not send it still decode.
+ */
 @Serializable
 data class SettingsResponse(
     val settings: UserSettings,
+    val deleted: DeletedCounts? = null,
+)
+
+@Serializable
+data class DeletedCounts(
+    val conversations: Int = 0,
+    val memories: Int = 0,
 )
 
 // ---------------------------------------------------------------------------------------------------------------

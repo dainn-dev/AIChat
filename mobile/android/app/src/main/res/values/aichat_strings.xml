@@ -29,7 +29,7 @@
     <string name="aichat__auth__error_password_long">The password must be at most {max} characters.</string>
     <string name="aichat__auth__error_password_mismatch">The passwords do not match.</string>
     <string name="aichat__auth__error_wrong_credentials">Wrong email or password.</string>
-    <string name="aichat__auth__error_email_taken">An account with this email already exists.</string>
+    <string name="aichat__auth__error_signup_failed">Could not create the account. If you already have one, sign in instead.</string>
 
     <!-- Account screen -->
     <string name="aichat__account__email">Email</string>
@@ -48,9 +48,14 @@
 
     <!-- Memory opt-in -->
     <string name="aichat__memory__opt_in_title">Allow AIChat to remember</string>
-    <string name="aichat__memory__opt_in_disclosure">When this is on, the chat text the keyboard reads to make suggestions, including messages written by the other people in the chat, is sent to and stored on the AIChat server. AIChat uses it to build memories (for example a contact\'s birthday or interests) so suggestions fit better. You can delete stored chats and memories at any time below. Turning this off stops new storage; data already stored stays until you delete it.</string>
+    <string name="aichat__memory__opt_in_disclosure">When this is on, the chat text the keyboard reads to make suggestions, including messages written by the other people in the chat, is sent to the AIChat server, processed by an external AI provider, and stored to build memories (for example a contact\'s birthday or interests) so suggestions fit better. Sensitive information is filtered out automatically, but the filter is not perfect. Stored chats and memories are kept until you delete them, and you can delete them at any time below. Turning this off deletes the chats captured by the keyboard and the memories learned only from them.</string>
     <string name="aichat__memory__opt_in_confirm_title">Turn on memory?</string>
     <string name="aichat__memory__opt_in_confirm_action">Turn on</string>
+    <string name="aichat__memory__opt_out_confirm_title">Turn off memory?</string>
+    <string name="aichat__memory__opt_out_confirm_message">This permanently deletes all conversations captured by the keyboard and the memories learned only from them. Data from screenshots and the share menu is not affected. The keyboard stops storing new chats.</string>
+    <string name="aichat__memory__opt_out_confirm_action">Turn off and delete</string>
+    <string name="aichat__memory__opt_out_done">Memory is off. The conversations saved by the keyboard were deleted.</string>
+    <string name="aichat__memory__opt_out_done_counts">Memory is off. Deleted {conversations} conversations and {memories} memories.</string>
 
     <!-- Conversations -->
     <string name="aichat__conversations__title">Saved conversations</string>
@@ -60,7 +65,7 @@
     <string name="aichat__conversations__item_details">{platform} · {count} messages · {updated}</string>
     <string name="aichat__conversations__load_more">Load more</string>
     <string name="aichat__conversations__delete_title">Delete this conversation?</string>
-    <string name="aichat__conversations__delete_message">The conversation, its messages and the memories learned from it are permanently deleted from the server. If memory stays on, new messages from this chat can be stored again.</string>
+    <string name="aichat__conversations__delete_message">The conversation, its messages and the memories learned only from it are permanently deleted from the server. If memory stays on, new messages from this chat can be stored again.</string>
 
     <!-- Memories -->
     <string name="aichat__memories__title">Memories</string>
@@ -87,7 +92,7 @@
     <string name="aichat__error__quota">You have reached today\'s limit.</string>
     <string name="aichat__error__quota_with_limit">You have used all {limit} of today\'s AI replies.</string>
     <string name="aichat__error__upstream">The AI service is busy. Try again in a moment.</string>
-    <string name="aichat__error__validation">The server rejected the request: {message}</string>
+    <string name="aichat__error__validation">The server could not accept this request. Check the details and try again.</string>
     <string name="aichat__error__not_found">It no longer exists.</string>
-    <string name="aichat__error__unknown">Something went wrong ({message}).</string>
+    <string name="aichat__error__unknown">Something went wrong. Please try again.</string>
 </resources>
