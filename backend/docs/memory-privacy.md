@@ -147,13 +147,18 @@ categories) before sign-off.
   recent `EXTRACTION_MAX_MESSAGES` (200) messages, further trimmed from the
   oldest end to `EXTRACTION_MAX_CHARS` (20 000) characters, are sent to the
   extractor, so per-run LLM cost is bounded however long a conversation grows.
-- **Per-conversation retention cap (keyboard):** a keyboard conversation keeps
-  only its newest `MAX_STORED_MESSAGES_PER_CONVERSATION` (2 000) messages. Older
-  ones are hard-deleted on the next append (rolling window). Memories already
-  extracted from dropped messages stay, linked to the conversation via
-  `memory_sources`. Screenshot/share conversations are bounded per upload
-  (≤ 200 messages each) but not capped in total. That is left for the
-  retention-policy decision in §4.
+- **Per-conversation retention cap (all sources):** every conversation
+  (keyboard, screenshot, share) keeps only its newest
+  `MAX_STORED_MESSAGES_PER_CONVERSATION` (2 000) messages. Older ones are
+  hard-deleted on the next append (rolling window), in the append transaction:
+  keyboard capture via `ConversationsService`, screenshot/share ingest
+  (including appends to an existing `conversation_id`) via
+  `ScreenshotsService`, which locks the conversation `FOR UPDATE` before it
+  appends. Positions are never renumbered, so order is preserved. Memories
+  already extracted from dropped messages stay, linked to the conversation via
+  `memory_sources`. The cap covers `messages` only: each `screenshots` row
+  still keeps its own `ocr_text` until the screenshot or its conversation is
+  deleted.
 - **Batching**: embeddings for a conversation's facts are sent in one batch
   (`embedBatch`); rapid updates to a conversation debounce to a single queued job.
 
@@ -167,6 +172,9 @@ Proposed defaults for review:
   auto-dismissed.
 - `superseded`/`dismissed` rows retained **M days** (proposed 30) for audit, then
   purged by a retention sweep (not yet scheduled — depends on the chosen value).
+
+**Decided:** stored messages are capped at 2 000 per conversation for every
+source (keyboard, screenshot, share), with the oldest dropped on append (§3).
 
 **Decision required:** N, M, and whether a scheduled retention job is in Phase-2
 scope or deferred.

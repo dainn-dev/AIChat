@@ -60,4 +60,6 @@ Response `200`:
   is fully exercisable without an `LLM_API_KEY`; with a key the same endpoint
   calls the real provider — no client change.
 - This composes the existing WS-5 ingest + analyze; persistence, quota, and the
-  retention policy are shared with `POST /screenshots`.
+  retention policy are shared with `POST /screenshots`, including the
+  per-conversation cap: a conversation keeps only its newest 2 000 messages,
+  and appending past that drops the oldest (`docs/memory-privacy.md` §3).

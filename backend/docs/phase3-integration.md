@@ -76,6 +76,8 @@ Response `200`:
 - Tagged `source: "share"` server-side (analytics/quota). The client does **not**
   send `source`.
 - Append to an existing thread by passing `conversation_id` from a prior call.
+  A conversation keeps only its newest 2 000 messages; older ones are dropped
+  on append, so `analyze` and memory extraction only ever see that window.
 
 ## DAI-135 (P3-WS-E) — Quota / error UX
 

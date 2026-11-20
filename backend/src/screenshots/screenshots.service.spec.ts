@@ -9,6 +9,7 @@ import { UsageService } from '../usage/usage.service';
 import { CreateScreenshotDto } from './dto/create-screenshot.dto';
 import { OcrFailedException } from './exceptions/ocr-failed.exception';
 import { ScreenshotsService } from './screenshots.service';
+import { MAX_STORED_MESSAGES_PER_CONVERSATION } from '../conversations/message-retention';
 
 const USER = 'user-1';
 const USAGE = {
@@ -154,11 +155,16 @@ describe('ScreenshotsService', () => {
     it('appends to an owned conversation and 404s on an unowned one', async () => {
       // Ownership check passes, then persist runs.
       dataSourceQuery.mockResolvedValueOnce([{ id: 'conv-9' }]);
-      queueManager([{ next: 4 }], [], [{ id: 'shot-2' }]);
+      queueManager([{ id: 'conv-9' }], [{ next: 4 }], [], [{ id: 'shot-2' }]);
 
       const dto = { ...validDto(), conversation_id: 'conv-9' };
       const res = await service.ingest(USER, Tier.Free, dto);
       expect(res.conversation_id).toBe('conv-9');
+      // Re-checked and locked inside the transaction before appending.
+      expect(managerQuery.mock.calls[0]).toEqual([
+        expect.stringMatching(/FROM conversations .*FOR UPDATE/s),
+        ['conv-9', USER],
+      ]);
 
       // Unowned conversation → 404, no quota reserved.
       dataSourceQuery.mockResolvedValueOnce([]);
@@ -170,6 +176,62 @@ describe('ScreenshotsService', () => {
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(usage.runWithQuota).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ingest retention cap (security M4)', () => {
+    const trimCall = () =>
+      managerQuery.mock.calls.find(([sql]) =>
+        /DELETE FROM messages WHERE conversation_id = \$1 AND position <=/.test(
+          sql as string,
+        ),
+      );
+
+    it('drops the oldest messages once an append passes MAX_STORED_MESSAGES_PER_CONVERSATION', async () => {
+      dataSourceQuery.mockResolvedValueOnce([{ id: 'conv-9' }]);
+      // Positions 0..1999 stored; the 2 new messages get 2000 and 2001.
+      queueManager(
+        [{ id: 'conv-9' }],
+        [{ next: MAX_STORED_MESSAGES_PER_CONVERSATION }],
+        [],
+        [],
+        [{ id: 'shot-3' }],
+      );
+      await service.ingest(USER, Tier.Free, {
+        ...validDto(),
+        conversation_id: 'conv-9',
+      });
+      // Keeps positions 2..2001 (the newest 2,000).
+      expect(trimCall()?.[1]).toEqual(['conv-9', 1]);
+      const order = managerQuery.mock.calls.map(([sql]) =>
+        /INSERT INTO messages/.test(sql as string)
+          ? 'insert'
+          : /DELETE FROM messages/.test(sql as string)
+            ? 'trim'
+            : /INSERT INTO screenshots/.test(sql as string)
+              ? 'screenshot'
+              : 'other',
+      );
+      expect(order).toEqual(['other', 'other', 'insert', 'trim', 'screenshot']);
+    });
+
+    it('does not trim while the conversation stays within the cap', async () => {
+      // New conversation: positions 0 and 1 only.
+      queueManager([{ id: 'conv-new' }], [{ next: 0 }], [], [{ id: 'shot-4' }]);
+      await service.ingest(USER, Tier.Free, validDto());
+      expect(trimCall()).toBeUndefined();
+    });
+
+    it('404s (inside the transaction) when the conversation was erased after the ownership pre-check', async () => {
+      dataSourceQuery.mockResolvedValueOnce([{ id: 'conv-9' }]);
+      queueManager([]); // FOR UPDATE re-check finds nothing
+      await expect(
+        service.ingest(USER, Tier.Free, {
+          ...validDto(),
+          conversation_id: 'conv-9',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(managerQuery).toHaveBeenCalledTimes(1);
     });
   });
 
