@@ -10,6 +10,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { MEMORY_EXTRACTION_QUEUE, MemoryQueue } from '../memory/memory-queue';
 import { MergeableMessage, messagesToAppend } from './conversation-merge';
 import { ConversationErasureService } from './conversation-erasure.service';
+import { retryOnceOnDeadlock } from '../common/pg-errors';
 import {
   MAX_STORED_MESSAGES_PER_CONVERSATION,
   enforceMessageRetention,
@@ -195,23 +196,26 @@ export class ConversationsService {
    * `ON DELETE CASCADE`; screenshots and now-unsourced extracted memories are
    * removed explicitly because their FK/ref would otherwise keep the content.
    * The `FOR UPDATE` lock serializes with an in-flight extraction write, which
-   * holds the row `FOR SHARE` (see MemoryWriterService).
+   * holds the row `FOR SHARE` (see MemoryWriterService). Retried once if
+   * Postgres aborts the transaction as a deadlock victim.
    */
   async remove(userId: string, conversationId: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      const owned = await this.erasure.lockOwnedConversation(
-        manager,
-        userId,
-        conversationId,
-      );
-      if (!owned) {
-        throw new NotFoundException({
-          code: 'CONVERSATION_NOT_FOUND',
-          message: 'Conversation not found.',
-        });
-      }
-      await this.erasure.eraseLocked(manager, userId, [conversationId]);
-    });
+    await retryOnceOnDeadlock(() =>
+      this.dataSource.transaction(async (manager) => {
+        const owned = await this.erasure.lockOwnedConversation(
+          manager,
+          userId,
+          conversationId,
+        );
+        if (!owned) {
+          throw new NotFoundException({
+            code: 'CONVERSATION_NOT_FOUND',
+            message: 'Conversation not found.',
+          });
+        }
+        await this.erasure.eraseLocked(manager, userId, [conversationId]);
+      }),
+    );
   }
 
   /**

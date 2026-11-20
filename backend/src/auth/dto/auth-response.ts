@@ -63,9 +63,9 @@ export interface MeResponse {
 }
 
 /**
- * Response for `PATCH /me/settings`. `deleted` is present only when the
- * request turned `memory_opt_in` from true to false and the keyboard-data
- * purge ran (counts may be 0).
+ * Response for `PATCH /me/settings`. `deleted` is present whenever the
+ * request set `memory_opt_in: false` (the keyboard-data purge always runs
+ * then; counts may be 0) and absent for `memory_opt_in: true`.
  */
 export interface SettingsResponse {
   settings: UserSettingsView;

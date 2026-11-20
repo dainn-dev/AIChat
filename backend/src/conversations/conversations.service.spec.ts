@@ -324,6 +324,17 @@ describe('ConversationsService.persistKeyboardCapture — best effort', () => {
 });
 
 describe('ConversationsService.remove (erasure)', () => {
+  it('retries the whole delete transaction once on a deadlock (40P01)', async () => {
+    const { service, dataSource } = build({ ownedForDelete: true });
+    const real = dataSource.transaction.getMockImplementation()!;
+    dataSource.transaction.mockImplementationOnce(async () => {
+      throw Object.assign(new Error('deadlock'), { code: '40P01' });
+    });
+    dataSource.transaction.mockImplementation(real);
+    await service.remove('user-1', 'conv-1');
+    expect(dataSource.transaction).toHaveBeenCalledTimes(2);
+  });
+
   it('404s when the conversation is missing or owned by someone else', async () => {
     const { service, calls } = build({ ownedForDelete: false });
     await expect(service.remove('user-2', 'conv-1')).rejects.toBeInstanceOf(

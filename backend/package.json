@@ -22,7 +22,9 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "purge:legacy-optout": "ts-node src/scripts/purge-legacy-optout.ts",
+    "purge:legacy-optout:prod": "node dist/scripts/purge-legacy-optout.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.665.0",

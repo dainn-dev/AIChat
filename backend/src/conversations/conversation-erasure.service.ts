@@ -16,8 +16,18 @@ export interface KeyboardPurgeCounts {
 export const PURGE_BATCH_SIZE = 100;
 
 /**
- * Conversation erasure shared by `DELETE /conversations/:id` and the
- * keyboard opt-out purge (`PATCH /me/settings`, memory_opt_in true → false).
+ * Per-transaction bounds for a keyboard purge (security M2). `SET LOCAL`
+ * scopes them to the purge transaction only. A user with a lot of keyboard
+ * data, or a long lock wait, fails fast (the transaction rolls back, nothing
+ * changes) instead of holding row locks open indefinitely.
+ */
+export const PURGE_LOCK_TIMEOUT_MS = 5_000;
+export const PURGE_STATEMENT_TIMEOUT_MS = 30_000;
+
+/**
+ * Conversation erasure shared by `DELETE /conversations/:id`, the keyboard
+ * opt-out purge (`PATCH /me/settings` with memory_opt_in false), and the
+ * one-off legacy opt-out backfill (`npm run purge:legacy-optout`).
  *
  * Every method runs inside the caller's transaction (`manager`) so callers
  * own atomicity and lock order. Lock order is always
@@ -49,6 +59,20 @@ export class ConversationErasureService {
   }
 
   /**
+   * Apply {@link PURGE_LOCK_TIMEOUT_MS} / {@link PURGE_STATEMENT_TIMEOUT_MS}
+   * to the current transaction. Call first, before taking any lock.
+   */
+  async applyPurgeTimeouts(manager: EntityManager): Promise<void> {
+    // SET does not take bind parameters; the values are numeric constants.
+    await manager.query(
+      `SET LOCAL lock_timeout = '${PURGE_LOCK_TIMEOUT_MS}ms'`,
+    );
+    await manager.query(
+      `SET LOCAL statement_timeout = '${PURGE_STATEMENT_TIMEOUT_MS}ms'`,
+    );
+  }
+
+  /**
    * Opt-out purge: erase EVERY keyboard-captured conversation of the user
    * (`source = 'keyboard'`) exactly as per-conversation erasure does.
    * Screenshot/share/app conversations are untouched. The caller must already
@@ -56,8 +80,9 @@ export class ConversationErasureService {
    *
    * All keyboard conversations are locked up front, in id order, then erased
    * in batches of {@link PURGE_BATCH_SIZE}. Batching is still exact: a memory
-   * backed by conversations in two batches survives the first (re-pointed to
-   * the remaining source) and is deleted by the second.
+   * backed by conversations in two batches survives the first (its remaining
+   * link is in the second) and is deleted by the second. Survivors'
+   * `source_ref`s are re-pointed once, after the last batch.
    */
   async purgeKeyboardConversations(
     manager: EntityManager,
@@ -71,14 +96,16 @@ export class ConversationErasureService {
       [userId],
     );
     const ids = locked.map((r) => r.id);
+    if (ids.length === 0) return { conversations: 0, memories: 0 };
     let memories = 0;
     for (let i = 0; i < ids.length; i += PURGE_BATCH_SIZE) {
-      memories += await this.eraseLocked(
+      memories += await this.eraseBatch(
         manager,
         userId,
         ids.slice(i, i + PURGE_BATCH_SIZE),
       );
     }
+    await this.repointSourceRefs(manager, userId, ids);
     return { conversations: ids.length, memories };
   }
 
@@ -101,6 +128,22 @@ export class ConversationErasureService {
     conversationIds: readonly string[],
   ): Promise<number> {
     if (conversationIds.length === 0) return 0;
+    const deleted = await this.eraseBatch(manager, userId, conversationIds);
+    await this.repointSourceRefs(manager, userId, conversationIds);
+    return deleted;
+  }
+
+  /**
+   * {@link eraseLocked} without the final `source_ref` re-point. A legacy
+   * memory (no links) is matched on `source_ref` in the batch holding its
+   * conversation, which stays correct while earlier batches' refs have not
+   * been re-pointed yet.
+   */
+  private async eraseBatch(
+    manager: EntityManager,
+    userId: string,
+    conversationIds: readonly string[],
+  ): Promise<number> {
     const ids = [...conversationIds];
     const sourceRefs = ids.map((id) => `conversation:${id}`);
 
@@ -135,7 +178,20 @@ export class ConversationErasureService {
       `DELETE FROM conversations WHERE user_id = $1 AND id = ANY($2::uuid[])`,
       [userId, ids],
     );
-    // Links cascaded above, so the earliest remaining link is a survivor.
+    return doomedIds.length;
+  }
+
+  /**
+   * Re-point surviving memories whose `source_ref` named an erased
+   * conversation to their earliest remaining source. Links to erased
+   * conversations already cascaded, so any remaining link is a survivor.
+   */
+  private async repointSourceRefs(
+    manager: EntityManager,
+    userId: string,
+    erasedIds: readonly string[],
+  ): Promise<void> {
+    const sourceRefs = erasedIds.map((id) => `conversation:${id}`);
     await manager.query(
       `UPDATE memories m
           SET source_ref = 'conversation:' || (
@@ -147,7 +203,6 @@ export class ConversationErasureService {
           AND EXISTS (SELECT 1 FROM memory_sources s WHERE s.memory_id = m.id)`,
       [userId, sourceRefs],
     );
-    return doomedIds.length;
   }
 
   /** Extracted memories with no source left once `ids` go, locked FOR UPDATE. */

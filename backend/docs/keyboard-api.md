@@ -160,20 +160,23 @@ These live outside `/v1/keyboard` but gate/undo keyboard storage. Both need
 → `200 { "settings": { "memory_opt_in": true } }`. `memory_opt_in` is required
 and must be a JSON boolean; unknown fields → `400`.
 
-Turning it **off** (stored `true` → `false`) stops future storage **and**
-hard-deletes, atomically with the flag change, every keyboard-captured
-conversation (`source: "keyboard"`), its messages, and the memories extracted
-only from keyboard conversations. Screenshot/share conversations and manual
-memories are kept. That response also reports what was erased:
+Sending `false` stops future storage **and** hard-deletes, atomically with the
+flag change, every keyboard-captured conversation (`source: "keyboard"`), its
+messages, and the memories extracted only from keyboard conversations. It
+does this on **every** `false` request, even if the setting was already off,
+so it is safe to repeat. Screenshot/share conversations and manual memories
+are kept. The response reports what was erased:
 ```json
 { "settings": { "memory_opt_in": false },
   "deleted": { "conversations": 3, "memories": 5 } }
 ```
-`deleted` is present only when that purge ran (counts may be `0`). Every
-other transition (`false → false`, `false → true`, `true → true`) deletes
-nothing and omits `deleted`. Turning it back on does not restore anything, so
-the client should confirm before sending `false` ("This will erase chats
-remembered from the keyboard"). See `docs/memory-privacy.md` §1.1.
+`deleted` is present on every `false` response (counts may be `0`) and absent
+when sending `true`, which never deletes anything. Turning it back on does not
+restore anything, so the client should confirm before sending `false` ("This
+will erase chats remembered from the keyboard"). If the erase can't finish in
+time, the request fails with `503 ERASURE_TIMEOUT`, nothing has changed (the
+setting is still on), and the client should retry. See
+`docs/memory-privacy.md` §1.1.
 
 **`GET /conversations?limit=20&offset=0`** → `200`
 ```json

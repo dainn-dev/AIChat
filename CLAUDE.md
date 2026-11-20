@@ -30,7 +30,11 @@ USAGE_DB_TEST=1 npm test -- usage.service.integration   # DB-gated concurrency t
 
 npm run migration:generate -- src/database/migrations/<Name>
 npm run migration:revert
+
+npm run purge:legacy-optout      # ONE-OFF deploy step (opt-out erasure release); `:prod` variant runs dist/
 ```
+
+**Deploy step (opt-out erasure release):** run `npm run purge:legacy-optout` (or `npm run purge:legacy-optout:prod` from a built image) once after deploying. It erases keyboard conversations and keyboard-only memories of users who opted out before opt-out deleted anything. It is idempotent and logs counts only; re-run it until `failed=0`. See `backend/docs/memory-privacy.md` §1.1.
 
 CI order: lint → typecheck → build → unit → migrations → it checks that the `vector` extension exists and that a Top-K cosine query plans onto `idx_memories_embedding_hnsw` → e2e. Only `ai.e2e-spec.ts` and `keyboard-phase0-contract.e2e-spec.ts` build a minimal `TestingModule` with no DB (the latter mounts real controllers + `JwtAuthGuard` over mocked services to pin request validation). Every spec that imports `AppModule` (`auth`, `health`, `keyboard`, `keyboard-memory`, memory, screenshot, share) needs a migrated Postgres.
 
@@ -69,7 +73,7 @@ Tests and local dev run on the stubs, so they never need an API key. New provide
 - **Conversation source**: `conversations.source` (`content_source`, migration `ConversationSource1718800000000`) records the creating surface. Screenshots set `ocr`, Share sets `share` (via `ScreenshotsService.ingest(..., source)`), and the keyboard sets `keyboard`. Set it on every new conversation insert.
 - **Cost bounds**: extraction reads at most `EXTRACTION_MAX_MESSAGES` (200) recent messages / `EXTRACTION_MAX_CHARS` (20k) (`memory/extraction-window.ts`). Every conversation (keyboard, screenshot, share) keeps a rolling `MAX_STORED_MESSAGES_PER_CONVERSATION` (2000), enforced in the append transaction via `conversations/message-retention.ts`.
 - **Supersede**: the writer inserts first, then marks older contradictory singular facts `superseded` with `superseded_by = <new id>`. Erasing the superseding memory (conversation erasure or `DELETE /memories/:id`) reactivates them.
-- **Opt-out at read time**: `PgVectorMemoryRetriever.OPT_OUT_FILTER` excludes extracted memories whose only `memory_sources` are keyboard conversations while the owner has `memory_opt_in = false`. Nothing is deleted on opt-out.
+- **Opt-out at read time**: `PgVectorMemoryRetriever.OPT_OUT_FILTER` excludes extracted memories whose only `memory_sources` are keyboard conversations while the owner has `memory_opt_in = false`. This is defence in depth: every `PATCH /me/settings { memory_opt_in: false }` purges keyboard conversations and keyboard-only memories in one bounded transaction (`ConversationErasureService.purgeKeyboardConversations`, also used by the legacy backfill), so normally nothing is left to filter.
 - **Opt-in**: `users.memory_opt_in` (default false, migration `UserMemoryOptIn1718700000000`) gates keyboard capture storage only. Screenshot/share ingestion is not gated by it.
 
 **Database**: TypeORM, `synchronize: false`. Every schema change must be a migration in `src/database/migrations/`. Entities are auto-discovered by the `**/*.entity.ts` glob. `data-source-options.ts` is shared by the runtime and the migration CLI (`data-source.ts`). The migrations glob excludes `*.spec.ts`, so you can colocate migration specs. Migrations run inside a transaction, so `CREATE INDEX` is non-concurrent (it locks writes on the table while it builds). That is fine at current table sizes. For a large hot table, ship the index in a separate migration with `transaction = false` and `CREATE INDEX CONCURRENTLY`. The Phase 0 migrations (`ConversationSource`, `MemorySources`, `MemorySupersededBy`) use plain `CREATE INDEX` on purpose. The embedding dimension (`EMBEDDING_DIMENSIONS`, default 1536) must match the `memories.embedding vector(N)` column.

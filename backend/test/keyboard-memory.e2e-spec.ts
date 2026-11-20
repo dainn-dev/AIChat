@@ -7,6 +7,11 @@ import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter
 import { MemoryExtractionService } from '../src/memory/memory-extraction.service';
 import { MemoryWriterService } from '../src/memory/memory-writer.service';
 import {
+  ConversationErasureService,
+  PURGE_BATCH_SIZE,
+} from '../src/conversations/conversation-erasure.service';
+import { LegacyOptOutPurgeService } from '../src/conversations/legacy-optout-purge.service';
+import {
   MEMORY_RETRIEVER,
   MemoryRetriever,
 } from '../src/ai/memory/memory-retriever.interface';
@@ -19,8 +24,9 @@ import {
  *  - overlapping captures merge without duplicates (source = 'keyboard');
  *  - DELETE /conversations/:id is owner-scoped (404 for others, no IDOR) and
  *    erases messages + memories sourced from the conversation;
- *  - opting out (true -> false) purges every keyboard conversation and the
- *    memories only they backed, in the same transaction as the flag change.
+ *  - every memory_opt_in:false purges every keyboard conversation and the
+ *    memories only they backed, in the same transaction as the flag change
+ *    (batched; the one-off legacy backfill uses the same purge).
  */
 describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
   let app: INestApplication;
@@ -697,31 +703,176 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       expect(await storedMessages(otherKb)).toHaveLength(1);
     });
 
-    it('opt-out is the only transition that purges (false -> false, false -> true, true -> true)', async () => {
+    it('every memory_opt_in:false purges (idempotent, incl. legacy false -> false); true never does', async () => {
       const { token, userId } = await signup();
+      // A keyboard conversation of a user who is (still) opted out: what a
+      // user who opted out under the old, non-erasing behaviour looks like.
       const kb = await createConversation(userId, HIKING, 'keyboard');
 
-      for (const value of [false, true, true]) {
-        const res = await http()
+      const patch = (value: boolean) =>
+        http()
           .patch('/me/settings')
           .set(auth(token))
           .send({ memory_opt_in: value });
-        expect(res.status).toBe(200);
-        expect(res.body).toEqual({ settings: { memory_opt_in: value } });
-        expect(await storedMessages(kb)).toHaveLength(1);
-      }
 
-      // Repeated opt-out: the second one finds nothing to purge.
-      const first = await http()
+      const legacy = await patch(false); // false -> false
+      expect(legacy.status).toBe(200);
+      expect(legacy.body).toEqual({
+        settings: { memory_opt_in: false },
+        deleted: { conversations: 1, memories: 0 },
+      });
+      expect(await storedMessages(kb)).toHaveLength(0);
+
+      const again = await patch(false); // nothing left: counts 0
+      expect(again.body).toEqual({
+        settings: { memory_opt_in: false },
+        deleted: { conversations: 0, memories: 0 },
+      });
+
+      const kb2 = await createConversation(userId, HIKING, 'keyboard');
+      for (const res of [await patch(true), await patch(true)]) {
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ settings: { memory_opt_in: true } });
+      }
+      expect(await storedMessages(kb2)).toHaveLength(1);
+    });
+
+    it(`purges more than PURGE_BATCH_SIZE (${PURGE_BATCH_SIZE}) conversations; a memory spanning two batches is erased, a shared one is re-pointed`, async () => {
+      const { token, userId } = await signup();
+      const n = PURGE_BATCH_SIZE + 5;
+      const kbIds: string[] = [];
+      for (let i = 0; i < n; i++) {
+        kbIds.push(await createConversation(userId, `kb ${i}`, 'keyboard'));
+      }
+      kbIds.sort(); // the purge batches in id order
+      const firstBatch = kbIds[0];
+      const secondBatch = kbIds[n - 1];
+      const ocr = await createConversation(userId, HIKING, 'ocr');
+
+      const memory = async (
+        content: string,
+        sourceRef: string,
+        links: string[],
+      ): Promise<string> => {
+        const [row] = await ds.query(
+          `INSERT INTO memories (user_id, contact_label, kind, content, source, source_ref, status)
+           VALUES ($1, 'Alex', 'interest', $2, 'extracted', $3, 'active')
+           RETURNING id`,
+          [userId, content, sourceRef],
+        );
+        for (const conv of links) {
+          await ds.query(
+            `INSERT INTO memory_sources (memory_id, conversation_id) VALUES ($1, $2)`,
+            [row.id, conv],
+          );
+        }
+        return row.id as string;
+      };
+      // Backed only by keyboard conversations in batch 1 AND batch 2.
+      const crossBatch = await memory(
+        'spans two batches',
+        `conversation:${firstBatch}`,
+        [firstBatch, secondBatch],
+      );
+      // Legacy row (no links) whose only source is in batch 2.
+      const legacy = await memory(
+        'legacy batch two',
+        `conversation:${secondBatch}`,
+        [],
+      );
+      // Keyboard (batch 1) + OCR: survives, re-pointed to the OCR source.
+      const shared = await memory(
+        'shared with ocr',
+        `conversation:${firstBatch}`,
+        [firstBatch, ocr],
+      );
+
+      await optIn(token, true);
+      const res = await http()
         .patch('/me/settings')
         .set(auth(token))
         .send({ memory_opt_in: false });
-      expect(first.body.deleted).toEqual({ conversations: 1, memories: 0 });
-      const again = await http()
-        .patch('/me/settings')
-        .set(auth(token))
-        .send({ memory_opt_in: false });
-      expect(again.body).toEqual({ settings: { memory_opt_in: false } });
+      expect(res.status).toBe(200);
+      expect(res.body.deleted).toEqual({ conversations: n, memories: 2 });
+
+      const left = await memoriesOf(userId);
+      expect(left.map((m) => m.id)).toEqual([shared]);
+      expect(left[0].sources).toEqual([ocr]);
+      expect(left[0].source_ref).toBe(`conversation:${ocr}`);
+      expect(left.find((m) => m.id === crossBatch || m.id === legacy)).toBe(
+        undefined,
+      );
+      const convs: Array<{ id: string }> = await ds.query(
+        `SELECT id FROM conversations WHERE user_id = $1`,
+        [userId],
+      );
+      expect(convs.map((c) => c.id)).toEqual([ocr]);
+    });
+
+    it('legacy backfill purges opted-out users that still hold keyboard data, and nobody else', async () => {
+      const backfill = new LegacyOptOutPurgeService(
+        ds,
+        new ConversationErasureService(),
+      );
+      const legacyUser = await signup(); // opted out (default), has data
+      const optedInUser = await signup(); // opted in: untouched
+      const cleanUser = await signup(); // opted out, no keyboard data
+      await optIn(optedInUser.token, true);
+
+      const legacyKb = await createConversation(
+        legacyUser.userId,
+        HIKING,
+        'keyboard',
+      );
+      const legacyOcr = await createConversation(
+        legacyUser.userId,
+        HIKING,
+        'ocr',
+      );
+      const extraction = app.get(MemoryExtractionService);
+      // Extract while opted in, then opt out the old way (flag only).
+      await ds.query(`UPDATE users SET memory_opt_in = true WHERE id = $1`, [
+        legacyUser.userId,
+      ]);
+      await extraction.extractForConversation(legacyKb);
+      await extraction.extractForConversation(legacyOcr);
+      await ds.query(`UPDATE users SET memory_opt_in = false WHERE id = $1`, [
+        legacyUser.userId,
+      ]);
+      const keptKb = await createConversation(
+        optedInUser.userId,
+        HIKING,
+        'keyboard',
+      );
+      const cleanOcr = await createConversation(
+        cleanUser.userId,
+        HIKING,
+        'ocr',
+      );
+
+      const scope = [legacyUser, optedInUser, cleanUser].map((u) => u.userId);
+      const summary = await backfill.run({ userIds: scope });
+      expect(summary).toEqual({
+        users: 1,
+        conversations: 1,
+        memories: 0, // the hiking fact is also backed by the OCR conversation
+        failed: 0,
+      });
+      expect(await storedMessages(legacyKb)).toHaveLength(0);
+      expect(await storedMessages(legacyOcr)).toHaveLength(1);
+      const [fact] = await memoriesOf(legacyUser.userId);
+      expect(fact.sources).toEqual([legacyOcr]);
+      expect(fact.source_ref).toBe(`conversation:${legacyOcr}`);
+      expect(await storedMessages(keptKb)).toHaveLength(1);
+      expect(await storedMessages(cleanOcr)).toHaveLength(1);
+
+      // Idempotent: a second run finds nobody.
+      expect(await backfill.run({ userIds: scope })).toEqual({
+        users: 0,
+        conversations: 0,
+        memories: 0,
+        failed: 0,
+      });
     });
   });
 });
