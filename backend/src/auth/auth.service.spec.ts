@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -9,6 +13,7 @@ import { UsageService } from '../usage/usage.service';
 import { UsageSummary } from '../usage/dto/usage-summary';
 import { AuthSession } from './entities/auth-session.entity';
 import { User } from './entities/user.entity';
+import { ConversationErasureService } from '../conversations/conversation-erasure.service';
 
 /** Free-tier usage block with zero consumption, the common test default. */
 const ZERO_FREE_USAGE: UsageSummary = {
@@ -33,6 +38,7 @@ function makeRepo() {
     create: jest.fn((obj) => ({ ...obj })),
     save: jest.fn(),
     update: jest.fn(),
+    manager: { transaction: jest.fn() },
   };
 }
 
@@ -42,6 +48,10 @@ describe('AuthService', () => {
   let sessions: ReturnType<typeof makeRepo>;
   let usage: { getUsageSummary: jest.Mock };
   let jwt: JwtService;
+  let erasure: {
+    purgeKeyboardConversations: jest.Mock;
+    applyPurgeTimeouts: jest.Mock;
+  };
 
   const buildUser = async (over: Partial<User> = {}): Promise<User> =>
     ({
@@ -61,6 +71,12 @@ describe('AuthService', () => {
     sessions = makeRepo();
     usage = { getUsageSummary: jest.fn().mockResolvedValue(ZERO_FREE_USAGE) };
     jwt = new JwtService({});
+    erasure = {
+      purgeKeyboardConversations: jest
+        .fn()
+        .mockResolvedValue({ conversations: 2, memories: 1 }),
+      applyPurgeTimeouts: jest.fn().mockResolvedValue(undefined),
+    };
 
     const config = {
       getOrThrow: jest.fn().mockReturnValue(AUTH_CONFIG),
@@ -72,6 +88,7 @@ describe('AuthService', () => {
       usage as unknown as UsageService,
       jwt,
       config,
+      erasure as unknown as ConversationErasureService,
     );
 
     // Default: sessions.save echoes the row back with an id.
@@ -291,23 +308,130 @@ describe('AuthService', () => {
       expect(res.settings.memory_opt_in).toBe(true);
     });
 
-    it('updateSettings persists memory_opt_in for the caller only', async () => {
-      users.update.mockResolvedValue({ affected: 1 });
+    /**
+     * Wires `users.manager.transaction` to a fake manager whose user-row
+     * `SELECT ... FOR NO KEY UPDATE` finds the user (or not).
+     */
+    const withUser = (exists = true) => {
+      const manager = {
+        query: jest.fn(async (sql: string) => {
+          if (/FROM users WHERE id = \$1 FOR NO KEY UPDATE/.test(sql)) {
+            return exists ? [{ id: 'user-1' }] : [];
+          }
+          return [];
+        }),
+      };
+      users.manager.transaction.mockImplementation(async (work) =>
+        work(manager),
+      );
+      return manager;
+    };
+
+    it('opting in locks the caller row, writes the flag and purges nothing', async () => {
+      const manager = withUser();
       const res = await service.updateSettings('user-1', {
         memory_opt_in: true,
       });
-      expect(users.update).toHaveBeenCalledWith(
-        { id: 'user-1' },
-        { memoryOptIn: true },
+      expect(manager.query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('FOR NO KEY UPDATE'),
+        ['user-1'],
+      );
+      expect(manager.query).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('UPDATE users SET memory_opt_in = $2'),
+        ['user-1', true],
       );
       expect(res).toEqual({ settings: { memory_opt_in: true } });
+      expect(res).not.toHaveProperty('deleted');
+      expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
+      expect(erasure.applyPurgeTimeouts).not.toHaveBeenCalled();
     });
 
+    it('every memory_opt_in:false purges in the same transaction (also legacy false -> false)', async () => {
+      const manager = withUser();
+      const res = await service.updateSettings('user-1', {
+        memory_opt_in: false,
+      });
+      expect(erasure.purgeKeyboardConversations).toHaveBeenCalledWith(
+        manager,
+        'user-1',
+      );
+      expect(res).toEqual({
+        settings: { memory_opt_in: false },
+        deleted: { conversations: 2, memories: 1 },
+      });
+    });
+
+    it('bounds the purge transaction: timeouts are set before the row lock', async () => {
+      const manager = withUser();
+      const order: string[] = [];
+      erasure.applyPurgeTimeouts.mockImplementation(async () => {
+        order.push('timeouts');
+      });
+      manager.query.mockImplementation(async (sql: string) => {
+        order.push(/FOR NO KEY UPDATE/.test(sql) ? 'lock' : 'other');
+        return /FOR NO KEY UPDATE/.test(sql) ? [{ id: 'user-1' }] : [];
+      });
+      await service.updateSettings('user-1', { memory_opt_in: false });
+      expect(erasure.applyPurgeTimeouts).toHaveBeenCalledWith(manager);
+      expect(order.slice(0, 2)).toEqual(['timeouts', 'lock']);
+    });
+
+    it('retries the opt-out transaction once on a deadlock (40P01)', async () => {
+      const manager = withUser();
+      users.manager.transaction
+        .mockRejectedValueOnce(
+          Object.assign(new Error('deadlock'), { code: '40P01' }),
+        )
+        .mockImplementation(async (work) => work(manager));
+      const res = await service.updateSettings('user-1', {
+        memory_opt_in: false,
+      });
+      expect(users.manager.transaction).toHaveBeenCalledTimes(2);
+      expect(res.deleted).toEqual({ conversations: 2, memories: 1 });
+    });
+
+    it('gives up after a second deadlock', async () => {
+      const deadlock = Object.assign(new Error('deadlock'), { code: '40P01' });
+      users.manager.transaction.mockRejectedValue(deadlock);
+      await expect(
+        service.updateSettings('user-1', { memory_opt_in: false }),
+      ).rejects.toBe(deadlock);
+      expect(users.manager.transaction).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(['55P03', '57014'])(
+      'maps a purge timeout (%s) to 503 ERASURE_TIMEOUT without retrying',
+      async (code) => {
+        users.manager.transaction.mockRejectedValue(
+          Object.assign(new Error('timeout'), { code }),
+        );
+        const err = await service
+          .updateSettings('user-1', { memory_opt_in: false })
+          .catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(ServiceUnavailableException);
+        expect((err as ServiceUnavailableException).getResponse()).toEqual(
+          expect.objectContaining({ code: 'ERASURE_TIMEOUT' }),
+        );
+        expect(users.manager.transaction).toHaveBeenCalledTimes(1);
+      },
+    );
+
     it('updateSettings rejects when the user no longer exists', async () => {
-      users.update.mockResolvedValue({ affected: 0 });
+      withUser(false);
       await expect(
         service.updateSettings('ghost', { memory_opt_in: false }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
+    });
+
+    it('propagates a purge failure (transaction rolls back the flag)', async () => {
+      withUser();
+      erasure.purgeKeyboardConversations.mockRejectedValue(new Error('boom'));
+      await expect(
+        service.updateSettings('user-1', { memory_opt_in: false }),
+      ).rejects.toThrow('boom');
     });
   });
 });

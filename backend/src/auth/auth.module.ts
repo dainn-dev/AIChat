@@ -8,6 +8,7 @@ import { User } from './entities/user.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { MeController } from './me.controller';
 import { UsageModule } from '../usage/usage.module';
+import { ConversationErasureModule } from '../conversations/conversation-erasure.module';
 
 /**
  * Auth workstream (WS-3 / DAI-127): signup, login, session refresh-token
@@ -31,6 +32,9 @@ import { UsageModule } from '../usage/usage.module';
     // unavailable there, breaking app bootstrap (DAI-143).
     JwtModule.register({ global: true }),
     UsageModule,
+    // Opt-out purge on PATCH /me/settings (standalone module: no cycle with
+    // ConversationsModule, which imports AuthModule for JwtAuthGuard).
+    ConversationErasureModule,
   ],
   controllers: [AuthController, MeController],
   providers: [AuthService, JwtAuthGuard],

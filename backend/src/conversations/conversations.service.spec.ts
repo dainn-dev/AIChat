@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { ConversationErasureService } from './conversation-erasure.service';
 import {
   ConversationsService,
   KeyboardCapture,
@@ -15,6 +16,8 @@ import {
  */
 interface Scripted {
   optIn?: boolean | null; // null → user row missing
+  /** Value seen by the in-transaction `FOR SHARE` re-check (defaults to optIn). */
+  optInUnderLock?: boolean;
   existingConversationId?: string | null;
   storedTailDesc?: Array<{ sender: string; content: string; position: number }>;
   ownedForDelete?: boolean;
@@ -28,6 +31,10 @@ function build(s: Scripted = {}) {
   const answer = (sql: string, params: unknown[] = []): unknown => {
     calls.push({ sql, params });
     if (s.failOn?.test(sql)) throw new Error('db down');
+    if (/SELECT memory_opt_in FROM users WHERE id = \$1 FOR SHARE/.test(sql)) {
+      const v = s.optInUnderLock ?? s.optIn;
+      return v === null ? [] : [{ memory_opt_in: v ?? false }];
+    }
     if (/SELECT memory_opt_in FROM users/.test(sql)) {
       return s.optIn === null ? [] : [{ memory_opt_in: s.optIn ?? false }];
     }
@@ -63,6 +70,7 @@ function build(s: Scripted = {}) {
   const queue = { enqueue: jest.fn().mockResolvedValue(undefined) };
   const service = new ConversationsService(
     dataSource as unknown as DataSource,
+    new ConversationErasureService(),
     queue,
   );
   const insertedMessages = () => {
@@ -116,6 +124,34 @@ describe('ConversationsService.persistKeyboardCapture — gating', () => {
         'conv-new',
       );
     }
+  });
+});
+
+describe('ConversationsService.persistKeyboardCapture — opt-out race', () => {
+  it('re-checks the opt-in under a user row FOR SHARE lock before touching any conversation', async () => {
+    const { service, calls } = build({ optIn: true });
+    await service.persistKeyboardCapture(capture());
+    const order = calls.map((c) => c.sql);
+    const recheck = order.findIndex((q) =>
+      /FROM users WHERE id = \$1 FOR SHARE/.test(q),
+    );
+    expect(recheck).toBeGreaterThan(
+      order.findIndex((q) => /pg_advisory_xact_lock/.test(q)),
+    );
+    expect(recheck).toBeLessThan(
+      order.findIndex((q) => /INSERT INTO conversations/.test(q)),
+    );
+  });
+
+  it('stores nothing when the user opted out after the pre-check (purge committed first)', async () => {
+    const { service, calls, queue } = build({
+      optIn: true,
+      optInUnderLock: false,
+    });
+    expect(await service.persistKeyboardCapture(capture())).toBeNull();
+    expect(calls.some((c) => /INSERT INTO/.test(c.sql))).toBe(false);
+    expect(calls.some((c) => /FROM conversations/.test(c.sql))).toBe(false);
+    expect(queue.enqueue).not.toHaveBeenCalled();
   });
 });
 
@@ -281,12 +317,24 @@ describe('ConversationsService.persistKeyboardCapture — best effort', () => {
     const dataSource = build({ optIn: true }).dataSource;
     const service = new ConversationsService(
       dataSource as unknown as DataSource,
+      new ConversationErasureService(),
     );
     expect(await service.persistKeyboardCapture(capture())).toBe('conv-new');
   });
 });
 
 describe('ConversationsService.remove (erasure)', () => {
+  it('retries the whole delete transaction once on a deadlock (40P01)', async () => {
+    const { service, dataSource } = build({ ownedForDelete: true });
+    const real = dataSource.transaction.getMockImplementation()!;
+    dataSource.transaction.mockImplementationOnce(async () => {
+      throw Object.assign(new Error('deadlock'), { code: '40P01' });
+    });
+    dataSource.transaction.mockImplementation(real);
+    await service.remove('user-1', 'conv-1');
+    expect(dataSource.transaction).toHaveBeenCalledTimes(2);
+  });
+
   it('404s when the conversation is missing or owned by someone else', async () => {
     const { service, calls } = build({ ownedForDelete: false });
     await expect(service.remove('user-2', 'conv-1')).rejects.toBeInstanceOf(
@@ -307,7 +355,11 @@ describe('ConversationsService.remove (erasure)', () => {
     const select = calls.find((c) =>
       /SELECT m\.id FROM memories m/.test(c.sql),
     );
-    expect(select?.params).toEqual(['user-1', 'conv-1', 'conversation:conv-1']);
+    expect(select?.params).toEqual([
+      'user-1',
+      ['conv-1'],
+      ['conversation:conv-1'],
+    ]);
     const deletes = calls.filter((c) => /DELETE FROM/.test(c.sql));
     expect(deletes.map((d) => d.sql.match(/DELETE FROM (\w+)/)?.[1])).toEqual([
       'memories',
@@ -315,8 +367,8 @@ describe('ConversationsService.remove (erasure)', () => {
       'conversations',
     ]);
     expect(deletes[0].params).toEqual(['user-1', ['m1', 'm2']]);
-    expect(deletes[1].params).toEqual(['user-1', 'conv-1']);
-    expect(deletes[2].params).toEqual(['conv-1', 'user-1']);
+    expect(deletes[1].params).toEqual(['user-1', ['conv-1']]);
+    expect(deletes[2].params).toEqual(['user-1', ['conv-1']]);
   });
 
   it('only selects extracted memories with no other remaining source', async () => {
@@ -327,7 +379,7 @@ describe('ConversationsService.remove (erasure)', () => {
     )!.sql;
     expect(sql).toMatch(/m\.source = 'extracted'/);
     expect(sql).toMatch(
-      /NOT EXISTS \(SELECT 1 FROM memory_sources s\s+WHERE s\.memory_id = m\.id AND s\.conversation_id <> \$2\)/,
+      /NOT EXISTS \(SELECT 1 FROM memory_sources s\s+WHERE s\.memory_id = m\.id\s+AND NOT \(s\.conversation_id = ANY\(\$2::uuid\[\]\)\)\)/,
     );
   });
 
@@ -359,7 +411,7 @@ describe('ConversationsService.remove (erasure)', () => {
     const { service, calls } = build({ ownedForDelete: true });
     await service.remove('user-1', 'conv-1');
     const update = calls.find((c) => /SET source_ref/.test(c.sql));
-    expect(update?.params).toEqual(['user-1', 'conversation:conv-1']);
+    expect(update?.params).toEqual(['user-1', ['conversation:conv-1']]);
     // Runs after the conversation (and so its links) is gone.
     const order = calls.map((c) => c.sql);
     expect(order.findIndex((s) => /SET source_ref/.test(s))).toBeGreaterThan(
@@ -372,9 +424,10 @@ describe('ConversationsService.list (security H1)', () => {
   const make = (pages: unknown[][]) => {
     const query = jest.fn();
     pages.forEach((p) => query.mockResolvedValueOnce(p));
-    const service = new ConversationsService({
-      query,
-    } as unknown as DataSource);
+    const service = new ConversationsService(
+      { query } as unknown as DataSource,
+      new ConversationErasureService(),
+    );
     return { service, query };
   };
 

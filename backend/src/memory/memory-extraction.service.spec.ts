@@ -109,6 +109,66 @@ describe('MemoryExtractionService (Android Phase 0)', () => {
   });
 });
 
+describe('MemoryExtractionService consent re-check before the LLM call (security M3)', () => {
+  /** First read sees `first`; the pre-provider re-check sees `second`. */
+  const withRecheck = (
+    first: { source: string; memory_opt_in: boolean },
+    second: { source: string; memory_opt_in: boolean } | null,
+  ) => {
+    const built = build(first);
+    let convReads = 0;
+    const base = built.query.getMockImplementation()!;
+    built.query.mockImplementation(async (sql: string) => {
+      if (/FROM conversations c JOIN users u/.test(sql) && convReads++ > 0) {
+        return second
+          ? [{ user_id: 'user-1', contact_label: 'Linh', ...second }]
+          : [];
+      }
+      return base(sql);
+    });
+    return built;
+  };
+
+  it('does not send keyboard text to the provider when the owner opted out mid-run', async () => {
+    const { service, extractor, writer, query } = withRecheck(
+      { source: 'keyboard', memory_opt_in: true },
+      { source: 'keyboard', memory_opt_in: false },
+    );
+    const res = await service.extractForConversation('conv-1');
+    expect(res.status).toBe('opted-out');
+    expect(extractor.extract).not.toHaveBeenCalled();
+    expect(writer.writeFacts).not.toHaveBeenCalled();
+    // The re-check runs after the messages were loaded, i.e. last before the call.
+    const sqls = query.mock.calls.map(([sql]) => sql as string);
+    const msgIdx = sqls.findIndex((s) => /FROM messages/.test(s));
+    const lastConvIdx = sqls
+      .map((s, i) => (/FROM conversations c JOIN users u/.test(s) ? i : -1))
+      .reduce((a, b) => Math.max(a, b), -1);
+    expect(lastConvIdx).toBeGreaterThan(msgIdx);
+  });
+
+  it('does not call the provider when the conversation was erased mid-run', async () => {
+    const { service, extractor } = withRecheck(
+      { source: 'keyboard', memory_opt_in: true },
+      null,
+    );
+    const res = await service.extractForConversation('conv-1');
+    expect(res.status).toBe('no-conversation');
+    expect(extractor.extract).not.toHaveBeenCalled();
+  });
+
+  it('still extracts a screenshot conversation of an opted-out user', async () => {
+    const { service, extractor, writer } = withRecheck(
+      { source: 'ocr', memory_opt_in: false },
+      { source: 'ocr', memory_opt_in: false },
+    );
+    writer.writeFacts.mockResolvedValue({ written: 1, superseded: 0 });
+    const res = await service.extractForConversation('conv-1');
+    expect(res.status).toBe('extracted');
+    expect(extractor.extract).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('MemoryExtractionService prompt-injection guards (security M3)', () => {
   it('sanitizes a stored contact_label before it reaches the extractor', async () => {
     const { service, extractor, writer } = build({

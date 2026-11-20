@@ -55,3 +55,5 @@ include(":lib:snygg")
 // AIChat MODIFIED: Vietnamese input engine (pure Kotlin/JVM, standalone Gradle build) consumed as
 // `com.aichat:vi-input` through a composite build. See docs/vi-input-integration.md.
 includeBuild("vi-input")
+// AIChat MODIFIED: AIChat backend client, auth/session and encrypted token store (docs/integration-points.md (e)).
+include(":core:network")

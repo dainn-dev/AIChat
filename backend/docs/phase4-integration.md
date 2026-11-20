@@ -37,8 +37,12 @@ new backend.
   (old refresh token is revoked — persist the new one).
 - `GET /me` → `{ user, tier, usage, settings }` — validate session + seed the
   quota/tier UI. `settings.memory_opt_in` drives the "Remember my chats" toggle.
-- `PATCH /me/settings { "memory_opt_in": true|false }` → `{ settings }`
+- `PATCH /me/settings { "memory_opt_in": true|false }` → `{ settings, deleted? }`
   (Android Phase 0) — the user-level opt-in for keyboard conversation storage.
+  Every `false` request erases all keyboard-captured conversations and
+  keyboard-only memories (idempotent) and returns
+  `deleted: { conversations, memories }`; `503 ERASURE_TIMEOUT` → retry (see
+  `keyboard-api.md`).
 - **No valid session:** protected calls return `401` `UNAUTHORIZED` → keyboard
   shows "Sign in via the app" and still types as a plain keyboard. (DoD AC-10.)
 

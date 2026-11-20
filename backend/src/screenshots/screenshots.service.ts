@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -16,6 +17,7 @@ import { Tier } from '../common/tiers';
 import { Tier as UsageTier, UsageMetric } from '../usage/usage.constants';
 import { UsageService } from '../usage/usage.service';
 import { MEMORY_EXTRACTION_QUEUE, MemoryQueue } from '../memory/memory-queue';
+import { enforceMessageRetention } from '../conversations/message-retention';
 import { CreateScreenshotDto } from './dto/create-screenshot.dto';
 import {
   CreateScreenshotResponse,
@@ -153,6 +155,14 @@ export class ScreenshotsService {
    * Persist conversation (new or appended), messages, and the screenshot row in
    * a single transaction so a partial failure leaves nothing behind (and lets
    * the quota reservation be cleanly refunded).
+   *
+   * Appending to an existing conversation first locks it `FOR UPDATE` (the
+   * same lock erasure takes), so concurrent appends compute `position`
+   * one after another, and an append can never land in a conversation erased
+   * after the pre-quota ownership check (that case is a 404 and the quota is
+   * refunded). After the insert, the rolling retention cap
+   * (`MAX_STORED_MESSAGES_PER_CONVERSATION`) drops the oldest messages, in
+   * the same transaction, exactly as for keyboard captures.
    */
   private async persist(
     userId: string,
@@ -162,15 +172,20 @@ export class ScreenshotsService {
     source: AiSource,
   ): Promise<{ screenshotId: string; conversationId: string }> {
     return this.dataSource.transaction(async (manager) => {
-      const conversationId =
-        dto.conversation_id ??
-        (await this.createConversation(manager, userId, dto, source));
+      const conversationId = dto.conversation_id
+        ? await this.lockOwnedConversation(manager, dto.conversation_id, userId)
+        : await this.createConversation(manager, userId, dto, source);
       const startPosition = await this.nextPosition(manager, conversationId);
       await this.insertMessages(
         manager,
         conversationId,
         messages,
         startPosition,
+      );
+      await enforceMessageRetention(
+        manager,
+        conversationId,
+        startPosition + messages.length - 1,
       );
       const screenshotId = await this.insertScreenshot(
         manager,
@@ -180,6 +195,20 @@ export class ScreenshotsService {
       );
       return { screenshotId, conversationId };
     });
+  }
+
+  /** Lock an owned conversation for append; 404 if it is gone or foreign. */
+  private async lockOwnedConversation(
+    manager: EntityManager,
+    conversationId: string,
+    userId: string,
+  ): Promise<string> {
+    const rows: Array<{ source: string }> = await manager.query(
+      `SELECT source FROM conversations WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+      [conversationId, userId],
+    );
+    this.assertAppendable(rows);
+    return conversationId;
   }
 
   private async createConversation(
@@ -254,14 +283,31 @@ export class ScreenshotsService {
     conversationId: string,
     userId: string,
   ): Promise<void> {
-    const rows: Array<{ id: string }> = await this.dataSource.query(
-      `SELECT id FROM conversations WHERE id = $1 AND user_id = $2`,
+    const rows: Array<{ source: string }> = await this.dataSource.query(
+      `SELECT source FROM conversations WHERE id = $1 AND user_id = $2`,
       [conversationId, userId],
     );
+    this.assertAppendable(rows);
+  }
+
+  /**
+   * An append target must exist, be owned (`404` otherwise, no IDOR), and
+   * not be a keyboard-captured conversation (`400`): screenshot/share data
+   * must never live under a keyboard conversation, which the opt-out purge
+   * erases wholesale and which is gated by `memory_opt_in`.
+   */
+  private assertAppendable(rows: Array<{ source: string }>): void {
     if (rows.length === 0) {
       throw new NotFoundException({
         code: 'CONVERSATION_NOT_FOUND',
         message: 'Conversation not found.',
+      });
+    }
+    if (rows[0].source === 'keyboard') {
+      throw new BadRequestException({
+        code: 'CONVERSATION_NOT_APPENDABLE',
+        message:
+          'Screenshots cannot be added to a keyboard-captured conversation.',
       });
     }
   }
