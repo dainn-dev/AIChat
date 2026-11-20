@@ -14,6 +14,10 @@ object ViInputGate {
         InputAttributes.Variation.PASSWORD,
         InputAttributes.Variation.VISIBLE_PASSWORD,
         InputAttributes.Variation.WEB_PASSWORD,
+        // Addresses are ASCII; Telex would turn e.g. "dd" or "ow" into Vietnamese letters.
+        InputAttributes.Variation.EMAIL_ADDRESS,
+        InputAttributes.Variation.WEB_EMAIL_ADDRESS,
+        InputAttributes.Variation.URI,
     )
 
     /**

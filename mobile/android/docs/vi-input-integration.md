@@ -56,7 +56,7 @@ How it fits together:
   edit it checks that the text before the cursor still ends with the word; if not (the app or the user
   changed the text), it drops the word and starts fresh instead of corrupting text.
 - `VI/ViInputBridge.kt` is the Android glue: it reads the settings, decides whether vi-input is active
-  (vi-input subtype, letters layer shown, text field that is not a password field; see `ViInputGate`), implements `ViEditorPort` on top of `EditorInstance`, and
+  (vi-input subtype, letters layer shown, text field that is not a password, email or URL field; see `ViInputGate`), implements `ViEditorPort` on top of `EditorInstance`, and
   finishes the word when the user leaves the Vietnamese subtype.
 
 Event mapping (each hook is one line in `FB/ime/editor/EditorInstance.kt`, marked `AIChat MODIFIED`):
@@ -77,8 +77,8 @@ Event mapping (each hook is one line in `FB/ime/editor/EditorInstance.kt`, marke
 | Settings changed | pref flows collected by `ViInputBridge` | The next key uses the new composer; a half-typed word is dropped from the state (its text stays). |
 
 Not routed through the engine (same as upstream Telex): raw editors (`TYPE_NULL`, e.g. terminals), editors that
-do not report text/selection to FlorisBoard, and text typed while a selection is active. Password fields use
-plain input. Keys from the symbols / numeric layers are typed as is and end the word, so in VNI the tone
+do not report text/selection to FlorisBoard, and text typed while a selection is active. Password, email and URL
+fields use plain input. Keys from the symbols / numeric layers are typed as is and end the word, so in VNI the tone
 digits come from the number row (Settings > Keyboard > Number row) or the long-press digit hints on the letter
 keys.
 

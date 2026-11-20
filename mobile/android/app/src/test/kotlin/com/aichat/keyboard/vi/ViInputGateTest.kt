@@ -38,6 +38,13 @@ class ViInputGateTest {
     }
 
     @Test
+    fun `email and URL fields are plain input`() {
+        assertFalse(eligible(variation = Variation.EMAIL_ADDRESS))
+        assertFalse(eligible(variation = Variation.WEB_EMAIL_ADDRESS))
+        assertFalse(eligible(variation = Variation.URI))
+    }
+
+    @Test
     fun `symbols and numeric layers are plain input`() {
         assertFalse(eligible(mode = KeyboardMode.SYMBOLS))
         assertFalse(eligible(mode = KeyboardMode.SYMBOLS2))
