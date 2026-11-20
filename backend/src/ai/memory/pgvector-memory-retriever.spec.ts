@@ -25,9 +25,11 @@ describe('PgVectorMemoryRetriever', () => {
 
   beforeEach(() => {
     query = jest.fn();
-    embedOrNull = jest
-      .fn()
-      .mockResolvedValue({ vector: [0.1, 0.2, 0.3], model: 'stub', dimensions: 3 });
+    embedOrNull = jest.fn().mockResolvedValue({
+      vector: [0.1, 0.2, 0.3],
+      model: 'stub',
+      dimensions: 3,
+    });
     retriever = build({ query } as unknown as DataSource);
   });
 
@@ -70,6 +72,16 @@ describe('PgVectorMemoryRetriever', () => {
     expect(params).toContain('Alex');
     expect(params).toContain(3); // topK honored
     expect(params).toContain(0.75); // threshold applied
+  });
+
+  it('M1: excludes keyboard-only memories when the owner is opted out', async () => {
+    query.mockResolvedValue([]);
+    await retriever.retrieve({ userId: 'u1', conversationText: 'hi', topK: 3 });
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain(PgVectorMemoryRetriever.OPT_OUT_FILTER);
+    expect(sql).toMatch(/u\.id = \$2 AND u\.memory_opt_in/);
+    expect(sql).toMatch(/c\.source <> 'keyboard'/);
+    expect(sql).toMatch(/memories\.source = 'extracted'/);
   });
 
   it('AC-RT4: returns [] when the DB query throws (never propagates)', async () => {

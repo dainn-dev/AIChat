@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { AiPipelineService } from '../ai/pipeline/ai-pipeline.service';
-import { MessageSender } from '../ai/enums/source.enum';
+import { AiSource, MessageSender } from '../ai/enums/source.enum';
 import { Tier } from '../common/tiers';
 import { QuotaExceededException } from '../usage/exceptions/quota-exceeded.exception';
 import { UsageMetric } from '../usage/usage.constants';
@@ -93,6 +93,20 @@ describe('ScreenshotsService', () => {
       );
       expect(insert).toBeDefined();
       expect(String(insert![0])).toContain("'ocr'");
+    });
+
+    it('creates the conversation with source=ocr by default (Android Phase 0)', async () => {
+      queueManager([{ id: 'conv-1' }], [{ next: 0 }], [], [{ id: 'shot-1' }]);
+      await service.ingest(USER, Tier.Free, validDto());
+      const [sql, params] = managerQuery.mock.calls[0];
+      expect(sql).toMatch(/INSERT INTO conversations .*source/s);
+      expect(params[3]).toBe('ocr');
+    });
+
+    it('creates the conversation with source=share for the Share surface', async () => {
+      queueManager([{ id: 'conv-1' }], [{ next: 0 }], [], [{ id: 'shot-1' }]);
+      await service.ingest(USER, Tier.Free, validDto(), AiSource.Share);
+      expect(managerQuery.mock.calls[0][1][3]).toBe('share');
     });
 
     it('rejects a blank OCR result without reserving quota (AC-O2)', async () => {

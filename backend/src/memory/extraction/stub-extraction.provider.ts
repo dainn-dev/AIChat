@@ -94,6 +94,7 @@ export class StubMemoryExtractionProvider implements MemoryExtractionProvider {
           content: text,
           confidence: p.confidence,
           scope,
+          fromSender: msg.sender === 'me' ? 'me' : 'them',
         });
         break; // one fact per message keeps attribution clean
       }

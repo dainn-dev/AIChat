@@ -14,6 +14,7 @@ import { KeyboardModule } from './keyboard/keyboard.module';
 import { MemoryModule } from './memory/memory.module';
 import { ShareModule } from './share/share.module';
 import { MemoriesModule } from './memories/memories.module';
+import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MemoriesModule } from './memories/memories.module';
     AuthModule,
     MemoryModule.register(),
     MemoriesModule,
+    ConversationsModule,
     KeyboardModule,
     ScreenshotsModule,
     ShareModule,

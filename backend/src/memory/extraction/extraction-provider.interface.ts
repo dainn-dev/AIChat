@@ -15,6 +15,11 @@ export interface ExtractedFact {
   /** Extractor confidence in [0,1]; drives active vs pending_review (§5.9). */
   confidence: number;
   scope: FactScope;
+  /**
+   * Who stated the fact, when the provider can tell (Android Phase 0, M3).
+   * Global facts are only auto-accepted when this is `me`.
+   */
+  fromSender?: 'me' | 'them';
 }
 
 export interface ExtractionInput {

@@ -21,7 +21,12 @@ export class ShareService {
     user: AuthenticatedUser,
     dto: CreateScreenshotDto,
   ): Promise<ShareAnalyzeResponse> {
-    const created = await this.screenshots.ingest(user.sub, user.tier, dto);
+    const created = await this.screenshots.ingest(
+      user.sub,
+      user.tier,
+      dto,
+      AiSource.Share,
+    );
     const analysis = await this.screenshots.analyze(
       user.sub,
       user.tier,

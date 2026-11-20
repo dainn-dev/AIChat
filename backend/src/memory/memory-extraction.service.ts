@@ -9,9 +9,22 @@ import {
 } from './extraction/extraction-provider.interface';
 import { MemoryWriterService } from './memory-writer.service';
 import { SensitiveDataFilter } from './privacy/sensitive-data.filter';
+import { applyFactScopePolicy } from './fact-scope-policy';
+import {
+  boundExtractionWindow,
+  EXTRACTION_MAX_MESSAGES,
+} from './extraction-window';
+import { sanitizeLabel } from '../common/text-sanitize';
 
 export interface ExtractionOutcome {
-  status: 'extracted' | 'no-conversation' | 'budget-exceeded';
+  status:
+    | 'extracted'
+    | 'no-conversation'
+    | 'budget-exceeded'
+    /** Keyboard conversation whose owner is not opted into memory. */
+    | 'opted-out'
+    /** Conversation erased (or owner opted out) while extraction ran. */
+    | 'aborted';
   factsExtracted: number;
   factsWritten: number;
 }
@@ -44,15 +57,32 @@ export class MemoryExtractionService {
   async extractForConversation(
     conversationId: string,
   ): Promise<ExtractionOutcome> {
-    const convRows: Array<{ user_id: string; contact_label: string | null }> =
-      await this.dataSource.query(
-        `SELECT user_id, contact_label FROM conversations WHERE id = $1`,
-        [conversationId],
-      );
+    const convRows: Array<{
+      user_id: string;
+      contact_label: string | null;
+      source: string;
+      memory_opt_in: boolean;
+    }> = await this.dataSource.query(
+      `SELECT c.user_id, c.contact_label, c.source, u.memory_opt_in
+         FROM conversations c JOIN users u ON u.id = c.user_id
+        WHERE c.id = $1`,
+      [conversationId],
+    );
     if (convRows.length === 0) {
       return { status: 'no-conversation', factsExtracted: 0, factsWritten: 0 };
     }
-    const { user_id: userId, contact_label: contactLabel } = convRows[0];
+    const userId = convRows[0].user_id;
+    // Stored labels may predate input sanitization (or come from the
+    // screenshot path): neutralize before any prompt interpolation (M3).
+    const contactLabel = convRows[0].contact_label
+      ? sanitizeLabel(convRows[0].contact_label) || null
+      : null;
+
+    // Keyboard captures are opt-in (Android Phase 0): skip before spending any
+    // LLM/embedding cost. The writer re-checks inside its transaction.
+    if (convRows[0].source === 'keyboard' && !convRows[0].memory_opt_in) {
+      return { status: 'opted-out', factsExtracted: 0, factsWritten: 0 };
+    }
 
     // Cost control (§5.10): cap new extraction runs per user per UTC day.
     const usedToday = await this.countTodaysExtractions(userId);
@@ -63,12 +93,15 @@ export class MemoryExtractionService {
       return { status: 'budget-exceeded', factsExtracted: 0, factsWritten: 0 };
     }
 
-    const messages: Array<{ sender: string; content: string }> =
+    // Cost bound (security M4): only the most recent messages, capped by
+    // count in SQL and by total characters in boundExtractionWindow.
+    const recentDesc: Array<{ sender: string; content: string }> =
       await this.dataSource.query(
         `SELECT sender, content FROM messages
-          WHERE conversation_id = $1 ORDER BY position ASC`,
-        [conversationId],
+          WHERE conversation_id = $1 ORDER BY position DESC LIMIT $2`,
+        [conversationId, EXTRACTION_MAX_MESSAGES],
       );
+    const messages = boundExtractionWindow([...recentDesc].reverse());
 
     const extracted = await this.extractor.extract({
       messages,
@@ -82,16 +115,32 @@ export class MemoryExtractionService {
         const scan = this.sensitive.scan(f.content);
         return scan.dropped ? null : { ...f, content: scan.content };
       })
-      .filter((f): f is (typeof extracted)[number] => f !== null);
+      .filter((f): f is (typeof extracted)[number] => f !== null)
+      // Global facts only auto-accepted when stated by "me" (security M3).
+      .map((f) => applyFactScopePolicy(f, contactLabel ?? undefined));
 
     let written = 0;
     if (facts.length > 0) {
-      ({ written } = await this.writer.writeFacts({
+      const result = await this.writer.writeFacts({
         userId,
         contactLabel: contactLabel ?? undefined,
         facts,
         sourceRef: `conversation:${conversationId}`,
-      }));
+        conversationId,
+      });
+      if (result.aborted) {
+        // Erased or opted out mid-run: drop the results, and skip the audit
+        // row (its FK would point at a deleted conversation).
+        this.logger.log(
+          `Dropped extraction results for conversation ${conversationId} (${result.aborted}).`,
+        );
+        return {
+          status: 'aborted',
+          factsExtracted: extracted.length,
+          factsWritten: 0,
+        };
+      }
+      written = result.written;
     }
 
     // Audit/provenance row (MS-2 memory_extractions shape).

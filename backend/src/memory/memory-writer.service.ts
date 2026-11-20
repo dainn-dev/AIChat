@@ -10,14 +10,27 @@ import { ExtractedFact } from './extraction/extraction-provider.interface';
 export interface WriteFactsParams {
   userId: string;
   contactLabel?: string;
-  facts: ExtractedFact[];
+  /** `requireReview` forces `pending_review` (scope policy, security M3). */
+  facts: Array<ExtractedFact & { requireReview?: boolean }>;
   /** Provenance written to memories.source_ref, e.g. "conversation:<id>". */
   sourceRef: string;
+  /**
+   * Conversation the facts were derived from (Android Phase 0). Every written
+   * OR deduplicated memory is linked to it in `memory_sources`, and the write
+   * is aborted if the conversation no longer exists (or, for a keyboard
+   * conversation, its owner opted out) at write time.
+   */
+  conversationId: string;
 }
+
+/** Why a write was dropped before touching `memories`. */
+export type WriteAbortReason = 'conversation-gone' | 'opted-out';
 
 export interface WriteResult {
   written: number;
   superseded: number;
+  /** Set when the write was dropped by the in-transaction guard. */
+  aborted?: WriteAbortReason;
 }
 
 interface PreparedFact {
@@ -43,6 +56,10 @@ interface PreparedFact {
  *  - confidence routing (§5.9): ≥ threshold → `active`, else `pending_review`.
  * Embeds via MS-1 `embedOrNull` (never blocks the write); a NULL embedding is
  * left for the backfill to fill, and the producing model is recorded.
+ *
+ * Android Phase 0: every written or deduplicated memory is linked to its
+ * source conversation in `memory_sources`, and the whole write is dropped if
+ * that conversation was erased (or its keyboard owner opted out) meanwhile.
  */
 @Injectable()
 export class MemoryWriterService {
@@ -74,7 +91,7 @@ export class MemoryWriterService {
           f.scope === 'contact' ? (params.contactLabel ?? null) : null,
         confidence: f.confidence,
         status:
-          f.confidence >= this.highConfidenceThreshold
+          !f.requireReview && f.confidence >= this.highConfidenceThreshold
             ? 'active'
             : 'pending_review',
         contentHash: this.hash(f.content),
@@ -84,9 +101,27 @@ export class MemoryWriterService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      const aborted = await this.guardSource(
+        manager,
+        params.userId,
+        params.conversationId,
+      );
+      if (aborted) return { written: 0, superseded: 0, aborted };
+
       let written = 0;
       let superseded = 0;
       for (const p of prepared) {
+        // Insert first so the superseding memory's id can be recorded on the
+        // facts it retires (superseded_by → reactivated if it is erased).
+        const { memoryId, inserted } = await this.insertFact(
+          manager,
+          params.userId,
+          p,
+          params.sourceRef,
+        );
+        if (inserted) written++;
+        if (!memoryId) continue;
+        await this.linkSource(manager, memoryId, params.conversationId);
         if (
           p.status === 'active' &&
           MemoryWriterService.SINGULAR_KINDS.has(p.kind)
@@ -95,17 +130,55 @@ export class MemoryWriterService {
             manager,
             params.userId,
             p,
+            memoryId,
           );
         }
-        written += await this.insertFact(
-          manager,
-          params.userId,
-          p,
-          params.sourceRef,
-        );
       }
       return { written, superseded };
     });
+  }
+
+  /**
+   * Race guard (Android Phase 0): re-check, inside the write transaction, that
+   * the source conversation still exists and — for keyboard captures — that
+   * its owner is still opted in. `FOR SHARE` holds the conversation row until
+   * commit, so a concurrent `DELETE /conversations/:id` (which locks it
+   * `FOR UPDATE`) either runs first (we abort) or waits for us and then erases
+   * what we wrote through `memory_sources`.
+   */
+  private async guardSource(
+    manager: EntityManager,
+    userId: string,
+    conversationId: string,
+  ): Promise<WriteAbortReason | undefined> {
+    const rows: Array<{ source: string; memory_opt_in: boolean }> =
+      await manager.query(
+        `SELECT c.source, u.memory_opt_in
+           FROM conversations c
+           JOIN users u ON u.id = c.user_id
+          WHERE c.id = $1 AND c.user_id = $2
+          FOR SHARE OF c`,
+        [conversationId, userId],
+      );
+    if (rows.length === 0) return 'conversation-gone';
+    if (rows[0].source === 'keyboard' && rows[0].memory_opt_in !== true) {
+      return 'opted-out';
+    }
+    return undefined;
+  }
+
+  /** Record that `memoryId` was derived from `conversationId` (idempotent). */
+  private async linkSource(
+    manager: EntityManager,
+    memoryId: string,
+    conversationId: string,
+  ): Promise<void> {
+    await manager.query(
+      `INSERT INTO memory_sources (memory_id, conversation_id)
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [memoryId, conversationId],
+    );
   }
 
   /** Retire active singular facts of the same scope that differ from the new one. */
@@ -113,27 +186,33 @@ export class MemoryWriterService {
     manager: EntityManager,
     userId: string,
     p: PreparedFact,
+    supersedingId: string,
   ): Promise<number> {
     // TypeORM returns [rows, affectedCount] for UPDATE ... RETURNING.
     const [rows]: [unknown[], number] = await manager.query(
       `UPDATE memories
-          SET status = 'superseded', updated_at = now()
+          SET status = 'superseded', superseded_by = $5, updated_at = now()
         WHERE user_id = $1 AND kind = $2 AND status = 'active'
           AND content_hash IS DISTINCT FROM $3
           AND COALESCE(contact_label, '') = COALESCE($4, '')
+          AND id <> $5
         RETURNING id`,
-      [userId, p.kind, p.contentHash, p.contactLabel],
+      [userId, p.kind, p.contentHash, p.contactLabel, supersedingId],
     );
     return Array.isArray(rows) ? rows.length : 0;
   }
 
-  /** Insert one fact; ON CONFLICT on the MS-2 dedupe index makes re-runs no-ops. */
+  /**
+   * Insert one fact; ON CONFLICT on the MS-2 dedupe index makes re-runs
+   * no-ops. Returns the id of the inserted row, or of the existing row the
+   * fact deduplicated into (so its provenance can still be linked).
+   */
   private async insertFact(
     manager: EntityManager,
     userId: string,
     p: PreparedFact,
     sourceRef: string,
-  ): Promise<number> {
+  ): Promise<{ memoryId: string | null; inserted: boolean }> {
     const rows: unknown[] = await manager.query(
       `INSERT INTO memories
          (user_id, contact_label, kind, content, embedding, source, source_ref,
@@ -157,7 +236,19 @@ export class MemoryWriterService {
       ],
     );
     // INSERT ... RETURNING yields the rows array directly ([] on conflict).
-    return Array.isArray(rows) && rows.length > 0 ? 1 : 0;
+    const insertedRows = rows as Array<{ id: string }>;
+    if (Array.isArray(insertedRows) && insertedRows.length > 0) {
+      return { memoryId: insertedRows[0].id, inserted: true };
+    }
+
+    // Deduplicated: find the existing row by the same dedupe key.
+    const existing: Array<{ id: string }> = await manager.query(
+      `SELECT id FROM memories
+        WHERE user_id = $1 AND contact_label IS NOT DISTINCT FROM $2
+          AND kind = $3 AND content_hash = $4`,
+      [userId, p.contactLabel, p.kind, p.contentHash],
+    );
+    return { memoryId: existing[0]?.id ?? null, inserted: false };
   }
 
   private hash(content: string): string {

@@ -67,6 +67,8 @@ describe('Keyboard contract P4-1 (e2e)', () => {
     expect(Array.isArray(res.body.suggestions)).toBe(true);
     expect(res.body.suggestions.length).toBeGreaterThanOrEqual(1);
     expect(res.body.suggestions[0].tone).toBe('Flirty');
+    // Not opted into memory (default) → nothing persisted (Android Phase 0).
+    expect(res.body.conversation_id).toBeNull();
     // Metered against the shared per-user reply counter.
     expect(res.body.usage.replies_used).toBe(1);
     expect(res.body.usage.replies_limit).toBe(20);

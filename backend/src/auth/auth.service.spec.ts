@@ -32,6 +32,7 @@ function makeRepo() {
     findOne: jest.fn(),
     create: jest.fn((obj) => ({ ...obj })),
     save: jest.fn(),
+    update: jest.fn(),
   };
 }
 
@@ -49,6 +50,7 @@ describe('AuthService', () => {
       passwordHash: await bcrypt.hash('password123', 4),
       displayName: null,
       tier: Tier.Free,
+      memoryOptIn: false,
       createdAt: new Date('2026-01-01T00:00:00Z'),
       updatedAt: new Date('2026-01-01T00:00:00Z'),
       ...over,
@@ -273,6 +275,39 @@ describe('AuthService', () => {
       await expect(service.getMe('ghost')).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('settings (Android Phase 0)', () => {
+    it('GET /me exposes memory_opt_in (defaults to false)', async () => {
+      users.findOne.mockResolvedValue(await buildUser());
+      const res = await service.getMe('user-1');
+      expect(res.settings).toEqual({ memory_opt_in: false });
+    });
+
+    it('GET /me reflects an opted-in user', async () => {
+      users.findOne.mockResolvedValue(await buildUser({ memoryOptIn: true }));
+      const res = await service.getMe('user-1');
+      expect(res.settings.memory_opt_in).toBe(true);
+    });
+
+    it('updateSettings persists memory_opt_in for the caller only', async () => {
+      users.update.mockResolvedValue({ affected: 1 });
+      const res = await service.updateSettings('user-1', {
+        memory_opt_in: true,
+      });
+      expect(users.update).toHaveBeenCalledWith(
+        { id: 'user-1' },
+        { memoryOptIn: true },
+      );
+      expect(res).toEqual({ settings: { memory_opt_in: true } });
+    });
+
+    it('updateSettings rejects when the user no longer exists', async () => {
+      users.update.mockResolvedValue({ affected: 0 });
+      await expect(
+        service.updateSettings('ghost', { memory_opt_in: false }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 });

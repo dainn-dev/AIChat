@@ -1,0 +1,28 @@
+# Normalize line endings to LF in the repo AND the working tree, regardless of
+# a contributor's core.autocrlf. Prettier (endOfLine: lf) and CI run on LF, so a
+# CRLF checkout on Windows produces thousands of false `prettier/prettier` errors.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets: never touch line endings or diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.jar binary
+*.keystore binary
+*.jks binary
+*.aar binary
+*.so binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.zip binary

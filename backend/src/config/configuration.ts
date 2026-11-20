@@ -265,7 +265,10 @@ export default () => ({
       process.env.MEMORY_HIGH_CONFIDENCE_THRESHOLD,
       0.7,
     ),
-    extractionDailyBudget: toInt(process.env.MEMORY_EXTRACTION_DAILY_BUDGET, 200),
+    extractionDailyBudget: toInt(
+      process.env.MEMORY_EXTRACTION_DAILY_BUDGET,
+      200,
+    ),
   } satisfies MemoryConfig,
   redis: {
     host: process.env.REDIS_HOST ?? 'localhost',

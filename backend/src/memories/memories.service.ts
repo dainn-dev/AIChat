@@ -158,12 +158,25 @@ export class MemoriesService {
 
   async remove(userId: string, id: string): Promise<void> {
     // Hard delete → the row also leaves the HNSW index (true erasure, §5.7).
-    // TypeORM returns [rows, affectedCount] for DELETE ... RETURNING.
-    const [rows]: [Array<{ id: string }>, number] = await this.dataSource.query(
-      `DELETE FROM memories WHERE id = $1 AND user_id = $2 RETURNING id`,
-      [id, userId],
-    );
-    if (rows.length === 0) throw this.notFound();
+    // Facts this memory superseded become active again (Android Phase 0,
+    // review MEDIUM 2) — in the same transaction as the delete.
+    const deleted = await this.dataSource.transaction(async (manager) => {
+      // TypeORM returns [rows, affectedCount] for DELETE ... RETURNING.
+      const [rows]: [Array<{ id: string }>, number] = await manager.query(
+        `DELETE FROM memories WHERE id = $1 AND user_id = $2 RETURNING id`,
+        [id, userId],
+      );
+      if (rows.length > 0) {
+        await manager.query(
+          `UPDATE memories
+              SET status = 'active', superseded_by = NULL, updated_at = now()
+            WHERE user_id = $1 AND status = 'superseded' AND superseded_by = $2`,
+          [userId, id],
+        );
+      }
+      return rows.length;
+    });
+    if (deleted === 0) throw this.notFound();
   }
 
   private toView = (row: MemoryRow): MemoryView => ({

@@ -35,7 +35,10 @@ new backend.
   - `refresh_token` (opaque, ~30d).
 - `POST /auth/refresh { refresh_token }` → rotated `{ access_token, refresh_token }`
   (old refresh token is revoked — persist the new one).
-- `GET /me` → `{ user, usage }` — validate session + seed the quota/tier UI.
+- `GET /me` → `{ user, tier, usage, settings }` — validate session + seed the
+  quota/tier UI. `settings.memory_opt_in` drives the "Remember my chats" toggle.
+- `PATCH /me/settings { "memory_opt_in": true|false }` → `{ settings }`
+  (Android Phase 0) — the user-level opt-in for keyboard conversation storage.
 - **No valid session:** protected calls return `401` `UNAUTHORIZED` → keyboard
   shows "Sign in via the app" and still types as a plain keyboard. (DoD AC-10.)
 
@@ -49,15 +52,39 @@ iOS additionally requires **"Allow Full Access"** before any network call.
 
 **Quick Reply** — `POST /v1/keyboard/reply`
 ```json
-{ "platform": "whatsapp", "conversation": [{ "sender": "them", "content": "…" }], "tone": "Flirty", "count": 3 }
+{ "platform": "zalo", "contact_label": "Linh", "lang": "vi", "conversation": [{ "sender": "them", "content": "…" }], "tone": "Flirty", "count": 3 }
 ```
-→ `{ "suggestions": [{ "tone": "Flirty", "text": "…" }], "usage": { … } }`
+→ `{ "suggestions": [{ "tone": "Flirty", "text": "…" }], "conversation_id": "…" | null, "usage": { … } }`
 
 **Rewrite** — `POST /v1/keyboard/rewrite`
 ```json
-{ "text": "ok sounds good", "tone": "Professional" }
+{ "text": "ok sounds good", "tone": "Professional", "lang": "en" }
 ```
 → `{ "text": "…", "usage": { … } }`
+
+### Android Phase 0 additions (AccessibilityService capture)
+
+- **Language toggle:** send `lang: "en" | "vi"` from the keyboard's EN/VI switch
+  on `reply` and `rewrite`. Omit it to let the model answer in the chat's own
+  language.
+- **Contact:** send `contact_label` (the chat partner's display name read from
+  the chat header, ≤ 128 chars) together with `platform` (e.g. `"zalo"`,
+  `"messenger"`) on every `reply`. It scopes memory retrieval to that contact.
+- **Capture:** send the visible window as `conversation` on every request; don't
+  diff client-side. The server merges overlapping windows without duplicates
+  and stores them only if the user opted in (`PATCH /me/settings`), both
+  `platform` and `contact_label` are present, and `remember` is not `false`.
+  Send `remember: false` for chats the user marked private/incognito.
+- **`conversation_id`** in the reply is the stored conversation (or `null`).
+  `null` does **not** guarantee nothing was stored (a slow write may finish in
+  the background), so build "Forget this chat" / privacy screens on
+  `GET /conversations` (metadata only, paginated) and
+  `DELETE /conversations/:id` → `204` (`404` if missing/not yours).
+- **After erasure, keep a local per-contact exclusion** (`platform` +
+  `contact_label`) and send `remember: false` for that contact. Otherwise the
+  next capture stores the chat again (there is no server-side tombstone).
+- Storage is best-effort and never fails the reply. `conversation_id: null` on
+  an opted-in request means it was skipped or slow, not that the reply failed.
 
 **Tone Switch** — re-call `reply` (or `rewrite`) with a different `tone`.
 
@@ -97,6 +124,7 @@ iOS additionally requires **"Allow Full Access"** before any network call.
 | DAI-137 session bridge | `/auth/login`, `/auth/refresh`, `/me` (WS-3) | ✅ on `main` |
 | DAI-138 / 139 IME + ext | the three `/v1/keyboard` endpoints | ✅ on `main` |
 | DAI-140 analytics/UX/QA | PostHog `ai_request` (server-side) + error/`usage` contract | ✅ on `main` |
+| Android Phase 0 | `lang`, `contact_label`, `remember`, `conversation_id`; `PATCH /me/settings`; `GET /conversations`; `DELETE /conversations/:id` | branch `feat/backend-phase0` |
 
 All Phase-4 endpoints are exercisable keyless (stub LLM provider) for client
 dev/test. Related contracts: `docs/keyboard-api.md`, `docs/share-api.md`,

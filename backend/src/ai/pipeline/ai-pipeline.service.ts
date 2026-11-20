@@ -30,6 +30,7 @@ import { AiMessageDto } from '../dto/ai-message.dto';
 import { AnalyzeResponse } from '../dto/analyze.dto';
 import { ReplyCandidate } from '../dto/reply.dto';
 import { Tone } from '../enums/tone.enum';
+import { OutputLang } from '../enums/output-lang.enum';
 import { AiRequestType, AiSource } from '../enums/source.enum';
 
 export interface PipelineContext {
@@ -46,6 +47,8 @@ export interface ReplyInput {
   count: number;
   userGoal?: string;
   relationshipStage?: string;
+  /** Explicit output language (keyboard EN/VI toggle); omitted → auto. */
+  lang?: OutputLang;
 }
 
 export interface AnalyzeInput {
@@ -57,6 +60,8 @@ export interface AnalyzeInput {
 export interface RewriteInput {
   text: string;
   tone: Tone;
+  /** Explicit output language (keyboard EN/VI toggle); omitted → auto. */
+  lang?: OutputLang;
 }
 
 export interface TranslateInput {
@@ -109,6 +114,7 @@ export class AiPipelineService {
       count: input.count,
       userGoal: input.userGoal,
       relationshipStage: input.relationshipStage,
+      lang: input.lang,
     };
     const prompt = this.contextBuilder.buildReplyPrompt(replyCtx);
 
@@ -172,7 +178,11 @@ export class AiPipelineService {
   }
 
   async rewrite(input: RewriteInput, ctx: PipelineContext): Promise<string> {
-    const rewriteCtx: RewriteContext = { text: input.text, tone: input.tone };
+    const rewriteCtx: RewriteContext = {
+      text: input.text,
+      tone: input.tone,
+      lang: input.lang,
+    };
     const prompt = this.contextBuilder.buildRewritePrompt(rewriteCtx);
 
     const { result } = await this.complete(prompt, AiRequestType.Rewrite, ctx);
