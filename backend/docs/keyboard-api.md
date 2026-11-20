@@ -81,15 +81,22 @@ Stored captures are merged into one keyboard conversation per
 conversation for the same contact. Messages are matched on `sender` + trimmed
 `content`, against the last 500 stored messages:
 
-1. A window of **≥ 3 messages** that already appears anywhere in the stored
-   history (the user scrolled up) stores nothing.
-2. Otherwise the server appends only what follows the longest overlap between
-   the end of the stored history and the start of the window. Re-sending the
-   same window stores nothing.
+1. The server appends only what follows the longest overlap between the end
+   of the stored history and the start of the window. Re-sending the same
+   window stores nothing. This runs first, so a new message is never dropped
+   just because the window also occurs earlier in the history.
+2. If there is no such overlap, a window of **≥ 3 messages** that already
+   appears anywhere in the stored history (the user scrolled up) stores nothing.
 3. A window that reaches above the stored start (older messages) but ends
    inside stored history stores nothing, because the older messages can't be
    placed in order.
 4. If there is no overlap at all, the whole window is appended.
+
+Known limits: a scrolled-up window whose first message happens to equal the
+last stored one (e.g. a lone "ok") is treated as rule 1 and its remainder is
+appended; and only the last 500 stored messages are compared
+(`MERGE_HISTORY_LIMIT`), so a window scrolled further back than that is
+appended again.
 
 Windows of 1–2 messages skip the containment checks, so a genuinely new short
 reply such as "ok" is not mistaken for an old one. New messages queue a

@@ -123,13 +123,26 @@ describe('messagesToAppend — scroll-up / containment heuristic', () => {
     expect(messagesToAppend(history, incoming)).toEqual([me('8'), them('9')]);
   });
 
-  it('prefers containment over a short accidental suffix overlap', () => {
-    // History ends with "a" and also contains "a, b, c" earlier: the window is
-    // a scrolled-up re-capture, not "a" + new "b, c".
+  it('runs the suffix/prefix overlap BEFORE containment (review MEDIUM 1)', () => {
+    // [a,b,c] also occurs earlier, but history ends with [a,b]: the overlap
+    // says only `c` is new, and it must not be dropped.
+    const stored = [them('a'), me('b'), them('c'), me('x'), them('a'), me('b')];
+    expect(messagesToAppend(stored, [them('a'), me('b'), them('c')])).toEqual([
+      them('c'),
+    ]);
+  });
+
+  it('a short accidental overlap with the end of history wins over containment (documented limit)', () => {
     const stored = [them('a'), me('b'), them('c'), me('x'), them('a')];
-    expect(messagesToAppend(stored, [them('a'), me('b'), them('c')])).toEqual(
-      [],
-    );
+    expect(messagesToAppend(stored, [them('a'), me('b'), them('c')])).toEqual([
+      me('b'),
+      them('c'),
+    ]);
+  });
+
+  it('scroll-up regression: a mid-history window with no tail overlap still appends nothing', () => {
+    const stored = [them('a'), me('b'), them('c'), me('d'), them('e')];
+    expect(messagesToAppend(stored, [me('b'), them('c'), me('d')])).toEqual([]);
   });
 
   it('appends all when a partially contained window has a new ending (diverged history)', () => {
