@@ -248,6 +248,30 @@ describe('ConversationsService.persistKeyboardCapture — best effort', () => {
     expect(errorSpy).toHaveBeenCalled();
   });
 
+  it('logs only the pg code/constraint, never the message, detail or stack (security L3)', async () => {
+    const { service, dataSource } = build({ optIn: true });
+    const pgError = Object.assign(new Error('value "Linh" violates check'), {
+      code: '23514',
+      constraint: 'some_check',
+      detail: 'Failing row contains (Linh, secret text)',
+    });
+    dataSource.transaction.mockRejectedValueOnce(pgError);
+    const errorSpy = jest
+      .spyOn(
+        (service as unknown as { logger: { error: () => void } }).logger,
+        'error',
+      )
+      .mockImplementation(() => undefined);
+
+    await service.persistKeyboardCapture(capture());
+
+    const logged = JSON.stringify(errorSpy.mock.calls);
+    expect(logged).toContain('code=23514');
+    expect(logged).toContain('constraint=some_check');
+    expect(logged).not.toContain('Linh');
+    expect(logged).not.toContain('secret text');
+  });
+
   it('works without an extraction queue bound', async () => {
     const dataSource = build({ optIn: true }).dataSource;
     const service = new ConversationsService(

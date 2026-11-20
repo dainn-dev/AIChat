@@ -1,4 +1,11 @@
-import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { NO_NUL_PATTERN } from '../../common/text-sanitize';
 import { MessageSender } from '../enums/source.enum';
 
 /**
@@ -13,5 +20,9 @@ export class AiMessageDto {
   @IsString()
   @MinLength(1)
   @MaxLength(4000)
+  // Postgres `text` cannot hold NUL; reject it at the edge (security L2).
+  @Matches(NO_NUL_PATTERN, {
+    message: 'content must not contain NUL characters',
+  })
   content!: string;
 }

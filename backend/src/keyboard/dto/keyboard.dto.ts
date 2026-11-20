@@ -8,6 +8,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -18,6 +19,11 @@ import { AiMessageDto } from '../../ai/dto/ai-message.dto';
 import { ReplyCandidate, UsageSnapshot } from '../../ai/dto/reply.dto';
 import { Tone } from '../../ai/enums/tone.enum';
 import { OutputLang } from '../../ai/enums/output-lang.enum';
+import {
+  NO_NUL_PATTERN,
+  PLATFORM_PATTERN,
+  sanitizeLabelInput,
+} from '../../common/text-sanitize';
 
 /** Upper bound on `contact_label` (Android Phase 0); also the memory scope key. */
 export const CONTACT_LABEL_MAX_LENGTH = 128;
@@ -30,9 +36,18 @@ export const CONTACT_LABEL_MAX_LENGTH = 128;
 
 /** `POST /v1/keyboard/reply` — N tone-tagged suggestions for a conversation. */
 export class KeyboardReplyDto {
+  /**
+   * Chat app identifier, normalized to lower case and restricted to
+   * `[a-z0-9._-]{1,64}` (security L2) — it keys stored conversations.
+   */
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   @IsString()
-  @MaxLength(64)
+  @Matches(PLATFORM_PATTERN, {
+    message: 'platform must match [a-z0-9._-]{1,64}',
+  })
   platform?: string;
 
   @IsArray()
@@ -65,10 +80,15 @@ export class KeyboardReplyDto {
    * stored conversation when the user opted into memory.
    */
   @IsOptional()
+  // Control chars / newlines → space, quotes/backticks neutralized, whitespace
+  // collapsed (security M3); NUL is left in place so it is rejected below (L2).
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
+    sanitizeLabelInput(value, Number.MAX_SAFE_INTEGER),
   )
   @IsString()
+  @Matches(NO_NUL_PATTERN, {
+    message: 'contact_label must not contain NUL characters',
+  })
   @MinLength(1)
   @MaxLength(CONTACT_LABEL_MAX_LENGTH)
   contact_label?: string;

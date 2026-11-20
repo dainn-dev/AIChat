@@ -114,6 +114,8 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
       ['blank contact_label', { contact_label: '   ' }],
       ['string remember', { remember: 'false' }],
       ['unknown field', { remember_forever: true }],
+      ['invalid platform', { platform: 'Whats App!' }],
+      ['NUL in contact_label', { contact_label: 'Li\u0000nh' }],
     ])('400s with the error envelope on %s', async (_label, extra) => {
       const res = await http()
         .post('/v1/keyboard/reply')

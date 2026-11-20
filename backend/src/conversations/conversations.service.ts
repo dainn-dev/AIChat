@@ -101,9 +101,15 @@ export class ConversationsService {
       }
       return conversationId;
     } catch (err) {
+      // Log only the Postgres error code/constraint: the message, detail and
+      // stack can echo parameter values such as contact labels (security L3).
+      const { code, constraint } = err as {
+        code?: string;
+        constraint?: string;
+      };
       this.logger.error(
-        `Keyboard capture persistence failed for user ${capture.userId}; continuing without it.`,
-        err instanceof Error ? err.stack : String(err),
+        `Keyboard capture persistence failed for user ${capture.userId} ` +
+          `(code=${code ?? 'n/a'}, constraint=${constraint ?? 'n/a'}); continuing without it.`,
       );
       return null;
     }
