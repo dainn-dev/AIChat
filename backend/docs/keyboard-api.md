@@ -76,13 +76,24 @@ The capture is stored **only when all** of these hold:
 3. `remember` is not `false`;
 4. generation succeeded (a `429`/`502` never stores anything).
 
-Stored captures are merged into one conversation per
-`(user, platform, contact_label)`. Each accessibility capture overlaps the
-previous one, so the server appends only messages after the longest overlap
-between the stored tail and the start of the new capture (matched on
-`sender` + trimmed `content`); re-sending the same window stores nothing. If
-there is no overlap at all, the whole capture is appended. New messages queue
-a background memory extraction.
+Stored captures are merged into one keyboard conversation per
+`(user, platform, contact_label)`. It is never merged into a screenshot/share
+conversation for the same contact. Messages are matched on `sender` + trimmed
+`content`, against the last 500 stored messages:
+
+1. A window of **≥ 3 messages** that already appears anywhere in the stored
+   history (the user scrolled up) stores nothing.
+2. Otherwise the server appends only what follows the longest overlap between
+   the end of the stored history and the start of the window. Re-sending the
+   same window stores nothing.
+3. A window that reaches above the stored start (older messages) but ends
+   inside stored history stores nothing, because the older messages can't be
+   placed in order.
+4. If there is no overlap at all, the whole window is appended.
+
+Windows of 1–2 messages skip the containment checks, so a genuinely new short
+reply such as "ok" is not mistaken for an old one. New messages queue a
+background memory extraction.
 
 Storage is **best-effort**: a DB error is logged and swallowed, and the reply
 waits at most ~1.5 s for it (`PERSIST_TIMEOUT_MS`), after which it returns

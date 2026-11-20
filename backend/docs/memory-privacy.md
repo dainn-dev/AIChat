@@ -26,33 +26,58 @@ by compliance.
   `PATCH /me/settings`), the request names `platform` + `contact_label`, and the
   per-request `remember` flag is not `false`. Turning the setting off stops new
   storage; it does **not** delete what is already stored.
+- **Separate keyboard conversations:** `conversations.source`
+  (`app | keyboard | share | ocr`) records the creating surface. Keyboard
+  captures only ever merge into `source = 'keyboard'` conversations, never into
+  a screenshot/share conversation for the same contact.
+- **Provenance:** `memory_sources(memory_id, conversation_id)` (unique pair,
+  `ON DELETE CASCADE` on both sides) records **every** conversation a memory was
+  derived from. The extraction writer links the memory even when the fact
+  deduplicates into an existing row. Existing data was backfilled from
+  `source_ref` (migration `MemorySources1718900000000`).
 - **`DELETE /conversations/:id`** (owner-scoped; another user's id → `404`, no
   IDOR) deletes, in one transaction:
   - the conversation row and its `messages` (`ON DELETE CASCADE`);
   - `screenshots` linked to it (their FK is `SET NULL`, which would otherwise
     leave the OCR text behind);
-  - `memories` whose provenance is this conversation
-    (`source_ref = 'conversation:<id>'`, the format MS-4 writes).
+  - every **extracted** memory that has no source left once this
+    conversation's links are removed. A memory still backed by another
+    conversation survives, and its `source_ref` is re-pointed to a remaining
+    source. A legacy extracted memory with no links at all is matched on
+    `source_ref = 'conversation:<id>'`.
   `ai_requests` and `memory_extractions` rows keep only a nulled
   `conversation_id` (audit metadata, no message content).
+- **Extraction race / opt-out:** the writer re-checks, inside its write
+  transaction, that the source conversation still exists and, for keyboard
+  conversations, that the owner is still opted in. It locks the row
+  `FOR SHARE`, and erasure locks it `FOR UPDATE`, so the two serialize: either
+  the delete runs first and the job drops its results (`aborted`, no audit
+  row), or the job commits first and the delete then erases what it wrote via
+  `memory_sources`. Extraction also skips opted-out keyboard conversations
+  before any LLM call (`opted-out`).
 
-**Known gaps (documented, not fixed in Phase 0):**
+**Closed in Phase 0 follow-up:** dedupe losing provenance (old gap 1) and the
+in-flight extraction race (old gap 3).
 
-1. **Deduplicated facts keep the first source.** MS-4 dedupes facts on
-   `(user_id, contact_label, kind, content_hash)` with `ON CONFLICT DO NOTHING`,
-   so a fact also present in a *later* conversation keeps the `source_ref` of the
-   conversation that first produced it. Deleting the later conversation leaves
-   that fact (it is still backed by the earlier one); deleting the earlier one
-   removes it even if the later one also supports it. Exact per-conversation
-   lineage would need a `memory_sources(memory_id, conversation_id)` join table.
-2. **Manual/edited memories** (`source = 'manual'`) carry no conversation
-   reference and are never deleted with a conversation — they are managed via
-   `DELETE /memories/:id`.
-3. **In-flight extraction race.** An extraction job that already loaded the
-   messages before the delete committed can still write memories afterwards
-   (with the deleted conversation's `source_ref`). Jobs that start after the
-   delete see `no-conversation` and do nothing. Mitigation if required: have
-   the writer re-check the conversation exists inside its transaction.
+**Remaining gaps / decisions:**
+
+1. **Manual memories** (`source = 'manual'`, created on the dashboard) are
+   never deleted with a conversation. Manage them via `DELETE /memories/:id`.
+2. **Edited extracted memories are still treated as derived.** Editing or
+   confirming an extracted memory on the dashboard keeps `source = 'extracted'`,
+   so it is erased with its last source conversation. This is the
+   privacy-conservative choice. If edits should "adopt" the memory as the
+   user's own, `MemoriesService.update` would need to flip `source` to `manual`.
+3. **Legacy links:** the backfill links only memories whose `source_ref`
+   conversation still existed and belonged to the same user at migration time.
+   Additional pre-migration dedupe sources can't be recovered, because
+   `source_ref` held only the first one.
+4. **Opt-out does not delete stored data, and screenshot/share conversations
+   are not gated by `memory_opt_in`.** This is open product question 4.
+   Opting out only stops new keyboard storage and new extraction of keyboard
+   conversations.
+5. **Merge history window:** scrolled-up re-captures are recognised only
+   within the last 500 stored messages of a conversation (`MERGE_HISTORY_LIMIT`).
 
 ## 2. Sensitive-category filter / redaction (§5.7) — IMPLEMENTED (defaults)
 
