@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import {
   ConversationsService,
   KeyboardCapture,
+  MAX_STORED_MESSAGES_PER_CONVERSATION,
   MERGE_HISTORY_LIMIT,
 } from './conversations.service';
 
@@ -388,5 +389,41 @@ describe('ConversationsService.list (security H1)', () => {
     expect(query.mock.calls[0][1]).toEqual(['user-1', 20, 0]);
     expect(query.mock.calls[1][1]).toEqual(['user-1']);
     expect(res).toEqual({ conversations: [], total: 4, limit: 20, offset: 0 });
+  });
+});
+
+describe('ConversationsService rolling retention cap (security M4)', () => {
+  const trimCall = (calls: Array<{ sql: string; params: unknown[] }>) =>
+    calls.find((c) =>
+      /FROM messages WHERE conversation_id = \$1 AND position <=/.test(c.sql),
+    );
+
+  it('drops messages older than the newest MAX_STORED_MESSAGES_PER_CONVERSATION', async () => {
+    const { service, calls } = build({
+      optIn: true,
+      existingConversationId: 'conv-1',
+      storedTailDesc: [
+        {
+          sender: 'me',
+          content: 'last',
+          position: MAX_STORED_MESSAGES_PER_CONVERSATION - 1,
+        },
+      ],
+    });
+    await service.persistKeyboardCapture(
+      capture({
+        messages: [
+          { sender: 'me', content: 'last' },
+          { sender: 'them', content: 'new' },
+        ],
+      }),
+    );
+    expect(trimCall(calls)?.params).toEqual(['conv-1', 0]);
+  });
+
+  it('does not trim below the cap', async () => {
+    const { service, calls } = build({ optIn: true });
+    await service.persistKeyboardCapture(capture());
+    expect(trimCall(calls)).toBeUndefined();
   });
 });

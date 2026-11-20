@@ -125,6 +125,17 @@ categories) before sign-off.
   default 200): once reached, new conversations are **shed** (skipped, eligible
   again after the UTC-day reset) rather than running unbounded background spend.
   Unchanged conversations are free (claimed-once; never re-extracted).
+- **Bounded extraction input (Android Phase 0, security M4):** only the most
+  recent `EXTRACTION_MAX_MESSAGES` (200) messages, further trimmed from the
+  oldest end to `EXTRACTION_MAX_CHARS` (20 000) characters, are sent to the
+  extractor, so per-run LLM cost is bounded however long a conversation grows.
+- **Per-conversation retention cap (keyboard):** a keyboard conversation keeps
+  only its newest `MAX_STORED_MESSAGES_PER_CONVERSATION` (2 000) messages. Older
+  ones are hard-deleted on the next append (rolling window). Memories already
+  extracted from dropped messages stay, linked to the conversation via
+  `memory_sources`. Screenshot/share conversations are bounded per upload
+  (≤ 200 messages each) but not capped in total. That is left for the
+  retention-policy decision in §4.
 - **Batching**: embeddings for a conversation's facts are sent in one batch
   (`embedBatch`); rapid updates to a conversation debounce to a single queued job.
 

@@ -10,6 +10,10 @@ import {
 import { MemoryWriterService } from './memory-writer.service';
 import { SensitiveDataFilter } from './privacy/sensitive-data.filter';
 import { applyFactScopePolicy } from './fact-scope-policy';
+import {
+  boundExtractionWindow,
+  EXTRACTION_MAX_MESSAGES,
+} from './extraction-window';
 import { sanitizeLabel } from '../common/text-sanitize';
 
 export interface ExtractionOutcome {
@@ -89,12 +93,15 @@ export class MemoryExtractionService {
       return { status: 'budget-exceeded', factsExtracted: 0, factsWritten: 0 };
     }
 
-    const messages: Array<{ sender: string; content: string }> =
+    // Cost bound (security M4): only the most recent messages, capped by
+    // count in SQL and by total characters in boundExtractionWindow.
+    const recentDesc: Array<{ sender: string; content: string }> =
       await this.dataSource.query(
         `SELECT sender, content FROM messages
-          WHERE conversation_id = $1 ORDER BY position ASC`,
-        [conversationId],
+          WHERE conversation_id = $1 ORDER BY position DESC LIMIT $2`,
+        [conversationId, EXTRACTION_MAX_MESSAGES],
       );
+    const messages = boundExtractionWindow([...recentDesc].reverse());
 
     const extracted = await this.extractor.extract({
       messages,

@@ -31,6 +31,14 @@ export interface KeyboardCapture {
  */
 export const MERGE_HISTORY_LIMIT = 500;
 
+/**
+ * Per-conversation retention cap for keyboard captures (security M4). Older
+ * messages beyond it are dropped on each append (rolling window), bounding
+ * storage and what a later extraction could ever read. Positions keep
+ * increasing, so ordering and the merge window are unaffected.
+ */
+export const MAX_STORED_MESSAGES_PER_CONVERSATION = 2000;
+
 interface StoredMessageRow {
   sender: string;
   content: string;
@@ -293,6 +301,15 @@ export class ConversationsService {
     const startPosition =
       historyDesc.length > 0 ? Number(historyDesc[0].position) + 1 : 0;
     await this.insertMessages(manager, conversationId, toAppend, startPosition);
+    // Rolling retention window (security M4): keep only the newest
+    // MAX_STORED_MESSAGES_PER_CONVERSATION keyboard messages per conversation.
+    const lastPosition = startPosition + toAppend.length - 1;
+    if (lastPosition >= MAX_STORED_MESSAGES_PER_CONVERSATION) {
+      await manager.query(
+        `DELETE FROM messages WHERE conversation_id = $1 AND position <= $2`,
+        [conversationId, lastPosition - MAX_STORED_MESSAGES_PER_CONVERSATION],
+      );
+    }
     await manager.query(
       `UPDATE conversations SET updated_at = now() WHERE id = $1`,
       [conversationId],
