@@ -3,6 +3,7 @@ import { LlmPrompt } from '../provider/llm-provider.interface';
 import { RetrievedMemory } from '../memory/memory-retriever.interface';
 import { NormalizedMessage } from './normalizer';
 import { Tone } from '../enums/tone.enum';
+import { OUTPUT_LANG_NAMES, OutputLang } from '../enums/output-lang.enum';
 
 export interface ReplyContext {
   messages: NormalizedMessage[];
@@ -11,6 +12,8 @@ export interface ReplyContext {
   count: number;
   userGoal?: string;
   relationshipStage?: string;
+  /** Explicit output language; omitted → match the conversation's language. */
+  lang?: OutputLang;
 }
 
 export interface AnalyzeContext {
@@ -23,6 +26,8 @@ export interface AnalyzeContext {
 export interface RewriteContext {
   text: string;
   tone: Tone;
+  /** Explicit output language; omitted → keep the draft's own language. */
+  lang?: OutputLang;
 }
 
 export interface TranslateContext {
@@ -44,6 +49,7 @@ export class ContextBuilder {
       `You are a messaging assistant that drafts replies on behalf of "me".`,
       `Write ${ctx.count} candidate reply/replies in a ${ctx.tone} tone.`,
       `Each reply must be natural, concise, and ready to send.`,
+      this.replyLanguageInstruction(ctx.lang),
       `Respond with ONLY valid JSON of the form:`,
       `{"replies":[{"text":"..."}]}`,
     ].join(' ');
@@ -68,7 +74,8 @@ export class ContextBuilder {
   buildRewritePrompt(ctx: RewriteContext): LlmPrompt {
     const system =
       `Rewrite the user's draft message into a ${ctx.tone} tone. ` +
-      `Keep the original intent. Respond with ONLY the rewritten message text, no quotes or preamble.`;
+      `Keep the original intent. ${this.rewriteLanguageInstruction(ctx.lang)} ` +
+      `Respond with ONLY the rewritten message text, no quotes or preamble.`;
     return { system, user: `Draft: ${ctx.text}` };
   }
 
@@ -78,6 +85,25 @@ export class ContextBuilder {
       `Translate the user's message into ${ctx.targetLang}${from}. ` +
       `Preserve tone and meaning. Respond with ONLY the translated text, no quotes or preamble.`;
     return { system, user: ctx.text };
+  }
+
+  /**
+   * Output-language instruction for replies (Android Phase 0). An explicit
+   * `lang` pins the language; otherwise the model mirrors the conversation so
+   * a Vietnamese chat never gets English suggestions by default.
+   */
+  private replyLanguageInstruction(lang?: OutputLang): string {
+    if (lang) {
+      return `Write every reply in ${OUTPUT_LANG_NAMES[lang]}, regardless of the language of the conversation.`;
+    }
+    return `Write every reply in the same language as the conversation (match the language of the most recent messages).`;
+  }
+
+  private rewriteLanguageInstruction(lang?: OutputLang): string {
+    if (lang) {
+      return `Write the result in ${OUTPUT_LANG_NAMES[lang]}, translating if the draft is in another language.`;
+    }
+    return `Keep the draft's original language.`;
   }
 
   private renderContext(ctx: ReplyContext | AnalyzeContext): string {

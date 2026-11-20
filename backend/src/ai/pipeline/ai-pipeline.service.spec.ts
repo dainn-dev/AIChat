@@ -13,6 +13,7 @@ import {
 } from '../provider/llm-provider.interface';
 import { Tone } from '../enums/tone.enum';
 import { MessageSender, AiSource } from '../enums/source.enum';
+import { OutputLang } from '../enums/output-lang.enum';
 
 const ctx: PipelineContext = { source: AiSource.App };
 
@@ -134,5 +135,66 @@ describe('AiPipelineService', () => {
     expect(requestLog.record.mock.calls[0][0]).toMatchObject({
       status: 'error',
     });
+  });
+});
+
+/**
+ * Android Phase 0: the keyboard's `lang` must reach the provider prompt and its
+ * `contact_label` must scope memory retrieval per contact.
+ */
+describe('AiPipelineService lang + contact scoping (Android Phase 0)', () => {
+  const capture = () => {
+    const provider = new StubLlmProvider();
+    const spy = jest.spyOn(provider, 'complete');
+    return { provider, spy };
+  };
+
+  it('puts the requested output language into the reply prompt', async () => {
+    const { provider, spy } = capture();
+    const { service } = build(provider);
+    const replies = await service.generateReplies(
+      {
+        messages: conversation,
+        tone: Tone.Friendly,
+        count: 2,
+        lang: OutputLang.Vi,
+      },
+      ctx,
+    );
+    expect(replies.length).toBeGreaterThanOrEqual(1);
+    expect(spy.mock.calls[0][0].prompt.system).toContain('in Vietnamese');
+  });
+
+  it('puts the requested output language into the rewrite prompt', async () => {
+    const { provider, spy } = capture();
+    const { service } = build(provider);
+    await service.rewrite(
+      { text: 'ok', tone: Tone.Funny, lang: OutputLang.En },
+      ctx,
+    );
+    expect(spy.mock.calls[0][0].prompt.system).toContain('in English');
+  });
+
+  it('scopes memory retrieval by ctx.contactLabel', async () => {
+    const retriever = { retrieve: jest.fn().mockResolvedValue([]) };
+    const config = {
+      getOrThrow: () => ({ maxRepairRetries: 0 }),
+    } as unknown as ConfigService;
+    const service = new AiPipelineService(
+      new StubLlmProvider(),
+      retriever,
+      new Normalizer(),
+      new ContextBuilder(),
+      new OutputValidator(),
+      { record: jest.fn() } as unknown as AiRequestLogger,
+      config,
+    );
+    await service.generateReplies(
+      { messages: conversation, tone: Tone.Friendly, count: 1 },
+      { source: AiSource.Keyboard, userId: 'u1', contactLabel: 'Linh' },
+    );
+    expect(retriever.retrieve).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', contactLabel: 'Linh' }),
+    );
   });
 });

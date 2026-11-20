@@ -45,8 +45,14 @@ export class KeyboardService {
             messages: dto.conversation,
             tone: dto.tone,
             count: dto.count ?? DEFAULT_REPLY_COUNT,
+            lang: dto.lang,
           },
-          { source: AiSource.Keyboard, userId: user.sub },
+          {
+            source: AiSource.Keyboard,
+            userId: user.sub,
+            // Per-contact memory scoping (MS-3, Android Phase 0).
+            contactLabel: dto.contact_label,
+          },
         ),
     );
     return { suggestions, usage: await this.snapshot(user.sub, tier) };
@@ -63,7 +69,7 @@ export class KeyboardService {
       UsageMetric.Reply,
       () =>
         this.pipeline.rewrite(
-          { text: dto.text, tone: dto.tone },
+          { text: dto.text, tone: dto.tone, lang: dto.lang },
           { source: AiSource.Keyboard, userId: user.sub },
         ),
     );
