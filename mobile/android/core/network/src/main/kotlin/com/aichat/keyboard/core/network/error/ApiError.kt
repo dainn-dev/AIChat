@@ -16,7 +16,7 @@ sealed interface ApiError {
     data class Unauthorized(override val message: String) : ApiError
 
     /**
-     * 429 `QUOTA_EXCEEDED` (daily count quota, [limit] from `details.limit`), or 402 `SPEND_CAP_EXCEEDED`
+     * 429 with code `QUOTA_EXCEEDED` (daily count quota, [limit] from `details.limit`), or 402 `SPEND_CAP_EXCEEDED`
      * (Pro daily spend cap, [limit] is null). [metric] is e.g. `reply`, or `spend_cap` for the spend cap.
      */
     data class QuotaExceeded(
@@ -37,7 +37,10 @@ sealed interface ApiError {
     /** 409, e.g. signup with an email that is already registered. */
     data class Conflict(override val message: String) : ApiError
 
-    /** 502/503/504. The AI provider or an upstream dependency failed; retrying later may help. */
+    /**
+     * Any 5xx (the AI provider, an upstream dependency or the backend failed), or a 429 that is not the backend's
+     * `QUOTA_EXCEEDED` (a gateway rate limit). Retrying later may help. [message] is for logs only.
+     */
     data class Upstream(override val message: String, val status: Int) : ApiError
 
     /** The request did not get an HTTP response (offline, DNS, TLS, timeout, connection reset). */
@@ -45,7 +48,7 @@ sealed interface ApiError {
         override val message: String get() = cause.message ?: cause.javaClass.simpleName
     }
 
-    /** Anything else: other statuses, or a response body that does not match the contract. */
+    /** Anything else: other 4xx statuses, or a response body that does not match the contract. */
     data class Unknown(
         override val message: String,
         val status: Int?,

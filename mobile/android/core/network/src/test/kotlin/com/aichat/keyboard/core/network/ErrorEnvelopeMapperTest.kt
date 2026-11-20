@@ -55,6 +55,19 @@ class ErrorEnvelopeMapperTest {
     }
 
     @Test
+    fun `a 429 that is not QUOTA_EXCEEDED (gateway rate limit) maps to Upstream`() {
+        val error = ErrorEnvelopeMapper.fromHttp(429, body("RATE_LIMITED", "Too many requests"))
+        assertEquals(ApiError.Upstream("Too many requests", 429), error)
+    }
+
+    @Test
+    fun `every 5xx maps to Upstream`() {
+        listOf(500, 501, 503, 504, 599).forEach { status ->
+            assertIs<ApiError.Upstream>(ErrorEnvelopeMapper.fromHttp(status, body("INTERNAL_ERROR", "boom")), "$status")
+        }
+    }
+
+    @Test
     fun `502 maps to Upstream`() {
         val error = ErrorEnvelopeMapper.fromHttp(502, body("UPSTREAM_ERROR", "AI provider unavailable"))
         assertEquals(ApiError.Upstream("AI provider unavailable", 502), error)
@@ -67,18 +80,15 @@ class ErrorEnvelopeMapperTest {
     }
 
     @Test
-    fun `other statuses map to Unknown with the code`() {
-        val error = ErrorEnvelopeMapper.fromHttp(500, body("INTERNAL_ERROR", "An unexpected error occurred."))
-        assertEquals(ApiError.Unknown("An unexpected error occurred.", 500, "INTERNAL_ERROR"), error)
+    fun `other 4xx statuses map to Unknown with the code`() {
+        val error = ErrorEnvelopeMapper.fromHttp(403, body("FORBIDDEN", "Forbidden"))
+        assertEquals(ApiError.Unknown("Forbidden", 403, "FORBIDDEN"), error)
     }
 
     @Test
     fun `a missing or non-envelope body still maps by status`() {
         assertEquals(ApiError.Unauthorized("HTTP 401"), ErrorEnvelopeMapper.fromHttp(401, null))
         assertEquals(ApiError.Upstream("HTTP 502", 502), ErrorEnvelopeMapper.fromHttp(502, "<html>Bad Gateway</html>"))
-        assertEquals(
-            ApiError.QuotaExceeded("HTTP 429", limit = null, metric = null),
-            ErrorEnvelopeMapper.fromHttp(429, """{"unexpected":true}"""),
-        )
+        assertEquals(ApiError.Upstream("HTTP 429", 429), ErrorEnvelopeMapper.fromHttp(429, """{"unexpected":true}"""))
     }
 }

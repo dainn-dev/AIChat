@@ -22,10 +22,13 @@ class TokenRefresher(
     sealed interface Outcome {
         data class Refreshed(val tokens: AuthTokens) : Outcome
 
-        /** The server rejected the refresh token (revoked, expired, unknown). The session is over. */
+        /** The backend answered 401: the refresh token is revoked, expired or unknown. The session is over. */
         data object Rejected : Outcome
 
-        /** No usable answer (offline, timeout, 5xx). The session may still be valid; try again later. */
+        /**
+         * Anything else (offline, timeout, 5xx, or a 4xx such as a 400 from a captive portal or proxy). The session
+         * may still be valid, so it is kept and the next call tries again.
+         */
         data class Failed(val cause: Exception) : Outcome
     }
 
@@ -44,8 +47,9 @@ class TokenRefresher(
                         val payload = json.decodeFromString(RefreshResponse.serializer(), response.body!!.string())
                         Outcome.Refreshed(AuthTokens(payload.accessToken, payload.refreshToken))
                     }
-                    // 401: invalid/expired/revoked token. 400: the token failed validation (e.g. too long).
-                    response.code == 401 || response.code == 400 -> Outcome.Rejected
+                    // Only the backend's 401 ends the session. Signing out on other statuses would let any
+                    // intermediary (proxy, captive portal) wipe a valid session.
+                    response.code == 401 -> Outcome.Rejected
                     else -> Outcome.Failed(IOException("Refresh failed with HTTP ${response.code}"))
                 }
             }

@@ -59,8 +59,13 @@ object AiChatClientFactory {
     /**
      * No logging interceptor on purpose: request and response bodies carry tokens, passwords and third-party
      * chat text.
+     *
+     * Redirects are not followed: the API never redirects, and following one would replay the bearer token, the
+     * password or the refresh token to wherever a compromised proxy or misconfigured host points.
      */
     fun defaultHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .followRedirects(false)
+        .followSslRedirects(false)
         .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)

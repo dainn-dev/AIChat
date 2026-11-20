@@ -11,16 +11,18 @@ import com.aichat.keyboard.core.network.model.Tone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
-import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.mockwebserver.SocketPolicy
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
@@ -48,7 +50,7 @@ class AiChatClientTest {
     }
 
     private fun client(store: InMemoryTokenStore): AiChatClient {
-        val http = OkHttpClient.Builder()
+        val http = AiChatClientFactory.defaultHttpClient().newBuilder()
             .readTimeout(5, TimeUnit.SECONDS)
             .callTimeout(10, TimeUnit.SECONDS)
             .build()
@@ -121,6 +123,20 @@ class AiChatClientTest {
 
         assertEquals(ApiResult.Success(Unit), client(store).logout())
         assertNull(store.current())
+    }
+
+    @Test
+    fun `cancelling logout while the revoke call is in flight still leaves the user signed out`() = runBlocking {
+        val store = InMemoryTokenStore(oldTokens)
+        server.enqueue(MockResponse().setResponseCode(204).setHeadersDelay(5, TimeUnit.SECONDS))
+        val client = client(store)
+
+        val job = launch(Dispatchers.IO) { client.logout() }
+        assertEquals("/auth/logout", server.takeRequest(5, TimeUnit.SECONDS)?.path) // revoke is in flight
+        job.cancelAndJoin()
+
+        assertNull(store.current())
+        assertEquals(false, client.isSignedIn.first())
     }
 
     // -- Bearer token and refresh ------------------------------------------------------------------------------
@@ -215,6 +231,49 @@ class AiChatClientTest {
     }
 
     @Test
+    fun `a 400 from refresh, e g from a proxy, keeps the session`() = runBlocking {
+        val store = InMemoryTokenStore(oldTokens)
+        server.enqueue(errorResponse(401, "UNAUTHORIZED", "Unauthorized"))
+        server.enqueue(MockResponse().setResponseCode(400).setBody("<html>Bad Request</html>"))
+
+        val result = client(store).me()
+
+        assertIs<ApiError.Unauthorized>((result as ApiResult.Failure).error)
+        assertEquals(oldTokens, store.current())
+    }
+
+    @Test
+    fun `logout during an in-flight refresh is not undone by the refresh result`() = runBlocking {
+        val store = InMemoryTokenStore(oldTokens)
+        val refreshArrived = CountDownLatch(1)
+        val newTokenUsed = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/auth/refresh" -> {
+                    refreshArrived.countDown()
+                    jsonResponse(200, Payloads.refresh("access-new", "refresh-new"))
+                        .setHeadersDelay(500, TimeUnit.MILLISECONDS)
+                }
+                "/auth/logout" -> MockResponse().setResponseCode(204)
+                else -> {
+                    if (request.getHeader("Authorization") == "Bearer access-new") newTokenUsed.incrementAndGet()
+                    errorResponse(401, "UNAUTHORIZED", "Unauthorized")
+                }
+            }
+        }
+        val client = client(store)
+
+        val me = async(Dispatchers.IO) { client.me() }
+        assertTrue(refreshArrived.await(5, TimeUnit.SECONDS))
+        client.logout()
+        val result = me.await()
+
+        assertIs<ApiError.Unauthorized>((result as ApiResult.Failure).error)
+        assertNull(store.current(), "the rotated tokens must not resurrect the session")
+        assertEquals(0, newTokenUsed.get(), "the request must not be retried after logout")
+    }
+
+    @Test
     fun `a transient refresh failure keeps the session`() = runBlocking {
         val store = InMemoryTokenStore(oldTokens)
         server.enqueue(errorResponse(401, "UNAUTHORIZED", "Unauthorized"))
@@ -282,6 +341,37 @@ class AiChatClientTest {
 
         assertIs<ApiError.QuotaExceeded>(error)
         assertEquals(20, error.limit)
+    }
+
+    @Test
+    fun `reply 402 spend cap maps to QuotaExceeded`() = runBlocking {
+        server.enqueue(
+            errorResponse(
+                402,
+                "SPEND_CAP_EXCEEDED",
+                "Daily spend cap reached. Please try again tomorrow.",
+                """{"scope":"daily","cap_usd":2.5}""",
+            ),
+        )
+
+        val error = (client(InMemoryTokenStore(oldTokens)).reply(replyRequest) as ApiResult.Failure).error
+
+        assertEquals(
+            ApiError.QuotaExceeded("Daily spend cap reached. Please try again tomorrow.", limit = null, metric = "spend_cap"),
+            error,
+        )
+    }
+
+    @Test
+    fun `a redirect is not followed, so credentials are never replayed elsewhere`() = runBlocking {
+        val store = InMemoryTokenStore()
+        server.enqueue(MockResponse().setResponseCode(307).setHeader("Location", server.url("/elsewhere")))
+
+        val result = client(store).login("linh@example.com", "hunter22!")
+
+        assertIs<ApiResult.Failure>(result)
+        assertEquals(1, server.requestCount)
+        assertNull(store.current())
     }
 
     @Test

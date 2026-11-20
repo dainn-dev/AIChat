@@ -23,6 +23,7 @@ internal data class ErrorBody(
 /** Maps an HTTP error response onto [ApiError]. Lenient: a missing or malformed envelope still maps by status. */
 object ErrorEnvelopeMapper {
     private const val SPEND_CAP_METRIC = "spend_cap"
+    private const val QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -38,12 +39,14 @@ object ErrorEnvelopeMapper {
             402 -> ApiError.QuotaExceeded(message, limit = null, metric = SPEND_CAP_METRIC)
             404 -> ApiError.NotFound(message)
             409 -> ApiError.Conflict(message)
-            429 -> ApiError.QuotaExceeded(
-                message = message,
-                limit = details.int("limit"),
-                metric = details.string("metric"),
-            )
-            502, 503, 504 -> ApiError.Upstream(message, status)
+            // Only the backend's own quota error is a quota. Any other 429 (e.g. a gateway rate limit) means "busy,
+            // try again later".
+            429 -> if (code == QUOTA_EXCEEDED) {
+                ApiError.QuotaExceeded(message = message, limit = details.int("limit"), metric = details.string("metric"))
+            } else {
+                ApiError.Upstream(message, status)
+            }
+            in 500..599 -> ApiError.Upstream(message, status)
             else -> ApiError.Unknown(message, status, code)
         }
     }

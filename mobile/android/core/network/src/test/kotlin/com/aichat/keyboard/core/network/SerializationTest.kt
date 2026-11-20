@@ -8,6 +8,10 @@ import com.aichat.keyboard.core.network.model.KeyboardReplyResponse
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
 import com.aichat.keyboard.core.network.model.KeyboardTextResponse
 import com.aichat.keyboard.core.network.model.KeyboardTranslateRequest
+import com.aichat.keyboard.core.network.model.LoginRequest
+import com.aichat.keyboard.core.network.model.LogoutRequest
+import com.aichat.keyboard.core.network.model.RefreshRequest
+import com.aichat.keyboard.core.network.model.RefreshResponse
 import com.aichat.keyboard.core.network.model.MeResponse
 import com.aichat.keyboard.core.network.model.Memory
 import com.aichat.keyboard.core.network.model.MessageSender
@@ -166,6 +170,20 @@ class SerializationTest {
         assertEquals(0.92, memories[0].confidence)
         assertNull(memories[1].contactLabel)
         assertEquals("pending_review", memories[1].status)
+    }
+
+    @Test
+    fun `secret-bearing DTOs never print their secrets`() {
+        val printed = listOf(
+            SignupRequest("a@b.co", "pw-secret", "Linh"),
+            LoginRequest("a@b.co", "pw-secret"),
+            RefreshRequest("rt-secret"),
+            LogoutRequest("rt-secret"),
+            RefreshResponse("at-secret", "rt-secret"),
+            json.decodeFromString(AuthTokensResponse.serializer(), Payloads.authTokens("at-secret", "rt-secret")),
+        ).joinToString { it.toString() }
+
+        assertFalse(printed.contains("secret"), printed)
     }
 
     @Test

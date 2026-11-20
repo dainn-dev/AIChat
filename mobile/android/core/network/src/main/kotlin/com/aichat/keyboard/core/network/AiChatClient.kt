@@ -23,6 +23,7 @@ import com.aichat.keyboard.core.network.model.SignupRequest
 import com.aichat.keyboard.core.network.model.UpdateSettingsRequest
 import com.aichat.keyboard.core.network.model.UserSettings
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -61,19 +62,24 @@ class AiChatClient internal constructor(
         authenticate { authApi.login(LoginRequest(email.trim(), password)) }
 
     /**
-     * Revokes the refresh token server-side (best effort) and always clears the local session, even when
-     * offline. A token that could not be revoked expires on its own (~30 days).
+     * Signs out: clears the local session first, then revokes the refresh token server-side (best effort).
+     *
+     * The local clear runs in [NonCancellable], so cancelling the caller (e.g. leaving the screen) can never leave
+     * the user signed in. Clearing first also means a refresh that is in flight cannot bring the session back
+     * (its compare-and-set fails). A token that could not be revoked expires on its own (~30 days).
      */
-    suspend fun logout(): ApiResult<Unit> = withContext(ioDispatcher) {
-        val tokens = tokenStore.current() ?: return@withContext ApiResult.Success(Unit)
-        // Best effort: the result is ignored on purpose, the user is signed out locally either way.
-        safeUnitCall { authApi.logout(LogoutRequest(tokens.refreshToken)) }
-        try {
-            tokenStore.clear()
-            ApiResult.Success(Unit)
-        } catch (e: IOException) {
-            ApiResult.Failure(ApiError.Unknown("Could not clear the session: ${e.message}", null, null))
+    suspend fun logout(): ApiResult<Unit> {
+        val signedOut = try {
+            withContext(NonCancellable + ioDispatcher) { tokenStore.current()?.also { tokenStore.clear() } }
+        } catch (_: IOException) {
+            return ApiResult.Failure(ApiError.Unknown("Could not clear the session", null, null))
+        } ?: return ApiResult.Success(Unit)
+
+        withContext(ioDispatcher) {
+            // Best effort: the result is ignored on purpose, the user is already signed out locally.
+            safeUnitCall { authApi.logout(LogoutRequest(signedOut.refreshToken)) }
         }
+        return ApiResult.Success(Unit)
     }
 
     // -- Me -------------------------------------------------------------------------------------------------

@@ -4,7 +4,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /*
- * Wire models for the AIChat backend. Field names mirror the NestJS DTOs exactly
+ * Wire models for the AIChat backend. Classes that carry passwords or tokens override toString() so they can
+ * never end up in a log or crash report by accident.
+ * Field names mirror the NestJS DTOs exactly
  * (backend/src/auth/dto, conversations/dto, memories/dto, keyboard/dto) and the contracts in
  * backend/docs/keyboard-api.md and backend/docs/phase4-integration.md.
  *
@@ -22,23 +24,31 @@ data class SignupRequest(
     val email: String,
     val password: String,
     @SerialName("display_name") val displayName: String? = null,
-)
+) {
+    override fun toString(): String = "SignupRequest(<redacted>)"
+}
 
 @Serializable
 data class LoginRequest(
     val email: String,
     val password: String,
-)
+) {
+    override fun toString(): String = "LoginRequest(<redacted>)"
+}
 
 @Serializable
 data class RefreshRequest(
     @SerialName("refresh_token") val refreshToken: String,
-)
+) {
+    override fun toString(): String = "RefreshRequest(<redacted>)"
+}
 
 @Serializable
 data class LogoutRequest(
     @SerialName("refresh_token") val refreshToken: String,
-)
+) {
+    override fun toString(): String = "LogoutRequest(<redacted>)"
+}
 
 /** `PublicUser` on the backend. */
 @Serializable
@@ -56,14 +66,18 @@ data class AuthTokensResponse(
     val user: PublicUser,
     @SerialName("access_token") val accessToken: String,
     @SerialName("refresh_token") val refreshToken: String,
-)
+) {
+    override fun toString(): String = "AuthTokensResponse(user=$user, tokens=<redacted>)"
+}
 
 /** Response of `POST /auth/refresh`. The refresh token is rotated: the old one is revoked server-side. */
 @Serializable
 data class RefreshResponse(
     @SerialName("access_token") val accessToken: String,
     @SerialName("refresh_token") val refreshToken: String,
-)
+) {
+    override fun toString(): String = "RefreshResponse(<redacted>)"
+}
 
 /**
  * Tier ids (`common/tiers.ts`). Kept as a plain string on the wire models so that a tier added server-side
