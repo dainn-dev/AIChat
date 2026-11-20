@@ -113,7 +113,7 @@ cannot handle full Vietnamese tone placement, VNI, or the "undo by repeating a k
     uses `telex`.
 - **Manager.** `FB/ime/core/SubtypeManager.kt` provides:
   - `activeSubtypeFlow` (a `StateFlow`)
-  - `switchToNextSubtype()`, `switchToPrevSubtype()`, and `switchToSubtypeById(id)` (around lines 191-237)
+  - `switchToPrevSubtype()` (around line 191), `switchToNextSubtype()` (around line 214), and `switchToSubtypeById(id)` (around line 234)
   - `addSubtype()`
   - `shouldShowLanguageSwitch()`
 - **Key handling.** In `KeyboardManager`, `KeyCode.LANGUAGE_SWITCH` calls `handleLanguageSwitch()` (around line
@@ -184,6 +184,14 @@ The upstream app has **no networking stack and no `INTERNET` permission**. All o
   error states in the AI strip.
 - **Quota.** Show the backend's usage snapshot (returned by the keyboard endpoints) in the strip or in
   settings.
+- **TODO (deferred from the baseline code review, finding 5). Must be done in the network phase:**
+  - [ ] Add `res/xml/network_security_config.xml` with `cleartextTrafficPermitted="false"` as the base config, plus
+    a debug-only override (`src/debug/`) for the local backend host. Wire it in the manifest through
+    `android:networkSecurityConfig`.
+  - [ ] Remove or lock down the exported "Import Extension" intent-filters on `FlorisAppActivity`. That covers
+    `VIEW` and `SEND` for `application/vnd.florisboard.extension+zip` and especially the catch-all
+    `application/octet-stream`. They let any app hand us arbitrary files. Also review the `ui://florisboard`
+    deep link.
 
 ## FlorisBoard features to disable or hide for v1
 
@@ -197,7 +205,7 @@ The upstream app has **no networking stack and no `INTERNET` permission**. All o
 | Media (emoji / emoticon) panel, optional | `FB/ime/media/*` | Keep it if UX wants emoji; it is local-only |
 | Theme editor / Snygg stylesheet editing | `FB/app/settings/theme/*` | Power-user feature; lock to AIChat themes |
 | Devtools screens and overlay | `FB/app/devtools/*`, `FB/lib/devtools/*` | Debug-only; hide in release |
-| Backup and restore | `FB/app/settings/advanced/BackupScreen.kt`, `RestoreScreen.kt`; also `android:allowBackup="true"` in the manifest | Decide whether tokens and prefs may be backed up. **Exclude the token store from backup** (`backup_rules.xml`) |
+| Backup and restore | `FB/app/settings/advanced/BackupScreen.kt`, `RestoreScreen.kt` | Android auto-backup and D2D transfer are **already disabled** (`allowBackup="false"`, `res/xml/data_extraction_rules.xml`). The manual backup screen must never export the token store. |
 | About / repo / changelog / privacy links to FlorisBoard GitHub | `FB/app/settings/about/AboutScreen.kt`, `FB/app/setup/SetupScreen.kt` (`florisboard__*_url` strings) | Rebrand; keep the open-source licenses screen (Apache-2.0 attribution) |
 | Language packs (Han shape-based, etc.), optional | `assets/ime/languagepack/*`, `FB/ime/nlp/han/*` | Trims APK size if only EN/VI ship |
 | API 30 inline autofill suggestions | `InlineSuggestionsUi.kt`, pref `suggestion__api30_inline_suggestions_enabled` | Competes with the AI strip for smartbar space |
@@ -220,6 +228,5 @@ the pref defaults in `AppPrefs.kt`, rather than deleting the code. That keeps up
 - **Native code.** `lib/native` builds `libfl_native.so` from Rust (`lib/native/src/main/rust`, depends on
   `libnative/dummy`) through CMake and the NDK. Today it is a placeholder (`dummyAdd`). It needs a Rust toolchain
   and the Android Rust targets at build time, and makes no network calls.
-- **Build-time network:** Gradle resolves dependencies from Google, Maven Central, and the Sonatype snapshots
-  repository (`settings.gradle.kts`). Upstream's `jetpref` snapshot pin had already vanished. We now pin the
-  release `0.3.0-rc01` (see `../UPSTREAM.md`). Remove the snapshots repository once nothing needs it.
+- **Build-time network:** Gradle resolves dependencies from Google and Maven Central only (`settings.gradle.kts`). Upstream's `jetpref` snapshot pin had already vanished. We now pin the
+  release `0.3.0-rc01` (see `../UPSTREAM.md`). The snapshots repository is now commented out.

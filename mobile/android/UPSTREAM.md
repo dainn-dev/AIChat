@@ -70,6 +70,26 @@ because Play does not allow changing the ID afterwards. To change it, edit `aich
   does not exist at that tag. That is a pre-existing upstream bug, unrelated to this fork. Still smoke-test
   the settings screens on a device. The fallback is to build jetpref `d6e12dd` from source as an included build.
 
+- **Snapshots repository disabled.** The Sonatype snapshots `maven(...)` repository in `settings.gradle.kts` is
+  commented out, because nothing resolves from it any more.
+
+## Backup policy (v1)
+
+`android:allowBackup="false"` and `android:fullBackupContent="false"` are set, and `android:dataExtractionRules`
+points to `res/xml/data_extraction_rules.xml`. That file excludes every domain from both cloud backup and
+device-to-device transfer, which `allowBackup="false"` alone does not cover on API 31+. The reason is that the
+keyboard will store auth tokens and chat-derived data, which must not leave the device through Android backup.
+
+Upstream wired its `<full-backup-content>` file (`backup_rules.xml`) into both attributes. That was invalid for
+`dataExtractionRules`, which needs a `<data-extraction-rules>` document, so the file was removed. The manual
+in-app backup/restore screen (Settings > Advanced) still works.
+
+## Follow-ups
+
+- **Gradle dependency verification** (`gradle/verification-metadata.xml` via
+  `./gradlew --write-verification-metadata sha256 help`) is not set up yet. Add it in CI or on a machine with more
+  memory, then keep it updated with every dependency bump.
+
 ## Local build prerequisites
 
 | Requirement | Version | Notes |

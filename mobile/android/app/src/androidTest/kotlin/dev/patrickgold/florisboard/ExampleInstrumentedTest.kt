@@ -33,6 +33,7 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("dev.patrickgold.florisboard", appContext.packageName)
+        // AIChat MODIFIED: assert the configured application ID instead of the upstream package name.
+        assertEquals(BuildConfig.APPLICATION_ID, appContext.packageName)
     }
 }

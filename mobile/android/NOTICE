@@ -30,11 +30,20 @@ The full delta from upstream is:
       applicationId -> com.aichat.keyboard (placeholder), app label -> "AIChat Keyboard",
       new BuildConfig.BASE_APPLICATION_ID field.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/advanced/RestoreScreen.kt
-      Backup package check uses BuildConfig.BASE_APPLICATION_ID.
+      Backup package check uses BuildConfig.BASE_APPLICATION_ID and accepts exactly the base ID
+      or "<base>."-prefixed variants (Restore.isOwnPackageName).
+  app/src/main/AndroidManifest.xml
+      allowBackup=false, fullBackupContent=false, dataExtractionRules -> data_extraction_rules.xml.
+  app/src/main/res/xml/backup_rules.xml
+      Removed (was mis-wired as dataExtractionRules; auto-backup is disabled).
+  app/src/androidTest/kotlin/dev/patrickgold/florisboard/ExampleInstrumentedTest.kt
+      Asserts BuildConfig.APPLICATION_ID instead of the upstream package name.
+  settings.gradle.kts
+      Sonatype snapshots repository commented out.
   gradle/libs.versions.toml
       jetpref 20251119T222500Z-SNAPSHOT (no longer published) -> 0.3.0-rc01 (Maven Central).
   .gitignore
       Added keystore, .kotlin/ and build output entries.
 
 Files added by AIChat (not part of upstream):
-  NOTICE, UPSTREAM.md, docs/integration-points.md
+  NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml

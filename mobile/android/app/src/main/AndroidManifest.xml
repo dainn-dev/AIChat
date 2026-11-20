@@ -21,11 +21,13 @@
         </intent>
     </queries>
 
+    <!-- AIChat MODIFIED: Android auto-backup and device-to-device transfer disabled for v1 (the app will
+         store auth tokens and chat-derived data). The in-app manual backup/restore screen is unaffected. -->
     <application
         android:name="dev.patrickgold.florisboard.FlorisApplication"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/backup_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/floris_app_icon"
         android:label="@string/floris_app_name"
         android:enableOnBackInvokedCallback="true"

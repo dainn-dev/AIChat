@@ -28,8 +28,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // AIChat MODIFIED: snapshots repo disabled; no dependency needs snapshots since jetpref is pinned to a release.
         // Uncomment the following if testing snapshots from Maven Central
-        maven("https://central.sonatype.com/repository/maven-snapshots/")
+        // maven("https://central.sonatype.com/repository/maven-snapshots/")
         // Uncomment the following if testing snapshots from Maven Local
         // mavenLocal()
     }

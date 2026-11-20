@@ -84,6 +84,13 @@ object Restore {
     // AIChat MODIFIED: accept backups created by this fork (base ID without .debug/.beta suffix).
     const val PACKAGE_NAME = BuildConfig.BASE_APPLICATION_ID
     const val BACKUP_ARCHIVE_FILE_NAME = "backup.zip"
+
+    /**
+     * AIChat MODIFIED: true only for this fork's base ID or a build-type variant of it (e.g. `.debug`, `.beta`),
+     * so that unrelated IDs that merely share the prefix (e.g. `com.aichat.keyboardx`) are treated as foreign.
+     */
+    fun isOwnPackageName(packageName: String): Boolean =
+        packageName == PACKAGE_NAME || packageName.startsWith("$PACKAGE_NAME.")
 }
 
 @Composable
@@ -124,7 +131,7 @@ fun RestoreScreen() = FlorisScreen {
                     workspace.metadata.versionCode != BuildConfig.VERSION_CODE -> {
                         R.string.backup_and_restore__restore__metadata_warn_different_version
                     }
-                    !workspace.metadata.packageName.startsWith(Restore.PACKAGE_NAME) -> {
+                    !Restore.isOwnPackageName(workspace.metadata.packageName) -> {
                         R.string.backup_and_restore__restore__metadata_warn_different_vendor
                     }
                     else -> null
