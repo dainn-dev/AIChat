@@ -7,7 +7,11 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthenticatedUser } from './jwt-payload';
 
 /**
- * `GET /me` + `PATCH /me/settings` (Android Phase 0). `GET /me` (DAI-124 §3): the canonical "who am I + my quota" endpoint.
+ * The authenticated user's own resources:
+ *  - `GET /me` (DAI-124 §3) — the canonical "who am I + my quota" endpoint,
+ *    now also returning `settings`;
+ *  - `PATCH /me/settings` (Android Phase 0) — user-controlled settings
+ *    (`memory_opt_in`).
  * Protected — unauthenticated requests are rejected with 401 (AC-A5).
  */
 @Controller()
