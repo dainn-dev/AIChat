@@ -19,6 +19,41 @@ by compliance.
   **and** from the next retrieval, and no row remains in the table.
 - There is no soft-delete/tombstone for memories: erasure is real.
 
+### 1.1 Conversation erasure + keyboard capture opt-in (Android Phase 0) — IMPLEMENTED
+
+- **Opt-in:** keyboard (Android AccessibilityService) captures are stored only
+  when `users.memory_opt_in = true` (default `false`, set via
+  `PATCH /me/settings`), the request names `platform` + `contact_label`, and the
+  per-request `remember` flag is not `false`. Turning the setting off stops new
+  storage; it does **not** delete what is already stored.
+- **`DELETE /conversations/:id`** (owner-scoped; another user's id → `404`, no
+  IDOR) deletes, in one transaction:
+  - the conversation row and its `messages` (`ON DELETE CASCADE`);
+  - `screenshots` linked to it (their FK is `SET NULL`, which would otherwise
+    leave the OCR text behind);
+  - `memories` whose provenance is this conversation
+    (`source_ref = 'conversation:<id>'`, the format MS-4 writes).
+  `ai_requests` and `memory_extractions` rows keep only a nulled
+  `conversation_id` (audit metadata, no message content).
+
+**Known gaps (documented, not fixed in Phase 0):**
+
+1. **Deduplicated facts keep the first source.** MS-4 dedupes facts on
+   `(user_id, contact_label, kind, content_hash)` with `ON CONFLICT DO NOTHING`,
+   so a fact also present in a *later* conversation keeps the `source_ref` of the
+   conversation that first produced it. Deleting the later conversation leaves
+   that fact (it is still backed by the earlier one); deleting the earlier one
+   removes it even if the later one also supports it. Exact per-conversation
+   lineage would need a `memory_sources(memory_id, conversation_id)` join table.
+2. **Manual/edited memories** (`source = 'manual'`) carry no conversation
+   reference and are never deleted with a conversation — they are managed via
+   `DELETE /memories/:id`.
+3. **In-flight extraction race.** An extraction job that already loaded the
+   messages before the delete committed can still write memories afterwards
+   (with the deleted conversation's `source_ref`). Jobs that start after the
+   delete see `no-conversation` and do nothing. Mitigation if required: have
+   the writer re-check the conversation exists inside its transaction.
+
 ## 2. Sensitive-category filter / redaction (§5.7) — IMPLEMENTED (defaults)
 
 Applied at extraction (MS-4), before anything is embedded or stored

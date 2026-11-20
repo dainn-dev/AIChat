@@ -31,25 +31,65 @@ Generate N tone-tagged reply suggestions for a conversation.
 Request:
 ```json
 {
-  "platform": "whatsapp",
+  "platform": "zalo",
+  "contact_label": "Linh",
+  "lang": "vi",
+  "remember": true,
   "conversation": [
-    { "sender": "them", "content": "hey, fun weekend?" },
-    { "sender": "me", "content": "pretty good! you?" }
+    { "sender": "them", "content": "tối nay đi ăn không?" },
+    { "sender": "me", "content": "ok luôn" }
   ],
   "tone": "Flirty",
   "count": 3
 }
 ```
 - `tone` ∈ `Friendly | Funny | Flirty | Professional | Mature`.
-- `count` optional (1–5, default 3). `platform` optional.
+- `count` optional (1–5, default 3). `platform` optional (≤ 64 chars).
+- `lang` optional, `en | vi` (Android Phase 0). Suggestions are written in that
+  language regardless of the chat's language. **Omitted** → the model replies in
+  the conversation's own language. Any other value → `400`.
+- `contact_label` optional (trimmed, 1–128 chars; Android Phase 0). The chat
+  partner's display name as captured by the keyboard. Scopes memory retrieval
+  to that contact and keys the stored conversation.
+- `remember` optional boolean (Android Phase 0). Per-request opt-out of
+  conversation storage (e.g. incognito chats); only an explicit `false`
+  disables it. Must be a JSON boolean (`"false"` → `400`).
 
 Response `200`:
 ```json
 {
   "suggestions": [ { "tone": "Flirty", "text": "…" } ],
+  "conversation_id": "7b0c4a3e-2f4e-4b8a-9a52-0d6f1f4a9c11",
   "usage": { "replies_used": 1, "replies_limit": 20, "screenshots_used": 0, "screenshots_limit": 5 }
 }
 ```
+- `conversation_id` is always present: the stored conversation this capture
+  was merged into, or `null` when nothing was stored (see below).
+
+### Conversation storage (Android Phase 0)
+
+The capture is stored **only when all** of these hold:
+
+1. the user opted in (`PATCH /me/settings { "memory_opt_in": true }`; default
+   `false`);
+2. the request has both `platform` and `contact_label`;
+3. `remember` is not `false`;
+4. generation succeeded (a `429`/`502` never stores anything).
+
+Stored captures are merged into one conversation per
+`(user, platform, contact_label)`. Each accessibility capture overlaps the
+previous one, so the server appends only messages after the longest overlap
+between the stored tail and the start of the new capture (matched on
+`sender` + trimmed `content`); re-sending the same window stores nothing. If
+there is no overlap at all, the whole capture is appended. New messages queue
+a background memory extraction.
+
+Storage is **best-effort**: a DB error is logged and swallowed, and the reply
+waits at most ~1.5 s for it (`PERSIST_TIMEOUT_MS`), after which it returns
+`conversation_id: null` while the write finishes in the background. It never
+changes the status code or `suggestions`.
+
+Erase a stored conversation with `DELETE /conversations/:id` (below).
 
 ## POST /v1/keyboard/rewrite
 
@@ -57,8 +97,11 @@ Rewrite a draft in a tone.
 
 Request:
 ```json
-{ "text": "ok sounds good", "tone": "Professional" }
+{ "text": "ok sounds good", "tone": "Professional", "lang": "en" }
 ```
+- `lang` optional, `en | vi` (Android Phase 0): write the result in that
+  language (translating if needed). Omitted → keep the draft's language.
+
 Response `200`:
 ```json
 { "text": "Sounds good — that works for me.", "usage": { … } }
@@ -79,11 +122,36 @@ Response `200`:
 { "text": "See you again", "usage": { … } }
 ```
 
+## Settings & erasure (Android Phase 0)
+
+These live outside `/v1/keyboard` but gate/undo keyboard storage. Both need
+`Authorization: Bearer <access_token>`.
+
+**`GET /me`** now also returns `settings`:
+```json
+{ "user": { … }, "tier": "free", "usage": { … }, "settings": { "memory_opt_in": false } }
+```
+
+**`PATCH /me/settings`**
+```json
+{ "memory_opt_in": true }
+```
+→ `200 { "settings": { "memory_opt_in": true } }`. `memory_opt_in` is required
+and must be a JSON boolean; unknown fields → `400`. Turning it off stops future
+storage; already-stored conversations stay until deleted.
+
+**`DELETE /conversations/:id`** → `204` (no body). Hard-deletes the conversation,
+its messages, screenshots linked to it, and memories extracted from it.
+`404 CONVERSATION_NOT_FOUND` when it does not exist **or belongs to another
+user**; `400` when `:id` is not a UUID. See `docs/memory-privacy.md` §1.1.
+
 ## Notes for client devs
 
 - Without an `LLM_API_KEY` the server runs the deterministic **stub** provider,
   so the contract is fully exercisable in dev/test (e.g. translate returns
   `"(translated) <text>"`). With a key configured, the same endpoints call the
   real provider — no client change.
+- The stub ignores `lang` (it returns fixed English text); the language
+  instruction only takes effect with a real provider.
 - `translate` is a Phase-2 addition to the pipeline (was not previously in any
   workstream); reply/rewrite reuse the existing WS-4 pipeline.
