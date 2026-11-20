@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AIChat: settings of the vi-input Vietnamese engine (com.aichat.keyboard.vi). -->
+<resources>
+    <string name="aichat_vi__group_title">Tiếng Việt</string>
+    <string name="aichat_vi__input_method__label">Kiểu gõ</string>
+    <string name="aichat_vi__input_method__telex">Telex</string>
+    <string name="aichat_vi__input_method__telex_summary">aa → â, dd → đ, s f r x j → dấu</string>
+    <string name="aichat_vi__input_method__vni">VNI</string>
+    <string name="aichat_vi__input_method__vni_summary">a6 → â, d9 → đ, 1 2 3 4 5 → dấu</string>
+    <string name="aichat_vi__tone_style__label">Kiểu đặt dấu</string>
+    <string name="aichat_vi__tone_style__modern">Mới: hoà, thuỷ</string>
+    <string name="aichat_vi__tone_style__classic">Cũ: hòa, thủy</string>
+    <string name="aichat_vi__auto_restore_english__label">Tự khôi phục từ tiếng Anh</string>
+    <string name="aichat_vi__auto_restore_english__summary">Giữ nguyên các từ không phải tiếng Việt, ví dụ class, street, window</string>
+</resources>

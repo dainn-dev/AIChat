@@ -658,7 +658,8 @@
     },
     {
       "languageTag": "vi-VN",
-      "composer": "org.florisboard.composers:telex",
+      "aichatModified": "AIChat MODIFIED: composer telex -> vi-input",
+      "composer": "org.florisboard.composers:vi-input",
       "currencySet": "org.florisboard.currencysets:vietnamese_dong",
       "popupMapping": "org.florisboard.localization:vi-VN",
       "preferred": {

@@ -227,6 +227,8 @@ dependencies {
     implementation(projects.lib.kotlin)
     implementation(projects.lib.native)
     implementation(projects.lib.snygg)
+    // AIChat MODIFIED: Vietnamese input engine, resolved from the included build in settings.gradle.kts.
+    implementation("com.aichat:vi-input")
     // AIChat MODIFIED: AIChat backend client and session store.
     implementation(projects.core.network)
 

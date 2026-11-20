@@ -627,7 +627,26 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val subtypes = string(
             key = "localization__subtypes",
-            default = "[]",
+            // AIChat MODIFIED: ship Tiếng Việt (vi-input, active on first run) + English instead of an empty list.
+            default = com.aichat.keyboard.vi.AiChatDefaultSubtypes.PREFERENCE_JSON,
+        )
+    }
+
+    // AIChat MODIFIED: settings of the vi-input Vietnamese engine (com.aichat.keyboard.vi). Read on every key,
+    // so changes apply without restarting the keyboard.
+    val aichatVietnamese = AiChatVietnamese()
+    inner class AiChatVietnamese {
+        val inputMethod = enum(
+            key = "aichat_vi__input_method",
+            default = com.aichat.vi.InputMethod.TELEX,
+        )
+        val toneStyle = enum(
+            key = "aichat_vi__tone_style",
+            default = com.aichat.vi.ToneStyle.MODERN,
+        )
+        val autoRestoreEnglish = boolean(
+            key = "aichat_vi__auto_restore_english",
+            default = true,
         )
     }
 
