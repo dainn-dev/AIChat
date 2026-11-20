@@ -76,6 +76,9 @@ class AesGcmTokenCipher(
         const val GCM_TAG_BITS = 128
         const val GCM_IV_BYTES = 12
         private const val FORMAT_VERSION: Byte = 1
+        // Intentionally NOT the applicationId (online.dainn.aichat.keyboard): it is bound into every stored
+        // session's authentication tag, so changing it would make existing sessions undecryptable. Change it only
+        // together with a new FORMAT_VERSION.
         private val DEFAULT_AAD = "com.aichat.keyboard/session/v1".toByteArray(Charsets.UTF_8)
     }
 }

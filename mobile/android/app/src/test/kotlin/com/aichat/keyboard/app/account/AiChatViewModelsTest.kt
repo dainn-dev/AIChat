@@ -1,5 +1,7 @@
 package com.aichat.keyboard.app.account
 
+import java.io.IOException
+import com.aichat.keyboard.core.network.model.DeletedCounts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aichat.keyboard.core.network.AiChatClient
@@ -150,12 +152,12 @@ class AiChatViewModelsTest {
         viewModel.setMemoryOptIn(false)
         val state = viewModel.state.await { !it.savingOptIn && it.optOutResult != null }
 
-        assertEquals(AccountViewModel.OptOutResult(3, 5), state.optOutResult)
+        assertEquals(AccountViewModel.OptOutResult(DeletedCounts(conversations = 3, memories = 5)), state.optOutResult)
         assertEquals(false, state.me?.settings?.memoryOptIn)
     }
 
     @Test
-    fun `turning memory off without counts from the backend still confirms`() {
+    fun `turning memory off without deleted in the response reports no deletion`() {
         val store = InMemoryTokenStore(tokens)
         server.enqueue(json(me))
         server.enqueue(json("""{"settings":{"memory_opt_in":false}}"""))
@@ -164,10 +166,43 @@ class AiChatViewModelsTest {
 
         viewModel.setMemoryOptIn(false)
 
-        assertEquals(
-            AccountViewModel.OptOutResult(null, null),
-            viewModel.state.await { it.optOutResult != null }.optOutResult,
-        )
+        val state = viewModel.state.await { it.optOutResult != null }
+
+        // Older backend: the UI shows the neutral "Memory is off" message, not a deletion claim.
+        assertNull(state.optOutResult?.deleted)
+        assertEquals(false, state.me?.settings?.memoryOptIn)
+    }
+
+    @Test
+    fun `a logout that cannot clear the local session surfaces an error and stays signed in`() {
+        val store = object : TokenStore by InMemoryTokenStore(tokens) {
+            override fun clear() = throw IOException("disk full")
+        }
+        server.enqueue(json(me))
+        val viewModel = track(AccountViewModel(client(store)))
+        viewModel.state.await { it.me != null }
+
+        viewModel.logout()
+        val state = viewModel.state.await { !it.loggingOut && it.logoutError != null }
+
+        assertNotNull(state.logoutError)
+        assertEquals(tokens, store.current())
+        assertEquals(1, server.requestCount) // only GET /me: no revoke call after the failed local clear
+    }
+
+    @Test
+    fun `a successful logout signs out without an error`() {
+        val store = InMemoryTokenStore(tokens)
+        server.enqueue(json(me))
+        server.enqueue(MockResponse().setResponseCode(204))
+        val viewModel = track(AccountViewModel(client(store)))
+        viewModel.state.await { it.me != null }
+
+        viewModel.logout()
+
+        viewModel.isSignedIn.await { it == false }
+        assertNull(viewModel.state.value.logoutError)
+        assertNull(store.current())
     }
 
     // -- Conversations / Memories ------------------------------------------------------------------------------------

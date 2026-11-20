@@ -1,5 +1,6 @@
 package com.aichat.keyboard.app.account
 
+import com.aichat.keyboard.core.network.model.DeletedCounts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aichat.keyboard.core.network.AiChatClient
@@ -99,14 +100,17 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
         val savingOptIn: Boolean = false,
         val optInError: ApiError? = null,
         /**
-         * Set after turning memory off: what the backend deleted. Null counts mean the backend did not report them
-         * (the deletion still happened). Cleared by the next opt-in change.
+         * Set after turning memory off. [OptOutResult.deleted] is what the backend reports it deleted; null when the
+         * response has no `deleted` field (older backend), so the UI must not claim a deletion. Cleared by the next
+         * opt-in change.
          */
         val optOutResult: OptOutResult? = null,
         val loggingOut: Boolean = false,
+        /** Signing out failed locally (the stored session could not be cleared); the user is still signed in. */
+        val logoutError: ApiError? = null,
     )
 
-    data class OptOutResult(val conversations: Int?, val memories: Int?)
+    data class OptOutResult(val deleted: DeletedCounts?)
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
@@ -166,7 +170,7 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
                         optOutResult = if (enabled) {
                             null
                         } else {
-                            OptOutResult(result.value.deleted?.conversations, result.value.deleted?.memories)
+                            OptOutResult(result.value.deleted)
                         },
                     )
                     is ApiResult.Failure -> it.copy(savingOptIn = false, optInError = result.error)
@@ -177,11 +181,11 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
 
     fun logout() {
         if (_state.value.loggingOut) return
-        _state.update { it.copy(loggingOut = true) }
+        _state.update { it.copy(loggingOut = true, logoutError = null) }
         viewModelScope.launch {
             // The local session is cleared even if this coroutine is cancelled (see AiChatClient.logout).
-            client.logout()
-            _state.update { it.copy(loggingOut = false) }
+            val result = client.logout()
+            _state.update { it.copy(loggingOut = false, logoutError = (result as? ApiResult.Failure)?.error) }
         }
     }
 }

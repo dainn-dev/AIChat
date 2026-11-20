@@ -50,8 +50,14 @@
     <string name="aichat__memory__opt_out_confirm_title">Tắt ghi nhớ?</string>
     <string name="aichat__memory__opt_out_confirm_message">Thao tác này sẽ xoá vĩnh viễn mọi cuộc trò chuyện do bàn phím ghi lại và những ghi nhớ chỉ được tạo từ chúng. Dữ liệu từ ảnh chụp màn hình và menu chia sẻ không bị ảnh hưởng. Bàn phím sẽ ngừng lưu các cuộc trò chuyện mới.</string>
     <string name="aichat__memory__opt_out_confirm_action">Tắt và xoá</string>
-    <string name="aichat__memory__opt_out_done">Đã tắt ghi nhớ. Các cuộc trò chuyện do bàn phím lưu đã được xoá.</string>
-    <string name="aichat__memory__opt_out_done_counts">Đã tắt ghi nhớ. Đã xoá {conversations} cuộc trò chuyện và {memories} ghi nhớ.</string>
+    <string name="aichat__memory__opt_out_done">Đã tắt ghi nhớ.</string>
+    <string name="aichat__memory__opt_out_done_counts">Đã tắt ghi nhớ. Đã xoá {conversations} và {memories}.</string>
+    <plurals name="aichat__memory__conversations_count">
+        <item quantity="other">{v} cuộc trò chuyện</item>
+    </plurals>
+    <plurals name="aichat__memory__memories_count">
+        <item quantity="other">{v} ghi nhớ</item>
+    </plurals>
 
     <!-- Conversations -->
     <string name="aichat__conversations__title">Cuộc trò chuyện đã lưu</string>

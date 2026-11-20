@@ -54,8 +54,16 @@
     <string name="aichat__memory__opt_out_confirm_title">Turn off memory?</string>
     <string name="aichat__memory__opt_out_confirm_message">This permanently deletes all conversations captured by the keyboard and the memories learned only from them. Data from screenshots and the share menu is not affected. The keyboard stops storing new chats.</string>
     <string name="aichat__memory__opt_out_confirm_action">Turn off and delete</string>
-    <string name="aichat__memory__opt_out_done">Memory is off. The conversations saved by the keyboard were deleted.</string>
-    <string name="aichat__memory__opt_out_done_counts">Memory is off. Deleted {conversations} conversations and {memories} memories.</string>
+    <string name="aichat__memory__opt_out_done">Memory is off.</string>
+    <string name="aichat__memory__opt_out_done_counts">Memory is off. Deleted {conversations} and {memories}.</string>
+    <plurals name="aichat__memory__conversations_count">
+        <item quantity="one">{v} conversation</item>
+        <item quantity="other">{v} conversations</item>
+    </plurals>
+    <plurals name="aichat__memory__memories_count">
+        <item quantity="one">{v} memory</item>
+        <item quantity="other">{v} memories</item>
+    </plurals>
 
     <!-- Conversations -->
     <string name="aichat__conversations__title">Saved conversations</string>

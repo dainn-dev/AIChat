@@ -114,7 +114,11 @@ class EncryptedFileTokenStore(
         } catch (_: GeneralSecurityException) {
             discardUnreadableSession() // tampered, or the Keystore key is invalidated or corrupted
         } catch (_: RuntimeException) {
-            discardUnreadableSession() // Keystore ProviderException, or a SerializationException for garbage
+            // Trade-off: every RuntimeException here (Keystore ProviderException, SerializationException for garbage,
+            // or an unexpected bug) is treated as an unreadable session. The cost is a forced sign-in, which is
+            // annoying but safe; keeping the file instead could block sign-in forever behind a key that will never
+            // decrypt it again (security review M1).
+            discardUnreadableSession()
         }
     }
 

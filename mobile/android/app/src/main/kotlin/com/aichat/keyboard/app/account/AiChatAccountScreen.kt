@@ -1,5 +1,6 @@
 package com.aichat.keyboard.app.account
 
+import org.florisboard.lib.compose.pluralsRes
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -280,14 +281,24 @@ private fun AccountDetails(viewModel: AccountViewModel) {
     )
     state.optInError?.let { AiChatErrorText(it) }
     state.optOutResult?.let { result ->
+        val deleted = result.deleted
         AiChatInfoText(
-            if (result.conversations != null && result.memories != null) {
+            if (deleted != null) {
                 stringRes(
                     R.string.aichat__memory__opt_out_done_counts,
-                    "conversations" to result.conversations,
-                    "memories" to result.memories,
+                    "conversations" to pluralsRes(
+                        R.plurals.aichat__memory__conversations_count,
+                        deleted.conversations,
+                        "v" to deleted.conversations,
+                    ),
+                    "memories" to pluralsRes(
+                        R.plurals.aichat__memory__memories_count,
+                        deleted.memories,
+                        "v" to deleted.memories,
+                    ),
                 )
             } else {
+                // No `deleted` in the response (older backend): do not claim that anything was deleted.
                 stringRes(R.string.aichat__memory__opt_out_done)
             },
         )
@@ -315,6 +326,7 @@ private fun AccountDetails(viewModel: AccountViewModel) {
     ) {
         Text(stringRes(R.string.aichat__account__logout))
     }
+    state.logoutError?.let { AiChatErrorText(it) }
 
     if (confirmOptIn) {
         AiChatConfirmDialog(
