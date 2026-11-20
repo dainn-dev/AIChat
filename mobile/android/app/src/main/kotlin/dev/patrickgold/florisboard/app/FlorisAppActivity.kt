@@ -158,14 +158,10 @@ class FlorisAppActivity : ComponentActivity() {
             intentToBeHandled = intent
             return
         }
-        if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
-            intentToBeHandled = intent
-            return
-        }
-        if (intent.action == Intent.ACTION_SEND && intent.clipData != null) {
-            intentToBeHandled = intent
-            return
-        }
+        // AIChat MODIFIED: external "Import Extension" intents (ACTION_VIEW with a file URI, ACTION_SEND) are no
+        // longer accepted. Their intent-filters were removed from the manifest, but this activity is exported, so
+        // another app could still target it with an explicit intent and hand it an arbitrary file. Extensions are
+        // imported from inside the app through the system file picker instead (ExtensionImportScreen).
         intentToBeHandled = null
     }
 
