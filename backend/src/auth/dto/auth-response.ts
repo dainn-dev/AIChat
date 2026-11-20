@@ -62,7 +62,17 @@ export interface MeResponse {
   settings: UserSettingsView;
 }
 
-/** Response for `PATCH /me/settings`. */
+/**
+ * Response for `PATCH /me/settings`. `deleted` is present only when the
+ * request turned `memory_opt_in` from true to false and the keyboard-data
+ * purge ran (counts may be 0).
+ */
 export interface SettingsResponse {
   settings: UserSettingsView;
+  deleted?: {
+    /** Keyboard-captured conversations erased (messages cascade). */
+    conversations: number;
+    /** Extracted memories erased because no other source remained. */
+    memories: number;
+  };
 }

@@ -18,7 +18,9 @@ import {
  *    contact_label are present AND remember != false;
  *  - overlapping captures merge without duplicates (source = 'keyboard');
  *  - DELETE /conversations/:id is owner-scoped (404 for others, no IDOR) and
- *    erases messages + memories sourced from the conversation.
+ *    erases messages + memories sourced from the conversation;
+ *  - opting out (true -> false) purges every keyboard conversation and the
+ *    memories only they backed, in the same transaction as the flag change.
  */
 describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
   let app: INestApplication;
@@ -508,9 +510,17 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       const conv = r.body.conversation_id as string;
       expect(conv).toEqual(expect.any(String));
 
+      // Opt-out purges the conversation, so a queued job finds nothing.
       await optIn(token, false);
       const res = await extraction.extractForConversation(conv);
-      expect(res.status).toBe('opted-out');
+      expect(res.status).toBe('no-conversation');
+      expect(await memoriesOf(userId)).toHaveLength(0);
+
+      // Defence in depth: a keyboard conversation of an opted-out user that
+      // somehow exists is still never extracted.
+      const stray = await createConversation(userId, HIKING, 'keyboard');
+      const res2 = await extraction.extractForConversation(stray);
+      expect(res2.status).toBe('opted-out');
       expect(await memoriesOf(userId)).toHaveLength(0);
     });
 
@@ -608,55 +618,110 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       );
     });
 
-    it('M1: after opt-out, keyboard-only memories are not retrieved (but kept); screenshot/manual ones are', async () => {
+    it('opt-out (true -> false) purges keyboard conversations and keyboard-only memories', async () => {
       const extraction = app.get(MemoryExtractionService);
       const retriever = app.get<MemoryRetriever>(MEMORY_RETRIEVER);
       const { token, userId } = await signup();
+      const other = await signup();
       await optIn(token, true);
+      await optIn(other.token, true);
 
-      const kbConv = await createConversation(userId, HIKING, 'keyboard');
-      const ocrConv = await createConversation(
-        userId,
-        'I work as a chef at a bistro downtown',
-        'ocr',
+      const CHEF = 'I work as a chef at a bistro downtown';
+      // Keyboard-only fact (CHEF) and a fact shared with an OCR conversation.
+      const kbChef = await createConversation(userId, CHEF, 'keyboard');
+      const kbHike = await createConversation(userId, HIKING, 'keyboard');
+      const ocrHike = await createConversation(userId, HIKING, 'ocr');
+      const otherKb = await createConversation(
+        other.userId,
+        HIKING,
+        'keyboard',
       );
-      await extraction.extractForConversation(kbConv);
-      await extraction.extractForConversation(ocrConv);
+      for (const c of [kbChef, kbHike, ocrHike, otherKb]) {
+        await extraction.extractForConversation(c);
+      }
       const manual = await http().post('/memories').set(auth(token)).send({
         kind: 'interest',
         content: 'Collects vinyl',
         contact_label: 'Alex',
       });
       expect(manual.status).toBe(201);
-      const all = await memoriesOf(userId);
-      const kbFact = all.find((m) => m.sources.includes(kbConv))!;
-      const ocrFact = all.find((m) => m.sources.includes(ocrConv))!;
-      expect(kbFact).toBeDefined();
-      expect(ocrFact).toBeDefined();
 
-      const retrievable = async (content: string) =>
-        (
-          await retriever.retrieve({
-            userId,
-            contactLabel: 'Alex',
-            conversationText: content,
-            topK: 10,
-          })
-        ).map((m) => m.content);
+      const before = await memoriesOf(userId);
+      const chefFact = before.find((m) => m.sources.includes(kbChef))!;
+      const hikeFact = before.find((m) => m.sources.includes(ocrHike))!;
+      expect(chefFact).toBeDefined();
+      expect(hikeFact.sources).toEqual([kbHike, ocrHike].sort());
+      const otherBefore = await memoriesOf(other.userId);
+      expect(otherBefore).toHaveLength(1);
 
-      expect(await retrievable(kbFact.content)).toContain(kbFact.content);
+      const res = await http()
+        .patch('/me/settings')
+        .set(auth(token))
+        .send({ memory_opt_in: false });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        settings: { memory_opt_in: false },
+        deleted: { conversations: 2, memories: 1 },
+      });
 
-      await optIn(token, false);
-      expect(await retrievable(kbFact.content)).not.toContain(kbFact.content);
-      expect(await retrievable(ocrFact.content)).toContain(ocrFact.content);
-      expect(await retrievable('Collects vinyl')).toContain('Collects vinyl');
-      // Opt-out deletes nothing (open product question 4).
-      expect((await memoriesOf(userId)).map((m) => m.id)).toEqual(
-        all.map((m) => m.id),
+      const convs: Array<{ id: string }> = await ds.query(
+        `SELECT id FROM conversations WHERE user_id = $1`,
+        [userId],
       );
+      expect(convs.map((c) => c.id)).toEqual([ocrHike]);
+      const kbMsgs: Array<{ n: number }> = await ds.query(
+        `SELECT count(*)::int AS n FROM messages
+          WHERE conversation_id = ANY($1::uuid[])`,
+        [[kbChef, kbHike]],
+      );
+      expect(kbMsgs[0].n).toBe(0);
 
-      await optIn(token, true);
-      expect(await retrievable(kbFact.content)).toContain(kbFact.content);
+      const after = await memoriesOf(userId);
+      expect(after.find((m) => m.id === chefFact.id)).toBeUndefined();
+      const survivor = after.find((m) => m.id === hikeFact.id);
+      expect(survivor?.sources).toEqual([ocrHike]);
+      expect(survivor?.source_ref).toBe(`conversation:${ocrHike}`);
+      expect(after.map((m) => m.content)).toContain('Collects vinyl');
+
+      // The surviving (OCR-backed) fact is still retrievable.
+      const retrieved = await retriever.retrieve({
+        userId,
+        contactLabel: 'Alex',
+        conversationText: hikeFact.content,
+        topK: 10,
+      });
+      expect(retrieved.map((m) => m.content)).toContain(hikeFact.content);
+
+      // Another user's keyboard data is untouched.
+      expect(await memoriesOf(other.userId)).toEqual(otherBefore);
+      expect(await storedMessages(otherKb)).toHaveLength(1);
+    });
+
+    it('opt-out is the only transition that purges (false -> false, false -> true, true -> true)', async () => {
+      const { token, userId } = await signup();
+      const kb = await createConversation(userId, HIKING, 'keyboard');
+
+      for (const value of [false, true, true]) {
+        const res = await http()
+          .patch('/me/settings')
+          .set(auth(token))
+          .send({ memory_opt_in: value });
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ settings: { memory_opt_in: value } });
+        expect(await storedMessages(kb)).toHaveLength(1);
+      }
+
+      // Repeated opt-out: the second one finds nothing to purge.
+      const first = await http()
+        .patch('/me/settings')
+        .set(auth(token))
+        .send({ memory_opt_in: false });
+      expect(first.body.deleted).toEqual({ conversations: 1, memories: 0 });
+      const again = await http()
+        .patch('/me/settings')
+        .set(auth(token))
+        .send({ memory_opt_in: false });
+      expect(again.body).toEqual({ settings: { memory_opt_in: false } });
     });
   });
 });

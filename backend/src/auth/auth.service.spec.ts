@@ -9,6 +9,7 @@ import { UsageService } from '../usage/usage.service';
 import { UsageSummary } from '../usage/dto/usage-summary';
 import { AuthSession } from './entities/auth-session.entity';
 import { User } from './entities/user.entity';
+import { ConversationErasureService } from '../conversations/conversation-erasure.service';
 
 /** Free-tier usage block with zero consumption, the common test default. */
 const ZERO_FREE_USAGE: UsageSummary = {
@@ -33,6 +34,7 @@ function makeRepo() {
     create: jest.fn((obj) => ({ ...obj })),
     save: jest.fn(),
     update: jest.fn(),
+    manager: { transaction: jest.fn() },
   };
 }
 
@@ -42,6 +44,7 @@ describe('AuthService', () => {
   let sessions: ReturnType<typeof makeRepo>;
   let usage: { getUsageSummary: jest.Mock };
   let jwt: JwtService;
+  let erasure: { purgeKeyboardConversations: jest.Mock };
 
   const buildUser = async (over: Partial<User> = {}): Promise<User> =>
     ({
@@ -61,6 +64,11 @@ describe('AuthService', () => {
     sessions = makeRepo();
     usage = { getUsageSummary: jest.fn().mockResolvedValue(ZERO_FREE_USAGE) };
     jwt = new JwtService({});
+    erasure = {
+      purgeKeyboardConversations: jest
+        .fn()
+        .mockResolvedValue({ conversations: 2, memories: 1 }),
+    };
 
     const config = {
       getOrThrow: jest.fn().mockReturnValue(AUTH_CONFIG),
@@ -72,6 +80,7 @@ describe('AuthService', () => {
       usage as unknown as UsageService,
       jwt,
       config,
+      erasure as unknown as ConversationErasureService,
     );
 
     // Default: sessions.save echoes the row back with an id.
@@ -291,23 +300,90 @@ describe('AuthService', () => {
       expect(res.settings.memory_opt_in).toBe(true);
     });
 
-    it('updateSettings persists memory_opt_in for the caller only', async () => {
-      users.update.mockResolvedValue({ affected: 1 });
+    /**
+     * Wires `users.manager.transaction` to a fake manager whose
+     * `SELECT ... FOR NO KEY UPDATE` returns `stored` (null = no such user).
+     */
+    const withStoredOptIn = (stored: boolean | null) => {
+      const manager = {
+        query: jest.fn(async (sql: string) => {
+          if (sql.startsWith('SELECT memory_opt_in')) {
+            return stored === null ? [] : [{ memory_opt_in: stored }];
+          }
+          return [];
+        }),
+      };
+      users.manager.transaction.mockImplementation(async (work) =>
+        work(manager),
+      );
+      return manager;
+    };
+
+    it('updateSettings locks the caller row and persists memory_opt_in', async () => {
+      const manager = withStoredOptIn(false);
       const res = await service.updateSettings('user-1', {
         memory_opt_in: true,
       });
-      expect(users.update).toHaveBeenCalledWith(
-        { id: 'user-1' },
-        { memoryOptIn: true },
+      expect(manager.query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('FOR NO KEY UPDATE'),
+        ['user-1'],
+      );
+      expect(manager.query).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('UPDATE users SET memory_opt_in = $2'),
+        ['user-1', true],
       );
       expect(res).toEqual({ settings: { memory_opt_in: true } });
+      expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
     });
 
+    it('opting out (true -> false) purges keyboard data in the same transaction', async () => {
+      const manager = withStoredOptIn(true);
+      const res = await service.updateSettings('user-1', {
+        memory_opt_in: false,
+      });
+      expect(erasure.purgeKeyboardConversations).toHaveBeenCalledWith(
+        manager,
+        'user-1',
+      );
+      expect(res).toEqual({
+        settings: { memory_opt_in: false },
+        deleted: { conversations: 2, memories: 1 },
+      });
+    });
+
+    it.each([
+      [false, false],
+      [true, true],
+    ])(
+      'stored %s -> requested %s writes the flag but purges nothing',
+      async (stored, requested) => {
+        withStoredOptIn(stored);
+        const res = await service.updateSettings('user-1', {
+          memory_opt_in: requested,
+        });
+        expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
+        expect(res).toEqual({ settings: { memory_opt_in: requested } });
+        expect(res).not.toHaveProperty('deleted');
+      },
+    );
+
     it('updateSettings rejects when the user no longer exists', async () => {
-      users.update.mockResolvedValue({ affected: 0 });
+      const manager = withStoredOptIn(null);
       await expect(
         service.updateSettings('ghost', { memory_opt_in: false }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(manager.query).toHaveBeenCalledTimes(1);
+      expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
+    });
+
+    it('propagates a purge failure (transaction rolls back the flag)', async () => {
+      withStoredOptIn(true);
+      erasure.purgeKeyboardConversations.mockRejectedValue(new Error('boom'));
+      await expect(
+        service.updateSettings('user-1', { memory_opt_in: false }),
+      ).rejects.toThrow('boom');
     });
   });
 });

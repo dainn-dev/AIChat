@@ -25,7 +25,8 @@ by compliance.
   when `users.memory_opt_in = true` (default `false`, set via
   `PATCH /me/settings`), the request names `platform` + `contact_label`, and the
   per-request `remember` flag is not `false`. Turning the setting off stops new
-  storage; it does **not** delete what is already stored.
+  storage **and erases what keyboard capture already stored** (see the
+  opt-out purge below).
 - **Separate keyboard conversations:** `conversations.source`
   (`app | keyboard | share | ocr`) records the creating surface. Keyboard
   captures only ever merge into `source = 'keyboard'` conversations, never into
@@ -53,6 +54,19 @@ by compliance.
     `source_ref = 'conversation:<id>'`.
   `ai_requests` and `memory_extractions` rows keep only a nulled
   `conversation_id` (audit metadata, no message content).
+- **Opt-out purge** (`PATCH /me/settings`, `memory_opt_in` true → false):
+  in the same transaction as the flag change, every `source = 'keyboard'`
+  conversation of the user is erased exactly as `DELETE /conversations/:id`
+  erases one (messages, linked screenshots, extracted memories left with no
+  other source; shared memories survive and are re-pointed). Screenshot,
+  share, app and manual data are untouched. The user row is locked
+  `FOR NO KEY UPDATE` first; keyboard capture re-checks the opt-in under
+  `FOR SHARE` on that row, so a capture racing the opt-out either commits
+  before it (and is purged) or sees `memory_opt_in = false` and stores
+  nothing. The response carries
+  `deleted: { conversations, memories }`. Any other transition
+  (false → false, false → true, true → true) deletes nothing and omits
+  `deleted`.
 - **Extraction race / opt-out:** the writer re-checks, inside its write
   transaction, that the source conversation still exists and, for keyboard
   conversations, that the owner is still opted in. It locks the row
@@ -98,17 +112,14 @@ in-flight extraction race (old gap 3).
    conversation still existed and belonged to the same user at migration time.
    Additional pre-migration dedupe sources can't be recovered, because
    `source_ref` held only the first one.
-4. **Opt-out does not delete stored data, and screenshot/share conversations
-   are not gated by `memory_opt_in`.** This is open product question 4.
-   Opting out stops new keyboard storage and new extraction of keyboard
-   conversations. Retrieval also stops using **memories derived only from
-   keyboard conversations**: the pgvector retriever excludes them while
-   `memory_opt_in = false`, so they are no longer injected into prompts.
+4. **Opt-out erases keyboard data only; screenshot/share conversations are
+   not gated by `memory_opt_in`** (product question 4, resolved). Opting out
+   purges keyboard conversations and the memories only they backed (§1.1).
    Memories with any screenshot/share/app source, manual memories, and legacy
-   unlinked rows remain retrievable. The excluded rows, and the stored
-   keyboard conversations, are kept, still visible on the memory dashboard,
-   and become retrievable again if the user opts back in. Erasing them
-   requires `DELETE /conversations/:id` / `DELETE /memories/:id`.
+   unlinked rows are kept and stay retrievable. Re-opting in does not restore
+   anything. The pgvector retriever still excludes keyboard-only memories
+   while `memory_opt_in = false`; after the purge none should exist, so this
+   is defence in depth only.
 5. **Merge history window:** scrolled-up re-captures are recognised only
    within the last 500 stored messages of a conversation (`MERGE_HISTORY_LIMIT`).
 

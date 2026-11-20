@@ -25,6 +25,7 @@ import {
   toSettingsView,
 } from './dto/auth-response';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { ConversationErasureService } from '../conversations/conversation-erasure.service';
 
 /** Postgres unique-violation SQLSTATE. */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -41,6 +42,7 @@ export class AuthService {
     private readonly usage: UsageService,
     private readonly jwt: JwtService,
     config: ConfigService,
+    private readonly erasure: ConversationErasureService,
   ) {
     this.authConfig = config.getOrThrow<AuthConfig>('auth');
   }
@@ -169,22 +171,43 @@ export class AuthService {
 
   /**
    * Backs `PATCH /me/settings` (Android Phase 0): toggles the memory opt-in
-   * that gates keyboard conversation persistence. Turning it off stops future
-   * capture; already-stored conversations are erased via
-   * `DELETE /conversations/:id`.
+   * that gates keyboard conversation persistence.
+   *
+   * Opting OUT (stored `true` → requested `false`) also purges every
+   * keyboard-captured conversation and the memories only they backed, in the
+   * same transaction as the flag change (product question 4). The user row is
+   * locked first (`FOR NO KEY UPDATE`), which conflicts with the `FOR SHARE`
+   * re-check in keyboard capture, so no capture can land after the purge.
+   * Screenshot/share data is untouched. Any other transition (true → true,
+   * false → false, false → true) only writes the flag and deletes nothing;
+   * `deleted` is present only when a purge ran.
    */
   async updateSettings(
     userId: string,
     dto: UpdateSettingsDto,
   ): Promise<SettingsResponse> {
-    const result = await this.users.update(
-      { id: userId },
-      { memoryOptIn: dto.memory_opt_in },
-    );
-    if (!result.affected) {
-      throw new UnauthorizedException('User no longer exists.');
-    }
-    return { settings: { memory_opt_in: dto.memory_opt_in } };
+    return this.users.manager.transaction(async (manager) => {
+      const rows: Array<{ memory_opt_in: boolean }> = await manager.query(
+        `SELECT memory_opt_in FROM users WHERE id = $1 FOR NO KEY UPDATE`,
+        [userId],
+      );
+      if (rows.length === 0) {
+        throw new UnauthorizedException('User no longer exists.');
+      }
+      const wasOptedIn = rows[0].memory_opt_in === true;
+      await manager.query(
+        `UPDATE users SET memory_opt_in = $2, updated_at = now() WHERE id = $1`,
+        [userId, dto.memory_opt_in],
+      );
+      const settings = { memory_opt_in: dto.memory_opt_in };
+      if (!wasOptedIn || dto.memory_opt_in) return { settings };
+
+      const deleted = await this.erasure.purgeKeyboardConversations(
+        manager,
+        userId,
+      );
+      return { settings, deleted };
+    });
   }
 
   /** Mints an access JWT and persists a hashed refresh-token session. */

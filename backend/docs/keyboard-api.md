@@ -158,8 +158,22 @@ These live outside `/v1/keyboard` but gate/undo keyboard storage. Both need
 { "memory_opt_in": true }
 ```
 → `200 { "settings": { "memory_opt_in": true } }`. `memory_opt_in` is required
-and must be a JSON boolean; unknown fields → `400`. Turning it off stops future
-storage; already-stored conversations stay until deleted.
+and must be a JSON boolean; unknown fields → `400`.
+
+Turning it **off** (stored `true` → `false`) stops future storage **and**
+hard-deletes, atomically with the flag change, every keyboard-captured
+conversation (`source: "keyboard"`), its messages, and the memories extracted
+only from keyboard conversations. Screenshot/share conversations and manual
+memories are kept. That response also reports what was erased:
+```json
+{ "settings": { "memory_opt_in": false },
+  "deleted": { "conversations": 3, "memories": 5 } }
+```
+`deleted` is present only when that purge ran (counts may be `0`). Every
+other transition (`false → false`, `false → true`, `true → true`) deletes
+nothing and omits `deleted`. Turning it back on does not restore anything, so
+the client should confirm before sending `false` ("This will erase chats
+remembered from the keyboard"). See `docs/memory-privacy.md` §1.1.
 
 **`GET /conversations?limit=20&offset=0`** → `200`
 ```json

@@ -9,6 +9,11 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { MEMORY_EXTRACTION_QUEUE, MemoryQueue } from '../memory/memory-queue';
 import { MergeableMessage, messagesToAppend } from './conversation-merge';
+import { ConversationErasureService } from './conversation-erasure.service';
+import {
+  MAX_STORED_MESSAGES_PER_CONVERSATION,
+  enforceMessageRetention,
+} from './message-retention';
 import {
   ConversationListResponse,
   DEFAULT_CONVERSATION_PAGE_SIZE,
@@ -31,13 +36,8 @@ export interface KeyboardCapture {
  */
 export const MERGE_HISTORY_LIMIT = 500;
 
-/**
- * Per-conversation retention cap for keyboard captures (security M4). Older
- * messages beyond it are dropped on each append (rolling window), bounding
- * storage and what a later extraction could ever read. Positions keep
- * increasing, so ordering and the merge window are unaffected.
- */
-export const MAX_STORED_MESSAGES_PER_CONVERSATION = 2000;
+/** Re-exported: the cap now applies to every append path (message-retention). */
+export { MAX_STORED_MESSAGES_PER_CONVERSATION };
 
 interface StoredMessageRow {
   sender: string;
@@ -59,7 +59,8 @@ interface StoredMessageRow {
  *
  * Erasure (`remove`) hard-deletes the conversation, its messages (FK cascade),
  * its screenshots, and every extracted memory with no other source
- * conversation left (`memory_sources`).
+ * conversation left (`memory_sources`), via the shared
+ * {@link ConversationErasureService} (also used by the opt-out purge).
  */
 @Injectable()
 export class ConversationsService {
@@ -67,6 +68,7 @@ export class ConversationsService {
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly erasure: ConversationErasureService,
     // Optional: a no-op binding is used when extraction is disabled (MS-4).
     @Optional()
     @Inject(MEMORY_EXTRACTION_QUEUE)
@@ -89,7 +91,9 @@ export class ConversationsService {
     if (messages.length === 0) return null;
 
     try {
-      if (!(await this.isMemoryOptedIn(capture.userId))) return null;
+      if (!(await this.isMemoryOptedIn(this.dataSource, capture.userId))) {
+        return null;
+      }
 
       const { conversationId, appended } = await this.dataSource.transaction(
         (manager) =>
@@ -101,6 +105,8 @@ export class ConversationsService {
             messages,
           ),
       );
+      // Opted out while this capture was in flight (re-checked under lock).
+      if (conversationId === null) return null;
 
       // New messages → (debounced) background extraction. Fire-and-forget; the
       // queue swallows its own errors (AC-M4).
@@ -192,86 +198,36 @@ export class ConversationsService {
    * holds the row `FOR SHARE` (see MemoryWriterService).
    */
   async remove(userId: string, conversationId: string): Promise<void> {
-    const sourceRef = `conversation:${conversationId}`;
     await this.dataSource.transaction(async (manager) => {
-      const owned: Array<{ id: string }> = await manager.query(
-        `SELECT id FROM conversations WHERE id = $1 AND user_id = $2 FOR UPDATE`,
-        [conversationId, userId],
+      const owned = await this.erasure.lockOwnedConversation(
+        manager,
+        userId,
+        conversationId,
       );
-      if (owned.length === 0) {
+      if (!owned) {
         throw new NotFoundException({
           code: 'CONVERSATION_NOT_FOUND',
           message: 'Conversation not found.',
         });
       }
-
-      // Extracted memories left with NO other source once this conversation
-      // goes (memory_sources). Manual memories are never touched. Legacy rows
-      // with no links at all fall back to their source_ref.
-      const doomed: Array<{ id: string }> = await manager.query(
-        `SELECT m.id FROM memories m
-          WHERE m.user_id = $1
-            AND m.source = 'extracted'
-            AND (
-              EXISTS (SELECT 1 FROM memory_sources s
-                       WHERE s.memory_id = m.id AND s.conversation_id = $2)
-              OR (m.source_ref = $3
-                  AND NOT EXISTS (SELECT 1 FROM memory_sources s
-                                   WHERE s.memory_id = m.id))
-            )
-            AND NOT EXISTS (SELECT 1 FROM memory_sources s
-                             WHERE s.memory_id = m.id AND s.conversation_id <> $2)
-          FOR UPDATE`,
-        [userId, conversationId, sourceRef],
-      );
-      const doomedIds = doomed.map((r) => r.id);
-      if (doomedIds.length > 0) {
-        // Facts these memories superseded (latest-wins) become active again
-        // rather than staying hidden forever (review MEDIUM 2).
-        await manager.query(
-          `UPDATE memories
-              SET status = 'active', superseded_by = NULL, updated_at = now()
-            WHERE user_id = $1 AND status = 'superseded'
-              AND superseded_by = ANY($2::uuid[])
-              AND NOT (id = ANY($2::uuid[]))`,
-          [userId, doomedIds],
-        );
-        await manager.query(
-          `DELETE FROM memories WHERE user_id = $1 AND id = ANY($2::uuid[])`,
-          [userId, doomedIds],
-        );
-      }
-      // screenshots.conversation_id is ON DELETE SET NULL, which would orphan
-      // the stored OCR text — remove those rows instead.
-      await manager.query(
-        `DELETE FROM screenshots WHERE user_id = $1 AND conversation_id = $2`,
-        [userId, conversationId],
-      );
-      // messages cascade; ai_requests / memory_extractions are SET NULL
-      // (content-free audit rows).
-      await manager.query(
-        `DELETE FROM conversations WHERE id = $1 AND user_id = $2`,
-        [conversationId, userId],
-      );
-      // Surviving memories that named this conversation as source_ref now
-      // point at one of their remaining sources (links cascaded above).
-      await manager.query(
-        `UPDATE memories m
-            SET source_ref = 'conversation:' || (
-                  SELECT s.conversation_id::text FROM memory_sources s
-                   WHERE s.memory_id = m.id
-                   ORDER BY s.created_at ASC
-                   LIMIT 1)
-          WHERE m.user_id = $1 AND m.source_ref = $2
-            AND EXISTS (SELECT 1 FROM memory_sources s WHERE s.memory_id = m.id)`,
-        [userId, sourceRef],
-      );
+      await this.erasure.eraseLocked(manager, userId, [conversationId]);
     });
   }
 
-  private async isMemoryOptedIn(userId: string): Promise<boolean> {
-    const rows: Array<{ memory_opt_in: boolean }> = await this.dataSource.query(
-      `SELECT memory_opt_in FROM users WHERE id = $1`,
+  /**
+   * Opt-in check. Outside a transaction it is a cheap pre-check; inside the
+   * capture transaction (`lock = true`) it takes the user row `FOR SHARE`,
+   * which conflicts with the opt-out purge's row lock (`PATCH /me/settings`):
+   * either the capture commits first and the purge then erases it, or the
+   * purge commits first and the capture sees `false` and stores nothing.
+   */
+  private async isMemoryOptedIn(
+    runner: Pick<EntityManager, 'query'>,
+    userId: string,
+    lock = false,
+  ): Promise<boolean> {
+    const rows: Array<{ memory_opt_in: boolean }> = await runner.query(
+      `SELECT memory_opt_in FROM users WHERE id = $1${lock ? ' FOR SHARE' : ''}`,
       [userId],
     );
     return rows.length > 0 && rows[0].memory_opt_in === true;
@@ -289,10 +245,15 @@ export class ConversationsService {
     platform: string,
     contactLabel: string,
     messages: MergeableMessage[],
-  ): Promise<{ conversationId: string; appended: number }> {
+  ): Promise<{ conversationId: string | null; appended: number }> {
     await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
       `keyboard-conv:${userId}:${platform}:${contactLabel}`,
     ]);
+    // Re-check under the user row lock, before touching any conversation, so
+    // a capture can never land after a committed opt-out purge.
+    if (!(await this.isMemoryOptedIn(manager, userId, true))) {
+      return { conversationId: null, appended: 0 };
+    }
 
     const conversationId = await this.findOrCreateConversation(
       manager,
@@ -320,14 +281,12 @@ export class ConversationsService {
       historyDesc.length > 0 ? Number(historyDesc[0].position) + 1 : 0;
     await this.insertMessages(manager, conversationId, toAppend, startPosition);
     // Rolling retention window (security M4): keep only the newest
-    // MAX_STORED_MESSAGES_PER_CONVERSATION keyboard messages per conversation.
-    const lastPosition = startPosition + toAppend.length - 1;
-    if (lastPosition >= MAX_STORED_MESSAGES_PER_CONVERSATION) {
-      await manager.query(
-        `DELETE FROM messages WHERE conversation_id = $1 AND position <= $2`,
-        [conversationId, lastPosition - MAX_STORED_MESSAGES_PER_CONVERSATION],
-      );
-    }
+    // MAX_STORED_MESSAGES_PER_CONVERSATION messages per conversation.
+    await enforceMessageRetention(
+      manager,
+      conversationId,
+      startPosition + toAppend.length - 1,
+    );
     await manager.query(
       `UPDATE conversations SET updated_at = now() WHERE id = $1`,
       [conversationId],
