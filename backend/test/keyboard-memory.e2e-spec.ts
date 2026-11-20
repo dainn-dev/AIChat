@@ -6,6 +6,10 @@ import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { MemoryExtractionService } from '../src/memory/memory-extraction.service';
 import { MemoryWriterService } from '../src/memory/memory-writer.service';
+import {
+  MEMORY_RETRIEVER,
+  MemoryRetriever,
+} from '../src/ai/memory/memory-retriever.interface';
 
 /**
  * Android Phase 0 against a real, migrated Postgres:
@@ -508,6 +512,57 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       const res = await extraction.extractForConversation(conv);
       expect(res.status).toBe('opted-out');
       expect(await memoriesOf(userId)).toHaveLength(0);
+    });
+
+    it('M1: after opt-out, keyboard-only memories are not retrieved (but kept); screenshot/manual ones are', async () => {
+      const extraction = app.get(MemoryExtractionService);
+      const retriever = app.get<MemoryRetriever>(MEMORY_RETRIEVER);
+      const { token, userId } = await signup();
+      await optIn(token, true);
+
+      const kbConv = await createConversation(userId, HIKING, 'keyboard');
+      const ocrConv = await createConversation(
+        userId,
+        'I work as a chef at a bistro downtown',
+        'ocr',
+      );
+      await extraction.extractForConversation(kbConv);
+      await extraction.extractForConversation(ocrConv);
+      const manual = await http().post('/memories').set(auth(token)).send({
+        kind: 'interest',
+        content: 'Collects vinyl',
+        contact_label: 'Alex',
+      });
+      expect(manual.status).toBe(201);
+      const all = await memoriesOf(userId);
+      const kbFact = all.find((m) => m.sources.includes(kbConv))!;
+      const ocrFact = all.find((m) => m.sources.includes(ocrConv))!;
+      expect(kbFact).toBeDefined();
+      expect(ocrFact).toBeDefined();
+
+      const retrievable = async (content: string) =>
+        (
+          await retriever.retrieve({
+            userId,
+            contactLabel: 'Alex',
+            conversationText: content,
+            topK: 10,
+          })
+        ).map((m) => m.content);
+
+      expect(await retrievable(kbFact.content)).toContain(kbFact.content);
+
+      await optIn(token, false);
+      expect(await retrievable(kbFact.content)).not.toContain(kbFact.content);
+      expect(await retrievable(ocrFact.content)).toContain(ocrFact.content);
+      expect(await retrievable('Collects vinyl')).toContain('Collects vinyl');
+      // Opt-out deletes nothing (open product question 4).
+      expect((await memoriesOf(userId)).map((m) => m.id)).toEqual(
+        all.map((m) => m.id),
+      );
+
+      await optIn(token, true);
+      expect(await retrievable(kbFact.content)).toContain(kbFact.content);
     });
   });
 });

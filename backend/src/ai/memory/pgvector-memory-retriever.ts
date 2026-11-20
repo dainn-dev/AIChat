@@ -17,6 +17,9 @@ import {
  * (global user facts always eligible — §5.4), filtered by a similarity
  * threshold (§5.5) and bounded to a prompt token budget.
  *
+ * For users who opted out of keyboard memory, memories derived only from
+ * keyboard conversations are excluded (Android Phase 0, security M1).
+ *
  * Read-only and defensive by contract: any failure (embedding, DB, no DB wired)
  * degrades to an empty set so the AI call never 500s (AC-RT4). Memory content is
  * treated as untrusted data and sanitized before it can reach the prompt.
@@ -30,6 +33,25 @@ export class PgVectorMemoryRetriever implements MemoryRetriever {
 
   /** Hard cap per memory so one row can't dominate the budget or the prompt. */
   private static readonly MAX_CONTENT_CHARS = 400;
+
+  /**
+   * Keyboard opt-out (Android Phase 0, security M1). When the owner ($2) has
+   * `memory_opt_in = false`, exclude extracted memories whose ONLY sources are
+   * keyboard conversations. Memories with any screenshot/share/app source,
+   * manual memories, and legacy unlinked rows stay retrievable. Nothing is
+   * deleted on opt-out (open product question) — the rows are just not used.
+   */
+  static readonly OPT_OUT_FILTER = `NOT (
+                  NOT EXISTS (SELECT 1 FROM users u
+                               WHERE u.id = $2 AND u.memory_opt_in)
+                  AND memories.source = 'extracted'
+                  AND EXISTS (SELECT 1 FROM memory_sources s
+                               WHERE s.memory_id = memories.id)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM memory_sources s
+                      JOIN conversations c ON c.id = s.conversation_id
+                     WHERE s.memory_id = memories.id AND c.source <> 'keyboard')
+                )`;
 
   constructor(
     // Optional: in DB-less contexts (e.g. the AI-only e2e module) the retriever
@@ -89,6 +111,7 @@ export class PgVectorMemoryRetriever implements MemoryRetriever {
                FROM memories
               WHERE user_id = $2 AND embedding IS NOT NULL
                 AND status = 'active' AND ${scope}
+                AND ${PgVectorMemoryRetriever.OPT_OUT_FILTER}
               ORDER BY embedding <=> $1::vector
               LIMIT $${kParam}
            ) ranked

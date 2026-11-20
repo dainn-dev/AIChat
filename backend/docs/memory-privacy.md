@@ -80,8 +80,15 @@ in-flight extraction race (old gap 3).
    `source_ref` held only the first one.
 4. **Opt-out does not delete stored data, and screenshot/share conversations
    are not gated by `memory_opt_in`.** This is open product question 4.
-   Opting out only stops new keyboard storage and new extraction of keyboard
-   conversations.
+   Opting out stops new keyboard storage and new extraction of keyboard
+   conversations. Retrieval also stops using **memories derived only from
+   keyboard conversations**: the pgvector retriever excludes them while
+   `memory_opt_in = false`, so they are no longer injected into prompts.
+   Memories with any screenshot/share/app source, manual memories, and legacy
+   unlinked rows remain retrievable. The excluded rows, and the stored
+   keyboard conversations, are kept, still visible on the memory dashboard,
+   and become retrievable again if the user opts back in. Erasing them
+   requires `DELETE /conversations/:id` / `DELETE /memories/:id`.
 5. **Merge history window:** scrolled-up re-captures are recognised only
    within the last 500 stored messages of a conversation (`MERGE_HISTORY_LIMIT`).
 
