@@ -71,4 +71,6 @@ Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
   docs/vi-input-integration.md, app/src/main/kotlin/com/aichat/keyboard/vi/*,
   app/src/test/kotlin/com/aichat/keyboard/vi/*, app/src/main/res/values/aichat_vi_strings.xml,
-  vi-input/ (Vietnamese engine; its Bamboo-derived parts are MIT, see vi-input/NOTICE)
+  vi-input/ (Vietnamese engine; its Bamboo-derived parts are MIT, see vi-input/NOTICE),
+  app/src/main/config/libraries/bamboo-core.json, app/src/main/config/licenses/bamboo-core-mit.json
+  (show the bamboo-core MIT license in the app's open-source licenses screen)

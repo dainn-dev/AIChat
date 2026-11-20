@@ -1,0 +1,15 @@
+{
+  "uniqueId": "bamboo-core",
+  "name": "Bamboo Vietnamese input engine (bamboo-core), ported in AIChat vi-input",
+  "description": "The AIChat Vietnamese input engine (vi-input) is a Kotlin port of bamboo-core, commit b2e49a2.",
+  "developers": [
+    {
+      "name": "Luong Thanh Lam",
+      "organisationUrl": "https://github.com/BambooEngine"
+    }
+  ],
+  "website": "https://github.com/BambooEngine/bamboo-core",
+  "licenses": [
+    "bamboo-core-mit"
+  ]
+}
