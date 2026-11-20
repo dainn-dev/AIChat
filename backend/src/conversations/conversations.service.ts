@@ -20,7 +20,13 @@ export interface KeyboardCapture {
   messages: readonly MergeableMessage[];
 }
 
-interface StoredTailRow {
+/**
+ * How many of the most recent stored messages the merge compares against. A
+ * scrolled-up window older than this is not recognised as already stored.
+ */
+export const MERGE_HISTORY_LIMIT = 500;
+
+interface StoredMessageRow {
   sender: string;
   content: string;
   position: number;
@@ -33,8 +39,8 @@ interface StoredTailRow {
  * (`users.memory_opt_in`), the request names both `platform` and
  * `contact_label`, and `remember` is not `false`. Each capture is merged into
  * the find-or-created `(user_id, platform, contact_label)` conversation with
- * {@link messagesToAppend}, so overlapping re-captures never duplicate
- * messages. Persistence is best-effort: every failure is logged and swallowed
+ * {@link messagesToAppend}, so overlapping or scrolled-up re-captures do not
+ * duplicate messages. Persistence is best-effort: every failure is logged and swallowed
  * and the caller gets `null`, so it can never fail the keyboard reply.
  *
  * Erasure (`remove`) hard-deletes the conversation, its messages (FK cascade),
@@ -169,22 +175,23 @@ export class ConversationsService {
       contactLabel,
     );
 
-    // Only the last `messages.length` stored rows can overlap the capture.
-    const tailDesc: StoredTailRow[] = await manager.query(
+    // Recent history (bounded) — enough for the suffix/prefix overlap and for
+    // detecting a scrolled-up window that is already stored.
+    const historyDesc: StoredMessageRow[] = await manager.query(
       `SELECT sender, content, position FROM messages
         WHERE conversation_id = $1
         ORDER BY position DESC
         LIMIT $2`,
-      [conversationId, messages.length],
+      [conversationId, MERGE_HISTORY_LIMIT],
     );
-    const tail = [...tailDesc].reverse();
-    const toAppend = messagesToAppend(tail, messages);
+    const history = [...historyDesc].reverse();
+    const toAppend = messagesToAppend(history, messages);
     if (toAppend.length === 0) {
       return { conversationId, appended: 0 };
     }
 
     const startPosition =
-      tailDesc.length > 0 ? Number(tailDesc[0].position) + 1 : 0;
+      historyDesc.length > 0 ? Number(historyDesc[0].position) + 1 : 0;
     await this.insertMessages(manager, conversationId, toAppend, startPosition);
     await manager.query(
       `UPDATE conversations SET updated_at = now() WHERE id = $1`,

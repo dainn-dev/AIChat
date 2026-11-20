@@ -152,6 +152,28 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
     expect(msgs.every((m) => m.source === 'keyboard')).toBe(true);
   });
 
+  it('ignores a scrolled-up window that is already stored', async () => {
+    const { token } = await signup();
+    await optIn(token, true);
+    const full = ['1', '2', '3', '4', '5', '6'].map((n, i) => ({
+      sender: i % 2 === 0 ? 'them' : 'me',
+      content: `msg ${n}`,
+    }));
+    const r1 = await reply(token, {
+      platform: 'zalo',
+      contact_label: 'Scroll',
+      conversation: full,
+    });
+    // User scrolls up: the keyboard now sees messages 2..4 only.
+    const r2 = await reply(token, {
+      platform: 'zalo',
+      contact_label: 'Scroll',
+      conversation: full.slice(1, 4),
+    });
+    expect(r2.body.conversation_id).toBe(r1.body.conversation_id);
+    expect(await storedMessages(r1.body.conversation_id)).toHaveLength(6);
+  });
+
   it('keys conversations by (platform, contact_label)', async () => {
     const { token } = await signup();
     await optIn(token, true);

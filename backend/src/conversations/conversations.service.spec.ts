@@ -1,6 +1,10 @@
 import { NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { ConversationsService, KeyboardCapture } from './conversations.service';
+import {
+  ConversationsService,
+  KeyboardCapture,
+  MERGE_HISTORY_LIMIT,
+} from './conversations.service';
 
 /**
  * Android Phase 0 — keyboard capture persistence gating, merge wiring,
@@ -178,13 +182,39 @@ describe('ConversationsService.persistKeyboardCapture — writes', () => {
     expect(queue.enqueue).not.toHaveBeenCalled();
   });
 
-  it('only loads as many stored rows as the capture length', async () => {
+  it('compares against a bounded window of recent history', async () => {
     const { service, calls } = build({ optIn: true });
     await service.persistKeyboardCapture(capture());
-    const tail = calls.find((c) =>
+    const history = calls.find((c) =>
       /SELECT sender, content, position FROM messages/.test(c.sql),
     );
-    expect(tail?.params).toEqual(['conv-new', 2]);
+    expect(history?.params).toEqual(['conv-new', MERGE_HISTORY_LIMIT]);
+  });
+
+  it('appends nothing for a scrolled-up window already in stored history', async () => {
+    const { service, insertedMessages, queue } = build({
+      optIn: true,
+      existingConversationId: 'conv-1',
+      storedTailDesc: [
+        { sender: 'them', content: 'latest', position: 4 },
+        { sender: 'me', content: 'c', position: 3 },
+        { sender: 'them', content: 'b', position: 2 },
+        { sender: 'me', content: 'a', position: 1 },
+        { sender: 'them', content: 'start', position: 0 },
+      ],
+    });
+    const id = await service.persistKeyboardCapture(
+      capture({
+        messages: [
+          { sender: 'me', content: 'a' },
+          { sender: 'them', content: 'b' },
+          { sender: 'me', content: 'c' },
+        ],
+      }),
+    );
+    expect(id).toBe('conv-1');
+    expect(insertedMessages()).toBeNull();
+    expect(queue.enqueue).not.toHaveBeenCalled();
   });
 });
 
