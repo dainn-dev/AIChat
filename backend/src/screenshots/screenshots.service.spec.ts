@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { AiPipelineService } from '../ai/pipeline/ai-pipeline.service';
 import { AiSource, MessageSender } from '../ai/enums/source.enum';
@@ -231,6 +231,32 @@ describe('ScreenshotsService', () => {
           conversation_id: 'conv-9',
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
+      expect(managerQuery).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('ingest into a keyboard conversation', () => {
+    const intoKeyboard = () =>
+      service.ingest(USER, Tier.Free, {
+        ...validDto(),
+        conversation_id: 'conv-kb',
+      });
+
+    it('is rejected 400 CONVERSATION_NOT_APPENDABLE before any quota is reserved', async () => {
+      dataSourceQuery.mockResolvedValueOnce([{ source: 'keyboard' }]);
+      const err = await intoKeyboard().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect((err as BadRequestException).getResponse()).toEqual(
+        expect.objectContaining({ code: 'CONVERSATION_NOT_APPENDABLE' }),
+      );
+      expect(usage.runWithQuota).not.toHaveBeenCalled();
+      expect(managerQuery).not.toHaveBeenCalled();
+    });
+
+    it('is also rejected by the in-transaction re-check (nothing inserted)', async () => {
+      dataSourceQuery.mockResolvedValueOnce([{ source: 'ocr' }]);
+      queueManager([{ source: 'keyboard' }]);
+      await expect(intoKeyboard()).rejects.toBeInstanceOf(BadRequestException);
       expect(managerQuery).toHaveBeenCalledTimes(1);
     });
   });

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { ScreenshotsService } from '../src/screenshots/screenshots.service';
 
 /**
  * End-to-end QA of WS-5 screenshots (DAI-129 / DAI-143) against a real
@@ -305,6 +306,57 @@ describe('Screenshots WS-5 (e2e)', () => {
     expect(rows.map((r) => Number(r.position))).toEqual([
       0, 1, 2, 3, 4, 5, 6, 7,
     ]);
+  });
+
+  it('rejects appending to a keyboard conversation (400 CONVERSATION_NOT_APPENDABLE); counter unchanged', async () => {
+    const token = await signup();
+    const me = await http().get('/me').set(auth(token));
+    const [kb] = await ds.query(
+      `INSERT INTO conversations (user_id, platform, contact_label, source)
+       VALUES ($1, 'zalo', 'Alex', 'keyboard') RETURNING id`,
+      [me.body.user.id],
+    );
+    const res = await http()
+      .post('/screenshots')
+      .set(auth(token))
+      .send({ ...validBody(), conversation_id: kb.id });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('CONVERSATION_NOT_APPENDABLE');
+    expect(await screenshotsUsed(token)).toBe(0);
+    const msgs = await ds.query(
+      `SELECT 1 FROM messages WHERE conversation_id = $1`,
+      [kb.id],
+    );
+    expect(msgs).toHaveLength(0);
+  });
+
+  it('a conversation gone by the in-transaction re-check is a 404 and the reserved quota is released', async () => {
+    const token = await signup();
+    // Simulate the race: the pre-quota ownership check passed, then the
+    // conversation was erased before the append transaction locked it.
+    const precheck = jest
+      .spyOn(
+        ScreenshotsService.prototype as unknown as {
+          assertConversationOwned: () => Promise<void>;
+        },
+        'assertConversationOwned',
+      )
+      .mockResolvedValueOnce(undefined);
+    try {
+      const res = await http()
+        .post('/screenshots')
+        .set(auth(token))
+        .send({
+          ...validBody(),
+          conversation_id: '00000000-0000-4000-8000-000000000000',
+        });
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('CONVERSATION_NOT_FOUND');
+      expect(precheck).toHaveBeenCalledTimes(1);
+    } finally {
+      precheck.mockRestore();
+    }
+    expect(await screenshotsUsed(token)).toBe(0);
   });
 
   describe('POST /screenshots/:id/analyze', () => {

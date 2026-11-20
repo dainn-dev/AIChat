@@ -78,6 +78,9 @@ Response `200`:
 - Append to an existing thread by passing `conversation_id` from a prior call.
   A conversation keeps only its newest 2 000 messages; older ones are dropped
   on append, so `analyze` and memory extraction only ever see that window.
+  The `conversation_id` must not be a keyboard-captured conversation
+  (`source: "keyboard"` in `GET /conversations`): that is rejected
+  `400 CONVERSATION_NOT_APPENDABLE` and no quota is used.
 
 ## DAI-135 (P3-WS-E) — Quota / error UX
 

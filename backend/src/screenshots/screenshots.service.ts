@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -202,11 +203,11 @@ export class ScreenshotsService {
     conversationId: string,
     userId: string,
   ): Promise<string> {
-    const rows: Array<{ id: string }> = await manager.query(
-      `SELECT id FROM conversations WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+    const rows: Array<{ source: string }> = await manager.query(
+      `SELECT source FROM conversations WHERE id = $1 AND user_id = $2 FOR UPDATE`,
       [conversationId, userId],
     );
-    if (rows.length === 0) throw this.conversationNotFound();
+    this.assertAppendable(rows);
     return conversationId;
   }
 
@@ -282,20 +283,33 @@ export class ScreenshotsService {
     conversationId: string,
     userId: string,
   ): Promise<void> {
-    const rows: Array<{ id: string }> = await this.dataSource.query(
-      `SELECT id FROM conversations WHERE id = $1 AND user_id = $2`,
+    const rows: Array<{ source: string }> = await this.dataSource.query(
+      `SELECT source FROM conversations WHERE id = $1 AND user_id = $2`,
       [conversationId, userId],
     );
-    if (rows.length === 0) {
-      throw this.conversationNotFound();
-    }
+    this.assertAppendable(rows);
   }
 
-  private conversationNotFound(): NotFoundException {
-    return new NotFoundException({
-      code: 'CONVERSATION_NOT_FOUND',
-      message: 'Conversation not found.',
-    });
+  /**
+   * An append target must exist, be owned (`404` otherwise, no IDOR), and
+   * not be a keyboard-captured conversation (`400`): screenshot/share data
+   * must never live under a keyboard conversation, which the opt-out purge
+   * erases wholesale and which is gated by `memory_opt_in`.
+   */
+  private assertAppendable(rows: Array<{ source: string }>): void {
+    if (rows.length === 0) {
+      throw new NotFoundException({
+        code: 'CONVERSATION_NOT_FOUND',
+        message: 'Conversation not found.',
+      });
+    }
+    if (rows[0].source === 'keyboard') {
+      throw new BadRequestException({
+        code: 'CONVERSATION_NOT_APPENDABLE',
+        message:
+          'Screenshots cannot be added to a keyboard-captured conversation.',
+      });
+    }
   }
 
   private async loadMessages(conversationId: string): Promise<AiMessageDto[]> {
