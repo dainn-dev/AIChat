@@ -30,6 +30,10 @@ points (`// AIChat MODIFIED:`), and list each one in `../NOTICE`.
 
 ## (a) Custom Vietnamese composing engine (`vi-input`)
 
+> **Implemented in Phase 1** (together with (c)): see [vi-input-integration.md](vi-input-integration.md) for
+> the chosen design (stateful adapter behind `determineComposer`, not the stateless `Composer` re-derivation
+> described below).
+
 **What already exists upstream.** FlorisBoard ships a rule-table Telex composer:
 `app/src/main/assets/ime/keyboard/org.florisboard.composers/extension.json` contains a `with-rules` composer
 with id `telex` and about 2,866 rules. A `vi-VN` subtype preset in

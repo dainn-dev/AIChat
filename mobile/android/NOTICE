@@ -44,6 +44,30 @@ The full delta from upstream is:
       jetpref 20251119T222500Z-SNAPSHOT (no longer published) -> 0.3.0-rc01 (Maven Central).
   .gitignore
       Added keystore, .kotlin/ and build output entries.
+  settings.gradle.kts (also)
+      includeBuild("vi-input") composite build for the Vietnamese engine.
+  app/build.gradle.kts (also)
+      Dependency on com.aichat:vi-input.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/editor/AbstractEditorInstance.kt
+      The "replace N chars before the cursor" body of commitChar() moved unchanged into
+      replaceCharsBeforeCursor(); new public replaceTextBeforeCursor() for the vi-input integration.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/editor/EditorInstance.kt
+      One-line hooks into com.aichat.keyboard.vi.ViInputBridge (composer swap, commitChar, commitText,
+      backspace, selection updates, candidates, editor actions, selection/undo/redo, reset).
+  app/src/main/kotlin/dev/patrickgold/florisboard/lib/ext/ExtensionManager.kt
+      Registers the vi-input marker composer (aichat-vi-input) as a Composer subclass.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt
+      Default subtypes = English + Tiếng Việt (vi-input); new aichatVietnamese preference group.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/keyboard/KeyboardScreen.kt
+      Shows the "Tiếng Việt" settings group (Kiểu gõ, Kiểu đặt dấu, Tự khôi phục từ tiếng Anh).
+  app/src/main/assets/ime/keyboard/org.florisboard.composers/extension.json
+      The with-rules Telex composer (id telex) is replaced by the vi-input composer.
+      Marked with an "aichatModified" key (JSON has no comments).
+  app/src/main/assets/ime/keyboard/org.florisboard.localization/extension.json
+      vi-VN subtype preset composer telex -> vi-input. Marked with an "aichatModified" key.
 
 Files added by AIChat (not part of upstream):
-  NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml
+  NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
+  docs/vi-input-integration.md, app/src/main/kotlin/com/aichat/keyboard/vi/*,
+  app/src/test/kotlin/com/aichat/keyboard/vi/*, app/src/main/res/values/aichat_vi_strings.xml,
+  vi-input/ (Vietnamese engine; its Bamboo-derived parts are MIT, see vi-input/NOTICE)
