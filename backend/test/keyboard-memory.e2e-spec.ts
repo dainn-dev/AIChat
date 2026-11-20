@@ -514,6 +514,66 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       expect(await memoriesOf(userId)).toHaveLength(0);
     });
 
+    it('reactivates the older fact when the memory that superseded it is erased', async () => {
+      const extraction = app.get(MemoryExtractionService);
+      const { token, userId } = await signup();
+      const oldConv = await createConversation(
+        userId,
+        'I work as a chef at a bistro downtown',
+      );
+      const newConv = await createConversation(
+        userId,
+        'I work as a teacher at the high school now',
+      );
+      await extraction.extractForConversation(oldConv);
+      await extraction.extractForConversation(newConv);
+
+      const jobs = async () =>
+        (await ds.query(
+          `SELECT id, content, status, superseded_by FROM memories
+            WHERE user_id = $1 AND kind = 'job' ORDER BY created_at`,
+          [userId],
+        )) as Array<{
+          id: string;
+          content: string;
+          status: string;
+          superseded_by: string | null;
+        }>;
+      const [chef, teacher] = await jobs();
+      expect(chef.status).toBe('superseded');
+      expect(chef.superseded_by).toBe(teacher.id);
+      expect(teacher.status).toBe('active');
+
+      const res = await http()
+        .delete(`/conversations/${newConv}`)
+        .set(auth(token));
+      expect(res.status).toBe(204);
+      const after = await jobs();
+      expect(after).toHaveLength(1);
+      expect(after[0]).toMatchObject({
+        id: chef.id,
+        status: 'active',
+        superseded_by: null,
+      });
+
+      // Same via the memory dashboard: DELETE /memories/:id reactivates too.
+      const againConv = await createConversation(
+        userId,
+        'I work as a teacher at the high school now',
+      );
+      await extraction.extractForConversation(againConv);
+      const [chef2, teacher2] = await jobs();
+      expect(chef2.status).toBe('superseded');
+      const del = await http()
+        .delete(`/memories/${teacher2.id}`)
+        .set(auth(token));
+      expect(del.status).toBe(204);
+      expect((await jobs())[0]).toMatchObject({
+        id: chef.id,
+        status: 'active',
+      });
+    });
+
     it('M3: a fact stated by "them" never becomes an active GLOBAL memory', async () => {
       const extraction = app.get(MemoryExtractionService);
       const { userId } = await signup();

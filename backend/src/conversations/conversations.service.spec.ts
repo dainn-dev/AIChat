@@ -19,6 +19,7 @@ interface Scripted {
   storedTailDesc?: Array<{ sender: string; content: string; position: number }>;
   ownedForDelete?: boolean;
   failOn?: RegExp;
+  doomedMemoryIds?: string[];
 }
 
 function build(s: Scripted = {}) {
@@ -36,6 +37,9 @@ function build(s: Scripted = {}) {
     if (/INSERT INTO conversations/.test(sql)) return [{ id: 'conv-new' }];
     if (/SELECT sender, content, position FROM messages/.test(sql)) {
       return s.storedTailDesc ?? [];
+    }
+    if (/SELECT m\.id FROM memories m/.test(sql)) {
+      return (s.doomedMemoryIds ?? []).map((id) => ({ id }));
     }
     if (/FOR UPDATE/.test(sql)) {
       return s.ownedForDelete ? [{ id: params[0] }] : [];
@@ -294,42 +298,71 @@ describe('ConversationsService.remove (erasure)', () => {
   });
 
   it('removes extracted memories, screenshots, then the conversation — all owner-scoped', async () => {
-    const { service, calls } = build({ ownedForDelete: true });
+    const { service, calls } = build({
+      ownedForDelete: true,
+      doomedMemoryIds: ['m1', 'm2'],
+    });
     await service.remove('user-1', 'conv-1');
 
+    const select = calls.find((c) =>
+      /SELECT m\.id FROM memories m/.test(c.sql),
+    );
+    expect(select?.params).toEqual(['user-1', 'conv-1', 'conversation:conv-1']);
     const deletes = calls.filter((c) => /DELETE FROM/.test(c.sql));
     expect(deletes.map((d) => d.sql.match(/DELETE FROM (\w+)/)?.[1])).toEqual([
       'memories',
       'screenshots',
       'conversations',
     ]);
-    expect(deletes[0].params).toEqual([
-      'user-1',
-      'conv-1',
-      'conversation:conv-1',
-    ]);
+    expect(deletes[0].params).toEqual(['user-1', ['m1', 'm2']]);
     expect(deletes[1].params).toEqual(['user-1', 'conv-1']);
     expect(deletes[2].params).toEqual(['conv-1', 'user-1']);
   });
 
-  it('only removes extracted memories with no other remaining source', async () => {
+  it('only selects extracted memories with no other remaining source', async () => {
     const { service, calls } = build({ ownedForDelete: true });
     await service.remove('user-1', 'conv-1');
-    const sql = calls.find((c) => /DELETE FROM memories/.test(c.sql))!.sql;
+    const sql = calls.find((c) =>
+      /SELECT m\.id FROM memories m/.test(c.sql),
+    )!.sql;
     expect(sql).toMatch(/m\.source = 'extracted'/);
     expect(sql).toMatch(
       /NOT EXISTS \(SELECT 1 FROM memory_sources s\s+WHERE s\.memory_id = m\.id AND s\.conversation_id <> \$2\)/,
     );
   });
 
+  it('skips the memory delete when nothing is left unsourced', async () => {
+    const { service, calls } = build({ ownedForDelete: true });
+    await service.remove('user-1', 'conv-1');
+    expect(calls.some((c) => /DELETE FROM memories/.test(c.sql))).toBe(false);
+  });
+
+  it('reactivates facts superseded by an erased memory, before deleting it (review MEDIUM 2)', async () => {
+    const { service, calls } = build({
+      ownedForDelete: true,
+      doomedMemoryIds: ['m1'],
+    });
+    await service.remove('user-1', 'conv-1');
+    const order = calls.map((c) => c.sql);
+    const reactivate = order.findIndex((s) => /SET status = 'active'/.test(s));
+    expect(reactivate).toBeGreaterThanOrEqual(0);
+    expect(calls[reactivate].sql).toMatch(
+      /superseded_by = ANY\(\$2::uuid\[\]\)/,
+    );
+    expect(calls[reactivate].params).toEqual(['user-1', ['m1']]);
+    expect(reactivate).toBeLessThan(
+      order.findIndex((s) => /DELETE FROM memories/.test(s)),
+    );
+  });
+
   it('re-points surviving memories whose source_ref named the erased conversation', async () => {
     const { service, calls } = build({ ownedForDelete: true });
     await service.remove('user-1', 'conv-1');
-    const update = calls.find((c) => /UPDATE memories/.test(c.sql));
+    const update = calls.find((c) => /SET source_ref/.test(c.sql));
     expect(update?.params).toEqual(['user-1', 'conversation:conv-1']);
     // Runs after the conversation (and so its links) is gone.
     const order = calls.map((c) => c.sql);
-    expect(order.findIndex((s) => /UPDATE memories/.test(s))).toBeGreaterThan(
+    expect(order.findIndex((s) => /SET source_ref/.test(s))).toBeGreaterThan(
       order.findIndex((s) => /DELETE FROM conversations/.test(s)),
     );
   });

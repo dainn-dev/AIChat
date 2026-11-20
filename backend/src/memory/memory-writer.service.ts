@@ -111,6 +111,17 @@ export class MemoryWriterService {
       let written = 0;
       let superseded = 0;
       for (const p of prepared) {
+        // Insert first so the superseding memory's id can be recorded on the
+        // facts it retires (superseded_by → reactivated if it is erased).
+        const { memoryId, inserted } = await this.insertFact(
+          manager,
+          params.userId,
+          p,
+          params.sourceRef,
+        );
+        if (inserted) written++;
+        if (!memoryId) continue;
+        await this.linkSource(manager, memoryId, params.conversationId);
         if (
           p.status === 'active' &&
           MemoryWriterService.SINGULAR_KINDS.has(p.kind)
@@ -119,17 +130,8 @@ export class MemoryWriterService {
             manager,
             params.userId,
             p,
+            memoryId,
           );
-        }
-        const { memoryId, inserted } = await this.insertFact(
-          manager,
-          params.userId,
-          p,
-          params.sourceRef,
-        );
-        if (inserted) written++;
-        if (memoryId) {
-          await this.linkSource(manager, memoryId, params.conversationId);
         }
       }
       return { written, superseded };
@@ -184,16 +186,18 @@ export class MemoryWriterService {
     manager: EntityManager,
     userId: string,
     p: PreparedFact,
+    supersedingId: string,
   ): Promise<number> {
     // TypeORM returns [rows, affectedCount] for UPDATE ... RETURNING.
     const [rows]: [unknown[], number] = await manager.query(
       `UPDATE memories
-          SET status = 'superseded', updated_at = now()
+          SET status = 'superseded', superseded_by = $5, updated_at = now()
         WHERE user_id = $1 AND kind = $2 AND status = 'active'
           AND content_hash IS DISTINCT FROM $3
           AND COALESCE(contact_label, '') = COALESCE($4, '')
+          AND id <> $5
         RETURNING id`,
-      [userId, p.kind, p.contentHash, p.contactLabel],
+      [userId, p.kind, p.contentHash, p.contactLabel, supersedingId],
     );
     return Array.isArray(rows) ? rows.length : 0;
   }

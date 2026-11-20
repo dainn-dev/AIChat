@@ -149,3 +149,30 @@ describe('MemoryWriterService scope policy (security M3)', () => {
     expect(insert.params[1]).toBeNull(); // global (user scope)
   });
 });
+
+describe('MemoryWriterService superseded_by (review MEDIUM 2)', () => {
+  it('inserts the new singular fact first, then supersedes older ones pointing at it', async () => {
+    const { writer, sqls } = build({
+      guard: [{ source: 'ocr', memory_opt_in: false }],
+    });
+    await writer.writeFacts({
+      ...params,
+      facts: [
+        {
+          kind: 'job',
+          content: 'Works as a nurse',
+          confidence: 0.9,
+          scope: 'contact',
+        },
+      ],
+    });
+    const insertIdx = sqls.findIndex((q) => /INSERT INTO memories/.test(q.sql));
+    const supIdx = sqls.findIndex((q) =>
+      /SET status = 'superseded'/.test(q.sql),
+    );
+    expect(insertIdx).toBeGreaterThanOrEqual(0);
+    expect(supIdx).toBeGreaterThan(insertIdx);
+    expect(sqls[supIdx].sql).toMatch(/superseded_by = \$5/);
+    expect(sqls[supIdx].params[4]).toBe('mem-new');
+  });
+});

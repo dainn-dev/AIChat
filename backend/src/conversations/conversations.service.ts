@@ -208,8 +208,8 @@ export class ConversationsService {
       // Extracted memories left with NO other source once this conversation
       // goes (memory_sources). Manual memories are never touched. Legacy rows
       // with no links at all fall back to their source_ref.
-      await manager.query(
-        `DELETE FROM memories m
+      const doomed: Array<{ id: string }> = await manager.query(
+        `SELECT m.id FROM memories m
           WHERE m.user_id = $1
             AND m.source = 'extracted'
             AND (
@@ -220,9 +220,27 @@ export class ConversationsService {
                                    WHERE s.memory_id = m.id))
             )
             AND NOT EXISTS (SELECT 1 FROM memory_sources s
-                             WHERE s.memory_id = m.id AND s.conversation_id <> $2)`,
+                             WHERE s.memory_id = m.id AND s.conversation_id <> $2)
+          FOR UPDATE`,
         [userId, conversationId, sourceRef],
       );
+      const doomedIds = doomed.map((r) => r.id);
+      if (doomedIds.length > 0) {
+        // Facts these memories superseded (latest-wins) become active again
+        // rather than staying hidden forever (review MEDIUM 2).
+        await manager.query(
+          `UPDATE memories
+              SET status = 'active', superseded_by = NULL, updated_at = now()
+            WHERE user_id = $1 AND status = 'superseded'
+              AND superseded_by = ANY($2::uuid[])
+              AND NOT (id = ANY($2::uuid[]))`,
+          [userId, doomedIds],
+        );
+        await manager.query(
+          `DELETE FROM memories WHERE user_id = $1 AND id = ANY($2::uuid[])`,
+          [userId, doomedIds],
+        );
+      }
       // screenshots.conversation_id is ON DELETE SET NULL, which would orphan
       // the stored OCR text — remove those rows instead.
       await manager.query(

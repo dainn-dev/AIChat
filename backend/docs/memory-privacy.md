@@ -75,6 +75,13 @@ by compliance.
   neutralized, and whitespace collapsed. Attribution (`from`) comes from the
   model, so this narrows the injection surface but does not eliminate it.
 
+- **Superseded facts:** latest-wins supersede now records `superseded_by`
+  (migration `MemorySupersededBy1719000000000`). When the superseding memory is
+  erased, by conversation erasure or `DELETE /memories/:id`, the facts it
+  superseded become `active` again in the same transaction. Facts superseded
+  before this migration have no recorded link and stay `superseded` (known
+  gap; they remain visible on the dashboard and can be re-confirmed there).
+
 **Closed in Phase 0 follow-up:** dedupe losing provenance (old gap 1) and the
 in-flight extraction race (old gap 3).
 
