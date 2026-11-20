@@ -3,6 +3,9 @@ package com.aichat.keyboard.core.network.auth
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
+import java.security.KeyStoreException
+import java.security.ProviderException
+import java.security.UnrecoverableKeyException
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
@@ -22,7 +25,18 @@ internal object AndroidKeystoreKeys {
     @Synchronized
     fun getOrCreate(alias: String): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        (keyStore.getKey(alias, null) as? SecretKey)?.let { return it }
+        val existing = try {
+            keyStore.getKey(alias, null) as? SecretKey
+        } catch (_: UnrecoverableKeyException) {
+            null // corrupted entry: replace it below
+        } catch (_: KeyStoreException) {
+            null
+        } catch (_: ProviderException) {
+            null
+        }
+        existing?.let { return it }
+        // Drop a broken entry (if any) before generating, otherwise generation can fail on some devices.
+        runCatching { keyStore.deleteEntry(alias) }
 
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         generator.init(
@@ -34,5 +48,11 @@ internal object AndroidKeystoreKeys {
                 .build(),
         )
         return generator.generateKey()
+    }
+
+    /** Deletes the key. The next [getOrCreate] generates a new one. Never throws. */
+    @Synchronized
+    fun delete(alias: String) {
+        runCatching { KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(alias) }
     }
 }

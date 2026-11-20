@@ -12,6 +12,13 @@ interface TokenCipher {
 
     /** @throws GeneralSecurityException when the data was tampered with, or the key is gone or invalid. */
     fun decrypt(ciphertext: ByteArray): ByteArray
+
+    /**
+     * Throws the key away, so the next [encrypt] creates a fresh one. Called when the key is unusable (corrupted,
+     * permanently invalidated after a lock-screen change, or a Keystore provider error). Anything encrypted with
+     * the old key becomes unreadable, which for a session just means "sign in again".
+     */
+    fun reset()
 }
 
 /**
@@ -27,7 +34,10 @@ interface TokenCipher {
 class AesGcmTokenCipher(
     private val keyProvider: () -> SecretKey,
     private val associatedData: ByteArray = DEFAULT_AAD,
+    private val onReset: () -> Unit = {},
 ) : TokenCipher {
+
+    override fun reset() = onReset()
 
     override fun encrypt(plaintext: ByteArray): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORMATION)

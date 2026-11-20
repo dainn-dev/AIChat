@@ -161,6 +161,71 @@ class EncryptedFileTokenStoreTest {
         assertFailsWith<GeneralSecurityException> { cipher.decrypt(blob.copyOf().also { it[0] = 9 }) }
     }
 
+    /**
+     * Stands in for a broken Android Keystore key: every operation fails (like UnrecoverableKeyException,
+     * KeyPermanentlyInvalidatedException or ProviderException) until [reset] replaces the key.
+     */
+    private class BrokenKeyCipher(private val failure: () -> Exception) : TokenCipher {
+        var resets = 0
+        private var key: SecretKey? = null
+        private val delegate = AesGcmTokenCipher(keyProvider = { key ?: throw failure() })
+
+        override fun encrypt(plaintext: ByteArray) = delegate.encrypt(plaintext)
+        override fun decrypt(ciphertext: ByteArray) = delegate.decrypt(ciphertext)
+        override fun reset() {
+            resets++
+            key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+        }
+    }
+
+    @Test
+    fun `an unusable key on read discards the session and resets the key, so sign-in works again`() {
+        EncryptedFileTokenStore(file, cipher).save(tokens)
+        val broken = BrokenKeyCipher { java.security.UnrecoverableKeyException("corrupt key") }
+        val store = EncryptedFileTokenStore(file, broken)
+
+        assertNull(store.current())
+        assertEquals(1, broken.resets)
+        assertFalse(file.exists())
+
+        store.save(tokens) // works with the fresh key
+        assertEquals(tokens, EncryptedFileTokenStore(file, broken).current())
+    }
+
+    @Test
+    fun `a Keystore provider error on read is handled like a broken key`() {
+        EncryptedFileTokenStore(file, cipher).save(tokens)
+        val broken = BrokenKeyCipher { java.security.ProviderException("keystore failure") }
+
+        assertNull(EncryptedFileTokenStore(file, broken).current())
+        assertEquals(1, broken.resets)
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `an unusable key on write is reset and the write retried once`() {
+        val broken = BrokenKeyCipher { java.security.InvalidKeyException("key permanently invalidated") }
+        val store = EncryptedFileTokenStore(file, broken)
+
+        store.save(tokens)
+
+        assertEquals(1, broken.resets)
+        assertEquals(tokens, EncryptedFileTokenStore(file, broken).current())
+    }
+
+    @Test
+    fun `a key that stays broken makes save fail with IOException only`() {
+        val alwaysBroken = object : TokenCipher {
+            override fun encrypt(plaintext: ByteArray): ByteArray = throw java.security.ProviderException("dead")
+            override fun decrypt(ciphertext: ByteArray): ByteArray = throw java.security.ProviderException("dead")
+            override fun reset() = Unit
+        }
+        val store = EncryptedFileTokenStore(file, alwaysBroken)
+
+        assertFailsWith<java.io.IOException> { store.save(tokens) }
+        assertNull(store.current())
+    }
+
     @Test
     fun `toString never leaks tokens`() {
         assertFalse(tokens.toString().contains("token-value"))

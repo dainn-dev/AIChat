@@ -38,7 +38,10 @@ object AiChat {
         val userManager = appContext.getSystemService(UserManager::class.java)
         val tokenStore = EncryptedFileTokenStore(
             file = File(File(appContext.noBackupFilesDir, SESSION_DIR), SESSION_FILE),
-            cipher = AesGcmTokenCipher(keyProvider = { AndroidKeystoreKeys.getOrCreate(KEY_ALIAS) }),
+            cipher = AesGcmTokenCipher(
+                keyProvider = { AndroidKeystoreKeys.getOrCreate(KEY_ALIAS) },
+                onReset = { AndroidKeystoreKeys.delete(KEY_ALIAS) },
+            ),
             isStorageAvailable = { userManager?.isUserUnlocked ?: true },
         )
         return AiChatClientFactory.create(baseUrl = baseUrl, tokenStore = tokenStore)

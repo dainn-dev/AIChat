@@ -16,8 +16,10 @@ import java.security.GeneralSecurityException
  *
  * - Writes go to a temp file that is then renamed over the target, so a crash mid-write never leaves a half
  *   file behind.
- * - A file that cannot be decrypted (key invalidated, tampered, corrupt) reads as "signed out". It is left in
- *   place and overwritten by the next login.
+ * - A file that cannot be decrypted (key invalidated or corrupted, tampered, garbage) reads as "signed out":
+ *   the key is reset ([TokenCipher.reset]) and the file deleted, so the next login starts from a fresh key
+ *   instead of failing forever on a broken one.
+ * - If encryption fails (broken key), the key is reset and encryption retried once with a fresh key.
  * - [isStorageAvailable] covers direct boot: before the first unlock the credential-encrypted directory is not
  *   readable. The store then reports "signed out" without caching that answer, and loads for real once the
  *   user has unlocked.
@@ -60,15 +62,9 @@ class EncryptedFileTokenStore(
             if (file.exists() && !file.delete()) throw IOException("Could not delete ${file.name}")
         } else {
             val plaintext = json.encodeToString(AuthTokens.serializer(), tokens).toByteArray(Charsets.UTF_8)
-            val blob = try {
-                cipher.encrypt(plaintext)
-            } catch (e: GeneralSecurityException) {
-                throw IOException("Could not encrypt the session", e)
-            } catch (e: RuntimeException) {
-                // Keystore failures surface as ProviderException and friends. Callers (including OkHttp's
-                // Authenticator thread) only expect IOException, so never let these escape.
-                throw IOException("Could not encrypt the session", e)
-            }
+            val blob = encryptOrNull(plaintext)
+                ?: run { cipher.resetQuietly(); encryptOrNull(plaintext) } // broken key: retry once with a new one
+                ?: throw IOException("Could not encrypt the session")
             writeAtomically(blob)
         }
         state.value = tokens
@@ -82,18 +78,51 @@ class EncryptedFileTokenStore(
         loaded = true
     }
 
+    /**
+     * Encrypts, mapping every crypto failure to null. Keystore failures surface as GeneralSecurityException
+     * (e.g. KeyPermanentlyInvalidatedException, UnrecoverableKeyException) or as RuntimeException
+     * (ProviderException). Callers, including OkHttp's Authenticator thread, only expect IOException, so none of
+     * them may escape.
+     */
+    private fun encryptOrNull(plaintext: ByteArray): ByteArray? = try {
+        cipher.encrypt(plaintext)
+    } catch (_: GeneralSecurityException) {
+        null
+    } catch (_: RuntimeException) {
+        null
+    }
+
+    private fun TokenCipher.resetQuietly() {
+        try {
+            reset()
+        } catch (_: RuntimeException) {
+            // Nothing more we can do; the next write tries again.
+        }
+    }
+
+    /** Must hold [lock]. */
     private fun readFromDisk(): AuthTokens? {
         if (!file.exists()) return null
+        val bytes = try {
+            file.readBytes()
+        } catch (_: IOException) {
+            return null // transient I/O problem: keep the file, try again on the next start
+        }
         return try {
-            val plaintext = cipher.decrypt(file.readBytes())
+            val plaintext = cipher.decrypt(bytes)
             json.decodeFromString(AuthTokens.serializer(), plaintext.toString(Charsets.UTF_8))
         } catch (_: GeneralSecurityException) {
-            null // tampered, or the Keystore key was invalidated
-        } catch (_: IOException) {
-            null
+            discardUnreadableSession() // tampered, or the Keystore key is invalidated or corrupted
         } catch (_: RuntimeException) {
-            null // Keystore ProviderException, or a SerializationException for a corrupt payload
+            discardUnreadableSession() // Keystore ProviderException, or a SerializationException for garbage
         }
+    }
+
+    /** Must hold [lock]. The session is lost either way; start over with a fresh key and no file. */
+    private fun discardUnreadableSession(): AuthTokens? {
+        cipher.resetQuietly()
+        file.delete()
+        return null
     }
 
     private fun writeAtomically(bytes: ByteArray) {
