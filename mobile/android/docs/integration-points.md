@@ -154,50 +154,74 @@ There is no existing accessibility code upstream. Build it new:
 - The IME `onStartInputView` (`FlorisImeService.kt` around line 357) is the place to check whether the
   accessibility service is enabled, and to show a "enable to get suggestions" CTA in the strip if it is not.
 
-## (e) Network/auth core module (Retrofit/OkHttp, encrypted token store, shared session)
+## (e) Network/auth core module (Retrofit/OkHttp, encrypted token store, shared session) — DONE (Phase 2)
 
-The upstream app has **no networking stack and no `INTERNET` permission**. All of this is new.
+Implemented in the `:core:network` Android library (`core/network/`, package `com.aichat.keyboard.core.network`)
+and the settings screens in `app/src/main/kotlin/com/aichat/keyboard/app/account/`.
 
-- **New module.** Add `:core:network` (Android library) under `mobile/android/core/network/`, and
-  `include(":core:network")` in `settings.gradle.kts`. It contains:
-  - Retrofit + OkHttp + kotlinx-serialization converter. Kotlinx-serialization is already used across the app,
-    so prefer it over Moshi.
-  - `AiChatApi`, which calls `POST /v1/keyboard/reply` (the contract is in `backend/docs/keyboard-api.md` and
-    `backend/docs/phase4-integration.md`), plus `/auth/*` refresh.
-  - An `AuthInterceptor` that adds `Authorization: Bearer <access>`, and an OkHttp `Authenticator` for
-    single-flight refresh-on-401.
-  - `TokenStore` backed by `EncryptedSharedPreferences` (`androidx.security:security-crypto`). Note that
-    security-crypto is deprecated upstream; a DataStore + Tink / Android Keystore wrapper is the
-    forward-compatible option. The API stays the same either way.
-- **Manifest.** Add `<uses-permission android:name="android.permission.INTERNET"/>` (and `ACCESS_NETWORK_STATE`
-  if needed) in `app/src/main/AndroidManifest.xml`. Add a `network_security_config` that disallows cleartext
-  except for a debug-only local backend host.
-- **Shared session with the main app.** The keyboard IME, the settings activity (`FB/app/FlorisAppActivity.kt`),
-  and the new login activity all run in one APK and process, so they read the same `TokenStore`. To share a
-  session with a **separate** AIChat main-app APK, either:
+- **HTTP stack.** Retrofit 3.0.0 + OkHttp 4.12.0 + the official Retrofit kotlinx-serialization converter
+  (kotlinx-serialization is already used across the app). OkHttp gives us `Authenticator` and MockWebServer, which
+  the refresh logic and its tests rely on. No logging interceptor, because bodies carry tokens, passwords and chat
+  text.
+- **API.** `AiChatClient` (all calls return `ApiResult`, nothing throws for HTTP/transport errors):
+  `signup`, `login`, `logout`, `me`, `setMemoryOptIn` (`PATCH /me/settings`), `conversations` (paginated) /
+  `deleteConversation`, `memories` / `deleteMemory`, and `reply` / `rewrite` / `translate` on `/v1/keyboard/*`
+  (with `lang`, `contact_label`, `remember`, `platform`). Wire models in `model/Models.kt` mirror the backend DTOs;
+  null optional fields are omitted from request bodies (`explicitNulls = false`).
+- **Auth.** Two OkHttp clients share one connection pool: a public one for `/auth/*` and an authenticated one with
+  `AuthInterceptor` (Bearer) and `TokenAuthenticator`. The authenticator refreshes once per 401 under a lock
+  (single flight: concurrent 401s cause one `/auth/refresh`), persists the rotated refresh token before retrying,
+  signs out locally only when `/auth/refresh` answers 401, and keeps the session on any other failure (network,
+  5xx, a 400 from a proxy).
+  Protected calls fail fast with `Unauthorized` and send nothing while signed out.
+- **Errors.** `ErrorEnvelopeMapper` maps `{ error: { code, message, details? } }` to the sealed `ApiError`:
+  `Unauthorized`, `QuotaExceeded` (429 `details.limit` / 402 spend cap), `Validation` (400/422, `details.fields`),
+  `NotFound`, `Conflict`, `Upstream` (502/503/504), `Network`, `Unknown`.
+- **Base URL.** `BuildConfig.AICHAT_API_BASE_URL` of `:core:network`, per build type: debug
+  `http://10.0.2.2:3000/` (override with `-Paichat.debugApiBaseUrl=...`), beta/release
+  `https://chat-api.dainn.online/` (override with `-Paichat.apiBaseUrl=https://...`; must be https).
+- **Token store.** `EncryptedFileTokenStore`: the session JSON is AES-256-GCM encrypted (`AesGcmTokenCipher`,
+  random IV, associated data, versioned blob) with a non-exportable Android Keystore key (`AndroidKeystoreKeys`)
+  and written atomically to `noBackupFilesDir/aichat/session.bin`. We did not use `androidx.security:security-crypto`
+  (deprecated) or Tink (an extra dependency for what is one AES-GCM key and one file). The crypto sits behind
+  `TokenCipher`, so the store and the blob format are unit-tested on the JVM with a software key. An undecryptable
+  file (key invalidated, tampered) reads as signed out. In direct boot (before first unlock) the store reports
+  signed out without caching that answer.
+- **Shared session.** `AiChat.client(context)` is a per-process singleton. The IME service and the settings
+  activity run in the same process, so they share one client, one token store and one `isSignedIn` flow. Sharing
+  with a separate main-app APK is still undecided (see the options below).
   - sign both apps with the same key and expose the session through a signature-protected `ContentProvider`
     or bound service, or
-  - have the keyboard run its own login (OAuth / magic link) inside its settings activity.
-  Decide this before the API work starts.
-- **Call sites.** Make network calls from a coroutine scope that belongs to the IME lifecycle
-  (`LifecycleInputMethodService` gives a `lifecycleScope`), never with `runBlocking`. Show the loading and
-  error states in the AI strip.
-- **Quota.** Show the backend's usage snapshot (returned by the keyboard endpoints) in the strip or in
-  settings.
-- **TODO (deferred from the baseline code review, finding 5). Must be done in the network phase:**
-  - [ ] Add `res/xml/network_security_config.xml` with `cleartextTrafficPermitted="false"` as the base config, plus
-    a debug-only override (`src/debug/`) for the local backend host. Wire it in the manifest through
-    `android:networkSecurityConfig`.
-  - [ ] Remove or lock down the exported "Import Extension" intent-filters on `FlorisAppActivity`. That covers
-    `VIEW` and `SEND` for `application/vnd.florisboard.extension+zip` and especially the catch-all
-    `application/octet-stream`. They let any app hand us arbitrary files. Also review the `ui://florisboard`
-    deep link.
+  - have the keyboard run its own login inside its settings activity (what Phase 2 does).
+- **Settings UI.** "Tài khoản AIChat" at the top of the settings home: sign in / sign up, account (email, tier,
+  today's usage), the "Cho phép AIChat ghi nhớ" toggle with disclosure and a confirmation dialog before enabling
+  (disclosure wording approved 2026-11-20) and before disabling (turning it off deletes keyboard-captured
+  conversations and the memories learned only from them; the optional `deleted` counts are shown afterwards),
+  "Cuộc trò chuyện đã lưu" (paginated, delete) and "Memories" (delete), sign out. Strings are in
+  `res/values/aichat_strings.xml` (English) and `res/values-vi/aichat_strings.xml`. These routes have no
+  `ui://florisboard` deep link.
+- **Still to do (later phases).**
+  - IME call sites: use the IME `lifecycleScope`, never `runBlocking`; show loading/error/quota states in the AI
+    strip; render the `usage` snapshot from keyboard responses.
+  - After "Forget this chat", keep a local per-contact exclusion (`platform` + `contact_label`) and send
+    `remember: false` for that contact (the backend keeps no tombstone, see `backend/docs/keyboard-api.md`). The
+    settings screen deletes conversations but does not record exclusions yet.
+- **Finding 5 (baseline code review) — done:**
+  - [x] `res/xml/network_security_config.xml`: `cleartextTrafficPermitted="false"`, system CAs only. The debug
+    source set overrides it (`app/src/debug/res/xml/network_security_config.xml`) to allow cleartext only for
+    `10.0.2.2` and `localhost`. Wired through `android:networkSecurityConfig`.
+  - [x] The exported "Import Extension" intent-filters on `FlorisAppActivity` (`VIEW` with a `content:` URI and
+    `SEND`, for `application/vnd.florisboard.extension+zip` and the catch-all `application/octet-stream`) were
+    removed, and `FlorisAppActivity.onNewIntent` ignores such intents, since the activity is exported and still
+    receives explicit intents. Extensions can still be imported in-app (Addons > Import uses the system picker).
+  - [x] The `ui://florisboard` BROWSABLE deep link was removed (manifest intent-filter, NavController deep-link
+    registration and the intent-to-navigation handling in `FlorisAppActivity`).
 
 ## FlorisBoard features to disable or hide for v1
 
 | Feature | Where | Why |
 |---------|-------|-----|
-| Addons store / extension import, export, and edit | `FB/app/ext/*`, `AddonBox.kt` (opens `beta.addons.florisboard.org`), the import intent-filters on `FlorisAppActivity` in `AndroidManifest.xml` (`application/vnd.florisboard.extension+zip`, `application/octet-stream`) | External content, support burden, upstream branding |
+| Addons store / extension import, export, and edit | `FB/app/ext/*`, `AddonBox.kt` (opens `beta.addons.florisboard.org`). The external import intent-filters on `FlorisAppActivity` were already removed in Phase 2 (finding 5). | External content, support burden, upstream branding |
 | "Check for updates" of extensions | `FB/app/ext/CheckUpdatesScreen.kt` (opens the addons site) | Points to FlorisBoard infrastructure |
 | Glide typing | `FB/ime/text/gestures/GlideTyping*`, pref `glide__enabled` | Not tuned for Vietnamese; experimental upstream |
 | Spell-checker service | `FlorisSpellCheckerService` in the manifest, `FB/FlorisSpellCheckerService.kt` | System-wide service outside our scope |
@@ -215,7 +239,8 @@ the pref defaults in `AppPrefs.kt`, rather than deleting the code. That keeps up
 
 ## Upstream telemetry and network behavior (audit of v0.5.2)
 
-- **No `INTERNET` permission** in `app/src/main/AndroidManifest.xml` or in any `lib/*` manifest. No HTTP client
+- **No `INTERNET` permission** in `app/src/main/AndroidManifest.xml` or in any `lib/*` manifest. (AIChat added
+  it in Phase 2 for `:core:network`; the upstream code itself still makes no network calls.) No HTTP client
   library is used (no OkHttp, Retrofit, `HttpURLConnection`, or socket usage in `app/` or `lib/`).
 - **No analytics, telemetry, or crash-reporting SDK.** `FB/lib/crashutility/CrashUtility.kt` installs a local
   uncaught-exception handler. It stores the stack traces on the device, shows `CrashDialogActivity` and a

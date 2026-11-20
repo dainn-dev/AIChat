@@ -87,7 +87,7 @@ object Restore {
 
     /**
      * AIChat MODIFIED: true only for this fork's base ID or a build-type variant of it (e.g. `.debug`, `.beta`),
-     * so that unrelated IDs that merely share the prefix (e.g. `com.aichat.keyboardx`) are treated as foreign.
+     * so that unrelated IDs that merely share the prefix (e.g. `online.dainn.aichat.keyboardx`) are treated as foreign.
      */
     fun isOwnPackageName(packageName: String): Boolean =
         packageName == PACKAGE_NAME || packageName.startsWith("$PACKAGE_NAME.")

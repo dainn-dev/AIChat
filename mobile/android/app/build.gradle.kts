@@ -31,10 +31,11 @@ val projectCompileSdk: String by project
 val projectVersionCode: String by project
 val projectVersionName: String by project
 
-// AIChat MODIFIED: placeholder application ID for the AIChat Keyboard fork. The final, store-facing ID still
-// needs confirmation. The Kotlin package / Android `namespace` intentionally stay `dev.patrickgold.florisboard`
-// to keep the diff against upstream small (see mobile/android/UPSTREAM.md).
-val aichatBaseApplicationId = "com.aichat.keyboard"
+// AIChat MODIFIED: final, store-facing application ID of the AIChat Keyboard fork (confirmed 2026-11-20; Play does
+// not allow changing it after the first upload). The Kotlin packages / Android `namespace` intentionally stay
+// `dev.patrickgold.florisboard` (and `com.aichat.keyboard.*` for AIChat code) to keep the diff against upstream
+// small (see mobile/android/UPSTREAM.md).
+val aichatBaseApplicationId = "online.dainn.aichat.keyboard"
 val aichatAppName = "AIChat Keyboard"
 val projectVersionNameSuffix = projectVersionName.substringAfter("-", "").let { suffix ->
     if (suffix.isNotEmpty()) {
@@ -226,8 +227,13 @@ dependencies {
     implementation(projects.lib.kotlin)
     implementation(projects.lib.native)
     implementation(projects.lib.snygg)
+    // AIChat MODIFIED: AIChat backend client and session store.
+    implementation(projects.core.network)
 
     testImplementation(libs.kotlin.test.junit5)
+    // AIChat MODIFIED: AIChat ViewModel tests (Main dispatcher + MockWebServer-backed AiChatClient).
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.squareup.okhttp.mockwebserver)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso.core)
 }

@@ -32,7 +32,7 @@ HeliBoard/OpenBoard, and AnySoftKeyboard) would not allow it.
 
 | What | Upstream | AIChat | Notes |
 |------|----------|--------|-------|
-| `applicationId` | `dev.patrickgold.florisboard` | `com.aichat.keyboard` (**placeholder, to be confirmed**) | Debug builds keep upstream's `.debug` suffix, so they install as `com.aichat.keyboard.debug`. Beta builds use `.beta`. |
+| `applicationId` | `dev.patrickgold.florisboard` | `online.dainn.aichat.keyboard` (final, confirmed 2026-11-20) | Debug builds keep upstream's `.debug` suffix, so they install as `online.dainn.aichat.keyboard.debug`. Beta builds use `.beta`. |
 | Launcher / IME label (`floris_app_name`) | `FlorisBoard` | `AIChat Keyboard` (Debug/Beta suffix per build type) | Set through `resValue` in `app/build.gradle.kts`. |
 | Android `namespace` (R / BuildConfig package) | `dev.patrickgold.florisboard` | **unchanged** | See below. |
 | Kotlin packages (`dev.patrickgold.florisboard.*`, `org.florisboard.lib.*`) | — | **unchanged** | See below. |
@@ -54,9 +54,10 @@ already changed. Class names in the manifest are fully qualified, so they keep w
 
 Clean these up when the v1 settings UI is reworked. `docs/integration-points.md` lists the features to disable.
 
-**Final application ID.** `com.aichat.keyboard` is a placeholder. Confirm it before the first Play Store upload,
-because Play does not allow changing the ID afterwards. To change it, edit `aichatBaseApplicationId` in
-`app/build.gradle.kts`.
+**Final application ID.** `online.dainn.aichat.keyboard` (confirmed 2026-11-20, replacing the earlier placeholder
+`com.aichat.keyboard`). Play does not allow changing the ID after the first upload, so treat it as fixed. It is set by
+`aichatBaseApplicationId` in `app/build.gradle.kts`. The Kotlin package `com.aichat.keyboard.*` used for AIChat code
+is unrelated to the application ID and stays as is.
 
 ## Build fixes required on top of upstream
 
@@ -84,6 +85,41 @@ Upstream wired its `<full-backup-content>` file (`backup_rules.xml`) into both a
 `dataExtractionRules`, which needs a `<data-extraction-rules>` document, so the file was removed. The manual
 in-app backup/restore screen (Settings > Advanced) still works.
 
+## Network and security (Phase 2)
+
+Upstream has no networking. AIChat adds the `:core:network` module (`core/network/`), described in
+`docs/integration-points.md` section (e). Changes to upstream files for it:
+
+- **Manifest.** `INTERNET` permission and `android:networkSecurityConfig="@xml/network_security_config"`.
+  `res/xml/network_security_config.xml` forbids cleartext and trusts system CAs only (beta and release). The debug
+  source set replaces it (`app/src/debug/res/xml/network_security_config.xml`) to allow cleartext only to
+  `10.0.2.2` (emulator to host) and `localhost` (device with `adb reverse`). The root `.gitignore` re-includes
+  `app/src/debug/`, which the upstream Rust `debug/` rule would otherwise hide.
+- **Extension import intents (baseline review finding 5).** The exported "Import Extension" intent-filters on
+  `FlorisAppActivity` (`VIEW` with a `content:` URI and `SEND`, for `application/vnd.florisboard.extension+zip` and
+  the catch-all `application/octet-stream`) are removed. `FlorisAppActivity.onNewIntent` also ignores such intents,
+  because the activity stays exported (launcher alias) and would still receive explicit intents. Importing extensions still works from inside the app (Addons > Import, system file picker);
+  opening a `.flex` file from a file manager or browser no longer offers AIChat Keyboard.
+- **`ui://florisboard` deep links (security review).** The upstream BROWSABLE `ui://florisboard/...` intent-filter is
+  removed from the manifest, `Routes.composableWithDeepLink` no longer registers the deep links with the
+  NavController, and `FlorisAppActivity` no longer turns launch/new intents into navigation. Any web page or app
+  could otherwise open arbitrary settings screens. Internal navigation never used them.
+- **Settings.** `HomeScreen.kt` shows the "Tài khoản AIChat" entry first; `Routes.kt` registers the AIChat screens
+  (without deep links).
+- **Memory disclosure and opt-out.** The "Cho phép AIChat ghi nhớ" disclosure (`aichat_strings.xml`, `values` and
+  `values-vi`) states that the other person's messages are processed by an external AI provider, that sensitive-data
+  filtering is automatic and not perfect, that data is kept until the user deletes it and can be deleted at any time,
+  and that deleting a conversation removes only the memories learned from that conversation alone. The wording was
+  approved by the product owner on 2026-11-20. Turning the toggle **off** asks for confirmation first, because the
+  backend then deletes every keyboard-captured conversation and the memories learned only from them
+  (screenshot/share data is untouched). The optional `deleted: { conversations, memories }` counts in the
+  `PATCH /me/settings` response are shown in a short confirmation.
+- **Base URL.** Debug builds use `http://10.0.2.2:3000/` (override: `./gradlew assembleDebug
+  -Paichat.debugApiBaseUrl=http://<host>:3000/`; a host other than `10.0.2.2`/`localhost` must also be added to the
+  debug network security config). Beta and release use the production API `https://chat-api.dainn.online/`
+  (override with `-Paichat.apiBaseUrl=https://<host>/`, e.g. staging; a non-https value fails the beta/release
+  build because those builds forbid cleartext).
+
 ## Follow-ups
 
 - **Gradle dependency verification** (`gradle/verification-metadata.xml` via
@@ -102,7 +138,7 @@ in-app backup/restore screen (Settings > Advanced) still works.
 | `local.properties` | `sdk.dir=...` (git-ignored) | |
 
 Build with `./gradlew assembleDebug`. The output is `app/build/outputs/apk/debug/app-debug.apk`, with the
-application ID `com.aichat.keyboard.debug`. On machines with limited RAM, add `--no-parallel --max-workers=2`.
+application ID `online.dainn.aichat.keyboard.debug`. On machines with limited RAM, add `--no-parallel --max-workers=2`.
 The parallel cargo, CMake, and Kotlin daemons can exhaust native memory.
 
 ## minSdk

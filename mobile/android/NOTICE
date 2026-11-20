@@ -27,23 +27,38 @@ The full delta from upstream is:
   git diff <import commit> -- mobile/android
 
   app/build.gradle.kts
-      applicationId -> com.aichat.keyboard (placeholder), app label -> "AIChat Keyboard",
-      new BuildConfig.BASE_APPLICATION_ID field.
+      applicationId -> online.dainn.aichat.keyboard, app label -> "AIChat Keyboard",
+      new BuildConfig.BASE_APPLICATION_ID field, dependency on :core:network.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/advanced/RestoreScreen.kt
       Backup package check uses BuildConfig.BASE_APPLICATION_ID and accepts exactly the base ID
       or "<base>."-prefixed variants (Restore.isOwnPackageName).
   app/src/main/AndroidManifest.xml
       allowBackup=false, fullBackupContent=false, dataExtractionRules -> data_extraction_rules.xml.
+      INTERNET permission, networkSecurityConfig (cleartext disabled), and the exported "Import Extension"
+      VIEW/SEND intent-filters (extension zip + application/octet-stream) removed from FlorisAppActivity.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt
+      onNewIntent ignores external file VIEW/SEND intents (extension import is in-app only).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/Routes.kt
+      Registers the AIChat account / saved conversations / memories screens (aichatAccountGraph()).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/HomeScreen.kt
+      "AIChat account" (Tài khoản AIChat) entry at the top of the settings list.
   app/src/main/res/xml/backup_rules.xml
       Removed (was mis-wired as dataExtractionRules; auto-backup is disabled).
   app/src/androidTest/kotlin/dev/patrickgold/florisboard/ExampleInstrumentedTest.kt
       Asserts BuildConfig.APPLICATION_ID instead of the upstream package name.
   settings.gradle.kts
-      Sonatype snapshots repository commented out.
+      Sonatype snapshots repository commented out; include(":core:network").
   gradle/libs.versions.toml
       jetpref 20251119T222500Z-SNAPSHOT (no longer published) -> 0.3.0-rc01 (Maven Central).
+      OkHttp 4.12.0, Retrofit 3.0.0 (+ kotlinx-serialization converter) and MockWebServer 4.12.0.
   .gitignore
-      Added keystore, .kotlin/ and build output entries.
+      Added keystore, .kotlin/ and build output entries; re-includes app/src/debug/ (hidden by the
+      Rust "debug/" rule).
 
 Files added by AIChat (not part of upstream):
-  NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml
+  NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
+  core/network/ (whole module), app/src/main/kotlin/com/aichat/keyboard/ (whole package),
+  app/src/test/kotlin/com/aichat/keyboard/ (whole package),
+  app/src/main/res/values/aichat_strings.xml, app/src/main/res/values-vi/aichat_strings.xml,
+  app/src/main/res/xml/network_security_config.xml,
+  app/src/debug/res/xml/network_security_config.xml

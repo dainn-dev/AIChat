@@ -70,3 +70,5 @@ keystore.properties
 .kotlin/
 # Gradle/AGP outputs anywhere in the tree
 **/build/
+# The Rust "debug/" rule above would also hide the Android debug source set; keep it tracked.
+!/app/src/debug/
