@@ -171,14 +171,15 @@ and the settings screens in `app/src/main/kotlin/com/aichat/keyboard/app/account
 - **Auth.** Two OkHttp clients share one connection pool: a public one for `/auth/*` and an authenticated one with
   `AuthInterceptor` (Bearer) and `TokenAuthenticator`. The authenticator refreshes once per 401 under a lock
   (single flight: concurrent 401s cause one `/auth/refresh`), persists the rotated refresh token before retrying,
-  signs out locally when the refresh token is rejected (400/401), and keeps the session on transient failures.
+  signs out locally only when `/auth/refresh` answers 401, and keeps the session on any other failure (network,
+  5xx, a 400 from a proxy).
   Protected calls fail fast with `Unauthorized` and send nothing while signed out.
 - **Errors.** `ErrorEnvelopeMapper` maps `{ error: { code, message, details? } }` to the sealed `ApiError`:
   `Unauthorized`, `QuotaExceeded` (429 `details.limit` / 402 spend cap), `Validation` (400/422, `details.fields`),
   `NotFound`, `Conflict`, `Upstream` (502/503/504), `Network`, `Unknown`.
 - **Base URL.** `BuildConfig.AICHAT_API_BASE_URL` of `:core:network`, per build type: debug
   `http://10.0.2.2:3000/` (override with `-Paichat.debugApiBaseUrl=...`), beta/release
-  `https://api.aichat.example/` (**TODO: real host before release**).
+  `https://chat-api.dainn.online/` (override with `-Paichat.apiBaseUrl=https://...`; must be https).
 - **Token store.** `EncryptedFileTokenStore`: the session JSON is AES-256-GCM encrypted (`AesGcmTokenCipher`,
   random IV, associated data, versioned blob) with a non-exportable Android Keystore key (`AndroidKeystoreKeys`)
   and written atomically to `noBackupFilesDir/aichat/session.bin`. We did not use `androidx.security:security-crypto`
@@ -193,7 +194,9 @@ and the settings screens in `app/src/main/kotlin/com/aichat/keyboard/app/account
     or bound service, or
   - have the keyboard run its own login inside its settings activity (what Phase 2 does).
 - **Settings UI.** "Tài khoản AIChat" at the top of the settings home: sign in / sign up, account (email, tier,
-  today's usage), the "Cho phép AIChat ghi nhớ" toggle with disclosure and a confirmation dialog before enabling,
+  today's usage), the "Cho phép AIChat ghi nhớ" toggle with disclosure and a confirmation dialog before enabling
+  (disclosure wording approved 2026-11-20) and before disabling (turning it off deletes keyboard-captured
+  conversations and the memories learned only from them; the optional `deleted` counts are shown afterwards),
   "Cuộc trò chuyện đã lưu" (paginated, delete) and "Memories" (delete), sign out. Strings are in
   `res/values/aichat_strings.xml` (English) and `res/values-vi/aichat_strings.xml`. These routes have no
   `ui://florisboard` deep link.
@@ -211,8 +214,8 @@ and the settings screens in `app/src/main/kotlin/com/aichat/keyboard/app/account
     `SEND`, for `application/vnd.florisboard.extension+zip` and the catch-all `application/octet-stream`) were
     removed, and `FlorisAppActivity.onNewIntent` ignores such intents, since the activity is exported and still
     receives explicit intents. Extensions can still be imported in-app (Addons > Import uses the system picker).
-  - [ ] The `ui://florisboard` BROWSABLE deep link is unchanged: any web page can open upstream settings screens
-    (no data is passed besides route arguments). Restrict or remove it when the v1 settings navigation is reworked.
+  - [x] The `ui://florisboard` BROWSABLE deep link was removed (manifest intent-filter, NavController deep-link
+    registration and the intent-to-navigation handling in `FlorisAppActivity`).
 
 ## FlorisBoard features to disable or hide for v1
 

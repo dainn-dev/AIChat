@@ -27,7 +27,7 @@ The full delta from upstream is:
   git diff <import commit> -- mobile/android
 
   app/build.gradle.kts
-      applicationId -> com.aichat.keyboard (placeholder), app label -> "AIChat Keyboard",
+      applicationId -> online.dainn.aichat.keyboard, app label -> "AIChat Keyboard",
       new BuildConfig.BASE_APPLICATION_ID field, dependency on :core:network.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/advanced/RestoreScreen.kt
       Backup package check uses BuildConfig.BASE_APPLICATION_ID and accepts exactly the base ID
