@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -71,6 +72,16 @@ export class KeyboardReplyDto {
   @MinLength(1)
   @MaxLength(CONTACT_LABEL_MAX_LENGTH)
   contact_label?: string;
+
+  /**
+   * Per-request opt-out of conversation persistence (Android Phase 0), e.g. an
+   * incognito chat. Only an explicit `false` disables it; persistence still
+   * requires the user-level `memory_opt_in` plus `platform` and
+   * `contact_label`.
+   */
+  @IsOptional()
+  @IsBoolean()
+  remember?: boolean;
 }
 
 /** `POST /v1/keyboard/rewrite` — rewrite a draft in a tone. */
@@ -111,6 +122,12 @@ export class KeyboardTranslateDto {
 
 export interface KeyboardReplyResponse {
   suggestions: ReplyCandidate[];
+  /**
+   * Stored conversation this capture was merged into (Android Phase 0), or
+   * `null` when it was not persisted (not opted in, missing platform /
+   * contact_label, `remember: false`, or a best-effort write failure/timeout).
+   */
+  conversation_id: string | null;
   usage: UsageSnapshot;
 }
 

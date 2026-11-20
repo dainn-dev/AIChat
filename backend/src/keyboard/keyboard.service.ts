@@ -5,6 +5,7 @@ import { Tier } from '../common/tiers';
 import { Tier as UsageTier, UsageMetric } from '../usage/usage.constants';
 import { UsageService } from '../usage/usage.service';
 import { AuthenticatedUser } from '../auth/jwt-payload';
+import { ConversationsService } from '../conversations/conversations.service';
 import {
   KeyboardReplyDto,
   KeyboardReplyResponse,
@@ -16,18 +17,30 @@ import {
 const DEFAULT_REPLY_COUNT = 3;
 
 /**
+ * Upper bound the reply waits for best-effort conversation persistence
+ * (Android Phase 0). Past it the reply returns `conversation_id: null` and the
+ * write finishes in the background.
+ */
+export const PERSIST_TIMEOUT_MS = 1500;
+
+/**
  * Keyboard surface (P4-1 / DAI-136). Thin layer over the AI pipeline that the
  * iOS/Android keyboard extensions consume. Every call:
  *  - is attributed to the authenticated user and tagged `source: keyboard`;
  *  - is metered against the shared per-user daily generation counter (Free=20),
  *    via the reserve→release lifecycle, so a downstream failure refunds the slot;
  *  - returns the live usage snapshot so the keyboard can render remaining quota.
+ *
+ * `reply` additionally persists the captured conversation for opted-in users
+ * (Android Phase 0) — only after a successful generation, best-effort and
+ * time-bounded, so it can never fail or noticeably slow the reply.
  */
 @Injectable()
 export class KeyboardService {
   constructor(
     private readonly pipeline: AiPipelineService,
     private readonly usage: UsageService,
+    private readonly conversations: ConversationsService,
   ) {}
 
   async reply(
@@ -55,7 +68,13 @@ export class KeyboardService {
           },
         ),
     );
-    return { suggestions, usage: await this.snapshot(user.sub, tier) };
+    // Reached only on a successful generation: runWithQuota rethrows (after
+    // refunding) when the pipeline fails, so nothing is persisted then.
+    const [conversationId, usage] = await Promise.all([
+      this.persistCapture(user, dto),
+      this.snapshot(user.sub, tier),
+    ]);
+    return { suggestions, conversation_id: conversationId, usage };
   }
 
   async rewrite(
@@ -96,6 +115,31 @@ export class KeyboardService {
         ),
     );
     return { text, usage: await this.snapshot(user.sub, tier) };
+  }
+
+  /** Best-effort, time-bounded persistence; resolves `null` instead of failing. */
+  private async persistCapture(
+    user: AuthenticatedUser,
+    dto: KeyboardReplyDto,
+  ): Promise<string | null> {
+    const write = this.conversations
+      .persistKeyboardCapture({
+        userId: user.sub,
+        platform: dto.platform,
+        contactLabel: dto.contact_label,
+        remember: dto.remember,
+        messages: dto.conversation,
+      })
+      .catch(() => null); // defensive: the service already never throws
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), PERSIST_TIMEOUT_MS);
+    });
+    try {
+      return await Promise.race([write, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private snapshot(userId: string, tier: UsageTier) {

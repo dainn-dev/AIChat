@@ -87,6 +87,31 @@ describe('KeyboardReplyDto (Android Phase 0)', () => {
   );
 });
 
+describe('KeyboardReplyDto.remember (Android Phase 0)', () => {
+  it.each([true, false])('accepts remember=%p', async (remember) => {
+    expect(
+      await errorsFor(KeyboardReplyDto, {
+        conversation,
+        tone: 'Friendly',
+        remember,
+      }),
+    ).toEqual([]);
+  });
+
+  it.each(['false', 0, 'no'])(
+    'rejects a non-boolean remember (%p)',
+    async (remember) => {
+      expect(
+        await errorsFor(KeyboardReplyDto, {
+          conversation,
+          tone: 'Friendly',
+          remember,
+        }),
+      ).toContain('remember');
+    },
+  );
+});
+
 describe('KeyboardRewriteDto (Android Phase 0)', () => {
   it('accepts an optional lang', async () => {
     expect(
