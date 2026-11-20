@@ -30,6 +30,12 @@ val projectTargetSdk: String by project
 val projectCompileSdk: String by project
 val projectVersionCode: String by project
 val projectVersionName: String by project
+
+// AIChat MODIFIED: placeholder application ID for the AIChat Keyboard fork. The final, store-facing ID still
+// needs confirmation. The Kotlin package / Android `namespace` intentionally stay `dev.patrickgold.florisboard`
+// to keep the diff against upstream small (see mobile/android/UPSTREAM.md).
+val aichatBaseApplicationId = "com.aichat.keyboard"
+val aichatAppName = "AIChat Keyboard"
 val projectVersionNameSuffix = projectVersionName.substringAfter("-", "").let { suffix ->
     if (suffix.isNotEmpty()) {
         "-$suffix"
@@ -67,7 +73,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.patrickgold.florisboard"
+        applicationId = aichatBaseApplicationId
         minSdk = projectMinSdk.toInt()
         targetSdk = projectTargetSdk.toInt()
         versionCode = projectVersionCode.toInt()
@@ -76,6 +82,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "BUILD_COMMIT_HASH", "\"${getGitCommitHash().get()}\"")
+        buildConfigField("String", "BASE_APPLICATION_ID", "\"$aichatBaseApplicationId\"")
         buildConfigField("String", "FLADDONS_API_VERSION", "\"v~draft2\"")
         buildConfigField("String", "FLADDONS_STORE_URL", "\"beta.addons.florisboard.org\"")
 
@@ -116,7 +123,7 @@ android {
             resValue("mipmap", "floris_app_icon", "@mipmap/ic_app_icon_debug")
             resValue("mipmap", "floris_app_icon_round", "@mipmap/ic_app_icon_debug_round")
             resValue("drawable", "floris_app_icon_foreground", "@drawable/ic_app_icon_debug_foreground")
-            resValue("string", "floris_app_name", "FlorisBoard Debug")
+            resValue("string", "floris_app_name", "$aichatAppName Debug")
         }
 
         create("beta") {
@@ -130,7 +137,7 @@ android {
             resValue("mipmap", "floris_app_icon", "@mipmap/ic_app_icon_beta")
             resValue("mipmap", "floris_app_icon_round", "@mipmap/ic_app_icon_beta_round")
             resValue("drawable", "floris_app_icon_foreground", "@drawable/ic_app_icon_beta_foreground")
-            resValue("string", "floris_app_name", "FlorisBoard Beta")
+            resValue("string", "floris_app_name", "$aichatAppName Beta")
         }
 
         named("release") {
@@ -143,7 +150,7 @@ android {
             resValue("mipmap", "floris_app_icon", "@mipmap/ic_app_icon_stable")
             resValue("mipmap", "floris_app_icon_round", "@mipmap/ic_app_icon_stable_round")
             resValue("drawable", "floris_app_icon_foreground", "@drawable/ic_app_icon_stable_foreground")
-            resValue("string", "floris_app_name", "@string/app_name")
+            resValue("string", "floris_app_name", aichatAppName)
         }
 
         create("benchmark") {

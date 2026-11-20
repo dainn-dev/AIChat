@@ -61,3 +61,12 @@ debug/
 target/
 **/*.rs.bk
 *.pdb
+
+# --- AIChat additions ---
+# Signing material must never be committed
+*.keystore
+keystore.properties
+# Kotlin 2.x compiler daemon/session data
+.kotlin/
+# Gradle/AGP outputs anywhere in the tree
+**/build/

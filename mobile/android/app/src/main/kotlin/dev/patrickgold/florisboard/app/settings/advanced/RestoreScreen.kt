@@ -81,7 +81,8 @@ import org.florisboard.lib.kotlin.io.subFile
 
 object Restore {
     const val MIN_VERSION_CODE = 64
-    const val PACKAGE_NAME = "dev.patrickgold.florisboard"
+    // AIChat MODIFIED: accept backups created by this fork (base ID without .debug/.beta suffix).
+    const val PACKAGE_NAME = BuildConfig.BASE_APPLICATION_ID
     const val BACKUP_ARCHIVE_FILE_NAME = "backup.zip"
 }
 
