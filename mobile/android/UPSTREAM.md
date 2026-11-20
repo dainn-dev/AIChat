@@ -84,6 +84,29 @@ Upstream wired its `<full-backup-content>` file (`backup_rules.xml`) into both a
 `dataExtractionRules`, which needs a `<data-extraction-rules>` document, so the file was removed. The manual
 in-app backup/restore screen (Settings > Advanced) still works.
 
+## Network and security (Phase 2)
+
+Upstream has no networking. AIChat adds the `:core:network` module (`core/network/`), described in
+`docs/integration-points.md` section (e). Changes to upstream files for it:
+
+- **Manifest.** `INTERNET` permission and `android:networkSecurityConfig="@xml/network_security_config"`.
+  `res/xml/network_security_config.xml` forbids cleartext and trusts system CAs only (beta and release). The debug
+  source set replaces it (`app/src/debug/res/xml/network_security_config.xml`) to allow cleartext only to
+  `10.0.2.2` (emulator to host) and `localhost` (device with `adb reverse`). The root `.gitignore` re-includes
+  `app/src/debug/`, which the upstream Rust `debug/` rule would otherwise hide.
+- **Extension import intents (baseline review finding 5).** The exported "Import Extension" intent-filters on
+  `FlorisAppActivity` (`VIEW` with a `content:` URI and `SEND`, for `application/vnd.florisboard.extension+zip` and
+  the catch-all `application/octet-stream`) are removed. `FlorisAppActivity.onNewIntent` also ignores such intents,
+  because the activity stays exported (launcher alias and `ui://florisboard` deep links) and would still receive
+  explicit intents. Importing extensions still works from inside the app (Addons > Import, system file picker);
+  opening a `.flex` file from a file manager or browser no longer offers AIChat Keyboard.
+- **Settings.** `HomeScreen.kt` shows the "Tài khoản AIChat" entry first; `Routes.kt` registers the AIChat screens
+  (without deep links).
+- **Base URL.** Debug builds use `http://10.0.2.2:3000/` (override: `./gradlew assembleDebug
+  -Paichat.debugApiBaseUrl=http://<host>:3000/`; a host other than `10.0.2.2`/`localhost` must also be added to the
+  debug network security config). Beta and release use the placeholder `https://api.aichat.example/`, which
+  **must be replaced** in `core/network/build.gradle.kts` before a release.
+
 ## Follow-ups
 
 - **Gradle dependency verification** (`gradle/verification-metadata.xml` via
