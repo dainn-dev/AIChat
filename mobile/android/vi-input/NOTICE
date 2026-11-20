@@ -1,0 +1,43 @@
+vi-input
+========
+
+This module contains a Kotlin port of the Bamboo Vietnamese input method engine
+(bamboo-core), https://github.com/BambooEngine/bamboo-core
+Ported from commit b2e49a2b48c7d3772a3673142a7747eccd9d5f79 (master, 2024-09-16).
+
+Files containing ported code carry a header naming the upstream source files:
+  src/main/kotlin/com/aichat/vi/BambooEngine.kt
+  src/main/kotlin/com/aichat/vi/InputMethod.kt
+  src/main/kotlin/com/aichat/vi/Transformation.kt
+  src/main/kotlin/com/aichat/vi/ViChars.kt
+  src/main/kotlin/com/aichat/vi/ViSyllable.kt
+Test cases in src/test/kotlin/com/aichat/vi/BambooParityTest.kt are taken from
+upstream bamboo_test.go.
+
+Upstream credits (from bamboo-core CREDITS): Trung Ngo, author of bogo.js; Tran Ky Nam,
+author of GoTiengViet.
+
+Upstream license
+----------------
+
+The MIT License (MIT)
+
+Copyright (C) 2018 Luong Thanh Lam <ltlam93@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
