@@ -21,6 +21,7 @@ import com.aichat.keyboard.ai.AiAssist // AIChat MODIFIED: smartbar AI button.
 import com.aichat.keyboard.ai.AiAssistState // AIChat MODIFIED: smartbar AI button.
 import com.aichat.keyboard.ai.AiSmartbarPanel // AIChat MODIFIED: smartbar AI button.
 import com.aichat.keyboard.ui.isSmartbarVisible // AIChat MODIFIED: smartbar AI button.
+import com.aichat.keyboard.ui.smartbarMainRowCount // AIChat MODIFIED: taller smartbar for AI reply suggestions.
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloat
@@ -325,7 +326,9 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
     SnyggRow(
         modifier = modifier
             .fillMaxWidth()
-            .height(FlorisImeSizing.smartbarHeight),
+            // AIChat MODIFIED: the main row grows while AI reply suggestions are shown (same count as
+            // FlorisImeSizing.smartbarUiHeight(), so the reserved height matches what is drawn).
+            .height(FlorisImeSizing.smartbarHeight * smartbarMainRowCount()),
     ) {
         when (smartbarLayout) {
             SmartbarLayout.SUGGESTIONS_ONLY -> {

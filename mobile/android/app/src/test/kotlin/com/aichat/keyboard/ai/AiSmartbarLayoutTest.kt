@@ -1,0 +1,36 @@
+package com.aichat.keyboard.ai
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+class AiSmartbarLayoutTest {
+    @Test
+    fun `the smartbar grows only while reply suggestions are shown in the suggestions-only layout`() {
+        assertEquals(
+            AiSmartbarLayout.SUGGESTION_ROWS,
+            AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Suggestions(listOf("a"))),
+        )
+        assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Closed))
+        assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Ready))
+        assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.ChoosingReplyTone))
+        // Other layouts never show the AI panel, so they keep one row.
+        assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = false, state = AiAssistState.Suggestions(listOf("a"))))
+    }
+
+    @Test
+    fun `cards show three lines on a normal phone`() {
+        // 393 dp wide phone: smartbar row ~40 dp, cards get the two lower rows.
+        assertEquals(3, AiSmartbarLayout.cardMaxLines(cardAreaHeightDp = 80f))
+    }
+
+    @Test
+    fun `cards drop to two lines when the rows are short, never fewer`() {
+        assertEquals(2, AiSmartbarLayout.cardMaxLines(cardAreaHeightDp = 66f))
+        assertEquals(2, AiSmartbarLayout.cardMaxLines(cardAreaHeightDp = 20f))
+    }
+
+    @Test
+    fun `cards never show more than three lines`() {
+        assertEquals(3, AiSmartbarLayout.cardMaxLines(cardAreaHeightDp = 200f))
+    }
+}

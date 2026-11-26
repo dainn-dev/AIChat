@@ -12,6 +12,10 @@
     <!-- Permission needed to create notifications on devices running Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- AIChat MODIFIED: the mic key's fallback speech recognition (com.aichat.keyboard.voice.VoiceInputActivity)
+         when no voice-typing IME is enabled. Asked for at runtime, only when the user taps the mic key. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
     <!-- Android 11+ only: Define that FlorisBoard requests to see all apps that
           ship with an IME or Spell Check service. This is used to guide the user
           in the Settings Ui why FlorisBoard may not be working.
@@ -22,6 +26,13 @@
         </intent>
         <intent>
             <action android:name="android.service.textservice.SpellCheckerService"/>
+        </intent>
+        <!-- AIChat MODIFIED: let the mic key find a speech recognizer (screen or service) on Android 11+. -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 
@@ -134,6 +145,15 @@
              Opened only by the keyboard itself, so it is not exported. -->
         <activity
             android:name="com.aichat.keyboard.sticker.StickerImportActivity"
+            android:theme="@style/FlorisAppTheme.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="false"/>
+
+        <!-- AIChat MODIFIED: invisible speech-recognition activity behind the mic key (no voice IME enabled).
+             Opened only by the keyboard itself, so it is not exported. -->
+        <activity
+            android:name="com.aichat.keyboard.voice.VoiceInputActivity"
             android:theme="@style/FlorisAppTheme.Transparent"
             android:excludeFromRecents="true"
             android:taskAffinity=""
