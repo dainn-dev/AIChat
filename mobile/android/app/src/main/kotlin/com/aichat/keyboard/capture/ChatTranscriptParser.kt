@@ -15,8 +15,10 @@ import kotlin.math.abs
  * Layout heuristics, not view ids, do the work (both apps obfuscate and change their ids between versions):
  * - the top [HEADER_FRACTION] of the window is the toolbar; its first plain text line is the contact name;
  * - everything from the input field down is the composer and is ignored;
- * - a bubble closer to the right edge than to the left edge is the user's (`me`), otherwise the partner's;
- * - times, date separators, delivery/presence lines, reaction badges and centered system lines are dropped;
+ * - a bubble that hugs the right edge (right margin under [ME_MAX_RIGHT_MARGIN] of the width, and smaller than its
+ *   left margin) is the user's (`me`); anything else, including wide partner bubbles after an avatar, is the partner's;
+ * - times, date separators, delivery/presence lines, reaction badges and centered system lines are dropped; a lone
+ *   day word, time or status word ([ChatNoise.isPositionalNoise]) only when centered or attached under a bubble;
  * - editable and password views are never read.
  *
  * Returns null when nothing message-like is visible or the package is not a [SupportedMessenger].
@@ -34,6 +36,15 @@ object ChatTranscriptParser {
     /** A line whose side margins both exceed this share of the width, and is centered, is a system line. */
     private const val CENTERED_MIN_MARGIN = 0.15
     private const val CENTERED_TOLERANCE = 0.05
+
+    /** Own bubbles end within this share of the width from the right edge; partner bubbles leave a wider gap. */
+    private const val ME_MAX_RIGHT_MARGIN = 0.06
+
+    /** A label under a bubble is shorter than this share of the smallest bubble on screen (smaller font). */
+    private const val LABEL_MAX_HEIGHT_RATIO = 0.85
+
+    /** Largest vertical gap, as a share of the window height, between a bubble and a label attached under it. */
+    private const val LABEL_MAX_GAP = 0.03
 
     private val nonTextClassHints = listOf("Button", "Image", "CheckBox", "Switch", "ProgressBar")
     private val titleIdHints = listOf("title", "name", "header")
@@ -63,7 +74,7 @@ object ChatTranscriptParser {
     private fun messageLines(body: List<CapturedNode>, window: Window): List<Line> {
         val candidates = body
             .mapNotNull { node -> messageText(node)?.let { Line(it, node) } }
-            .filterNot { isNoise(it.content) || window.isCenteredSystemLine(it.node) }
+            .filterNot { isAlwaysNoise(it.content) || window.isCenteredSystemLine(it.node) }
         val leaves = candidates.filterNot { line -> candidates.any { it !== line && line.node.strictlyContains(it.node) } }
         val unique = leaves.filterNot { line ->
             leaves.any { other ->
@@ -72,7 +83,38 @@ object ChatTranscriptParser {
             }
         }
         val ordered = unique.sortedWith(compareBy({ it.node.boundsTop }, { it.node.boundsLeft }))
-        return dropReactionBadges(ordered)
+        return dropAttachedLabels(dropReactionBadges(ordered), window)
+    }
+
+    /**
+     * Drops a lone time, day or status word ([ChatNoise.isPositionalNoise]) that sits right under a bubble, inside
+     * its horizontal span, and is smaller than every real bubble on screen: the time or "Seen" line the app attaches
+     * to a bubble. Labels can be chained ("10:31" then "Đã xem"). The same text as a bubble of its own is kept.
+     */
+    private fun dropAttachedLabels(ordered: List<Line>, window: Window): List<Line> {
+        val positional = ordered.map { ChatNoise.isPositionalNoise(it.content) }
+        val smallestBubble = ordered.filterIndexed { i, _ -> !positional[i] }.minOfOrNull { it.node.height() }
+            ?: return ordered
+        val maxGap = window.height * LABEL_MAX_GAP
+        val kept = ArrayList<Line>(ordered.size)
+        var anchor: CapturedNode? = null
+        var chainBottom = 0
+        ordered.forEachIndexed { i, line ->
+            val node = line.node
+            val bubble = anchor
+            val attached = positional[i] && bubble != null &&
+                node.height() < smallestBubble * LABEL_MAX_HEIGHT_RATIO &&
+                node.boundsTop - chainBottom <= maxGap &&
+                node.boundsLeft < bubble.boundsRight && bubble.boundsLeft < node.boundsRight
+            if (attached) {
+                chainBottom = maxOf(chainBottom, node.boundsBottom)
+            } else {
+                kept += line
+                anchor = node
+                chainBottom = node.boundsBottom
+            }
+        }
+        return kept
     }
 
     /** An emoji-only badge that overlaps the bubble above it is a reaction, not a message. */
@@ -110,6 +152,9 @@ object ChatTranscriptParser {
     private fun isNoise(text: String): Boolean =
         ChatNoise.isTimestampOrDate(text) || ChatNoise.isStatus(text) || ChatNoise.isReactionCount(text)
 
+    /** Noise wherever it is; positional noise is decided by [dropAttachedLabels] and the centered-line check. */
+    private fun isAlwaysNoise(text: String): Boolean = isNoise(text) && !ChatNoise.isPositionalNoise(text)
+
     /** The top of the input field (the lowest editable view in the lower half), or the window bottom. */
     private fun composerTop(nodes: List<CapturedNode>, window: Window): Int =
         nodes.filter { it.isEditable && it.boundsTop >= window.middleY }
@@ -121,6 +166,8 @@ object ChatTranscriptParser {
     private fun String?.isTextClass(): Boolean = this == null || nonTextClassHints.none { it in this }
 
     private fun String.clean(): String? = trim().ifEmpty { null }
+
+    private fun CapturedNode.height(): Int = boundsBottom - boundsTop
 
     private fun CapturedNode.area(): Long =
         (boundsRight - boundsLeft).toLong() * (boundsBottom - boundsTop).toLong()
@@ -139,6 +186,7 @@ object ChatTranscriptParser {
         val right = snapshot.windowRight
         val bottom = snapshot.windowBottom
         val width = (right - left).coerceAtLeast(1)
+        val height = (bottom - top).coerceAtLeast(1)
         val middleY = (top + bottom) / 2
         val headerBottom = top + ((bottom - top) * HEADER_FRACTION).toInt()
 
@@ -149,7 +197,8 @@ object ChatTranscriptParser {
         fun senderOf(node: CapturedNode): MessageSender {
             val leftMargin = node.boundsLeft - left
             val rightMargin = right - node.boundsRight
-            return if (rightMargin < leftMargin) MessageSender.ME else MessageSender.THEM
+            val hugsRight = rightMargin <= width * ME_MAX_RIGHT_MARGIN && rightMargin < leftMargin
+            return if (hugsRight) MessageSender.ME else MessageSender.THEM
         }
 
         fun isCenteredSystemLine(node: CapturedNode): Boolean {

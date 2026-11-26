@@ -10,10 +10,18 @@ import kotlin.math.floor
  * Size rules of the AI panel in the smartbar. Pure Kotlin, unit-tested.
  *
  * Reply suggestions are whole sentences, so while they are shown the smartbar grows to [SUGGESTION_ROWS] rows:
- * one row of chips (back + tones) and the rest for multi-line suggestion cards. Every other AI state keeps one row.
+ * one row of chips (back + tones) and the rest for multi-line suggestion cards. It stays that tall while replies in
+ * another tone load, so the bar does not jump. Failure messages get [MESSAGE_ROWS] rows so they can wrap instead of
+ * being cut. Every other AI state keeps one row.
  */
 object AiSmartbarLayout {
     const val SUGGESTION_ROWS = 3
+
+    /** Rows while a failure message is shown: room for two lines of text. */
+    const val MESSAGE_ROWS = 2
+
+    /** Lines a failure message may wrap to. */
+    const val MESSAGE_MAX_LINES = 2
 
     /** Text size of the AI chips and cards; the smartbar's own size (~17sp) makes chips overflow. */
     const val TEXT_SIZE_SP = 15f
@@ -25,9 +33,14 @@ object AiSmartbarLayout {
     const val MIN_CARD_LINES = 2
     const val MAX_CARD_LINES = 3
 
-    /** Rows of the smartbar's main row: grown only for reply suggestions in the suggestions-only layout. */
-    fun mainRowCount(suggestionsOnly: Boolean, state: AiAssistState): Int =
-        if (suggestionsOnly && state is AiAssistState.Suggestions) SUGGESTION_ROWS else 1
+    /** Rows of the smartbar's main row: grown only in the suggestions-only layout (the one that shows the AI panel). */
+    fun mainRowCount(suggestionsOnly: Boolean, state: AiAssistState): Int = when {
+        !suggestionsOnly -> 1
+        state is AiAssistState.Suggestions -> SUGGESTION_ROWS
+        state is AiAssistState.Loading && state.fromSuggestions -> SUGGESTION_ROWS
+        state is AiAssistState.Failed -> MESSAGE_ROWS
+        else -> 1
+    }
 
     /**
      * How many text lines fit in a suggestion card of [cardAreaHeightDp], at 1sp = 1dp. Callers divide the height

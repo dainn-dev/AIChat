@@ -48,6 +48,12 @@ enum class AiFailure {
 
     /** No provider could read the chat to reply to. */
     NO_CONVERSATION,
+
+    /** The chat reader is enabled in settings but not connected; switching it off and on again fixes it. */
+    CAPTURE_NOT_CONNECTED,
+
+    /** The app in front is not one the chat reader supports, and there was no usable copied message. */
+    UNSUPPORTED_CHAT_APP,
 }
 
 sealed interface AiAssistState {
@@ -57,10 +63,14 @@ sealed interface AiAssistState {
     /** The action chips are shown. */
     data object Ready : AiAssistState
 
-    data class Loading(val action: AiAction) : AiAssistState
+    /** [fromSuggestions]: a reply request started from [Suggestions] (another tone), so the tall bar stays. */
+    data class Loading(val action: AiAction, val fromSuggestions: Boolean = false) : AiAssistState
 
-    /** The field was replaced; [original] is kept for undo. */
-    data class Done(val original: String) : AiAssistState
+    /**
+     * The field was replaced with [applied]; [original] is kept for undo, which only restores it while the field
+     * still holds [applied].
+     */
+    data class Done(val original: String, val applied: String) : AiAssistState
 
     /** Reply flow: the tone chips (Flirty, Funny, ...) are shown. */
     data object ChoosingReplyTone : AiAssistState
@@ -75,14 +85,29 @@ sealed interface AiAssistState {
     data class Failed(val reason: AiFailure, val captureDisabled: Boolean = false) : AiAssistState
 }
 
+/** One read of the whole focused field. */
+sealed interface FieldRead {
+    data class Text(val text: String) : FieldRead
+
+    /** No editor, or the editor returned nothing. */
+    data object Unreadable : FieldRead
+
+    /**
+     * The field is longer than the read cap, so only part of it was seen. Replacing it would delete only part,
+     * and undo could not restore it, so nothing is edited.
+     */
+    data object TooLong : FieldRead
+}
+
 /** The focused text field, as the AI assistant sees it. */
 interface AiEditorPort {
     /** False when there is no editor or the field is sensitive (password). */
     fun isAvailable(): Boolean
 
-    /** The whole field text, or null when it cannot be read. */
-    fun readAllText(): String?
+    /** The whole field text, [FieldRead.TooLong] past the read cap, or [FieldRead.Unreadable]. */
+    fun readAllText(): FieldRead
 
+    /** Replaces the whole field; false (and no edit) when it cannot, including a field past the read cap. */
     fun replaceAllText(text: String): Boolean
 }
 
@@ -127,8 +152,11 @@ class AiAssistController(
     fun run(action: AiAction) {
         if (action is AiAction.Reply) return requestReplies(action.tone)
         if (_state.value is AiAssistState.Loading) return
-        val original = if (editor.isAvailable()) editor.readAllText() else null
-        if (original == null) return fail(AiFailure.UNAVAILABLE)
+        val original = when (val read = readField()) {
+            is FieldRead.Text -> read.text
+            FieldRead.TooLong -> return fail(AiFailure.TOO_LONG)
+            FieldRead.Unreadable -> return fail(AiFailure.UNAVAILABLE)
+        }
         val input = original.trim()
         when {
             input.isEmpty() -> return fail(AiFailure.EMPTY_TEXT)
@@ -154,13 +182,10 @@ class AiAssistController(
         if (_state.value is AiAssistState.Loading) return
         if (!editor.isAvailable()) return fail(AiFailure.UNAVAILABLE)
         val action = AiAction.Reply(tone)
-        _state.value = AiAssistState.Loading(action)
+        _state.value = AiAssistState.Loading(action, fromSuggestions = _state.value is AiAssistState.Suggestions)
         job = scope.launch {
             _state.value = when (val outcome = capturer.capture()) {
-                is ConversationCapturer.Outcome.NotFound -> AiAssistState.Failed(
-                    AiFailure.NO_CONVERSATION,
-                    captureDisabled = UnavailableReason.NOT_ENABLED in outcome.reasons.values,
-                )
+                is ConversationCapturer.Outcome.NotFound -> noConversation(outcome.reasons.values)
                 is ConversationCapturer.Outcome.Found -> when (val result = backend.reply(outcome.conversation, tone)) {
                     is ApiResult.Failure -> AiAssistState.Failed(result.error.toFailure())
                     is ApiResult.Success -> result.value.filter { it.isNotBlank() }.let { replies ->
@@ -174,19 +199,30 @@ class AiAssistController(
     /** Fills the field with [reply] (replacing any draft, which undo restores). */
     fun pickSuggestion(reply: String) {
         if (_state.value !is AiAssistState.Suggestions) return
-        val original = if (editor.isAvailable()) editor.readAllText() else null
-        if (original == null) return fail(AiFailure.UNAVAILABLE)
+        val original = when (val read = readField()) {
+            is FieldRead.Text -> read.text
+            FieldRead.TooLong -> return fail(AiFailure.TOO_LONG)
+            FieldRead.Unreadable -> return fail(AiFailure.UNAVAILABLE)
+        }
         _state.value = if (editor.replaceAllText(reply)) {
-            AiAssistState.Done(original)
+            AiAssistState.Done(original, applied = reply)
         } else {
             AiAssistState.Failed(AiFailure.UNAVAILABLE)
         }
     }
 
+    /** Restores the text from before the AI edit, but only while the field still holds the AI text. */
     fun undo() {
         val done = _state.value as? AiAssistState.Done ?: return
-        editor.replaceAllText(done.original)
-        _state.value = AiAssistState.Ready
+        _state.value = when (val read = readField()) {
+            FieldRead.Unreadable -> AiAssistState.Failed(AiFailure.UNAVAILABLE)
+            FieldRead.TooLong -> AiAssistState.Failed(AiFailure.TEXT_CHANGED)
+            is FieldRead.Text -> when {
+                read.text != done.applied -> AiAssistState.Failed(AiFailure.TEXT_CHANGED)
+                editor.replaceAllText(done.original) -> AiAssistState.Ready
+                else -> AiAssistState.Failed(AiFailure.UNAVAILABLE)
+            }
+        }
     }
 
     /** Cancels any request and closes the chips (new field, keyboard hidden). */
@@ -197,12 +233,25 @@ class AiAssistController(
     }
 
     private fun apply(original: String, newText: String): AiAssistState {
-        if (editor.readAllText() != original) return AiAssistState.Failed(AiFailure.TEXT_CHANGED)
+        if (editor.readAllText() != FieldRead.Text(original)) return AiAssistState.Failed(AiFailure.TEXT_CHANGED)
         return if (editor.replaceAllText(newText)) {
-            AiAssistState.Done(original)
+            AiAssistState.Done(original, applied = newText)
         } else {
             AiAssistState.Failed(AiFailure.UNAVAILABLE)
         }
+    }
+
+    private fun readField(): FieldRead = if (editor.isAvailable()) editor.readAllText() else FieldRead.Unreadable
+
+    /**
+     * Why no chat was found, most actionable first: a chat reader to reconnect, one to turn on, an app it cannot
+     * read, else a chat it could not read.
+     */
+    private fun noConversation(reasons: Collection<UnavailableReason>): AiAssistState.Failed = when {
+        UnavailableReason.NOT_CONNECTED in reasons -> AiAssistState.Failed(AiFailure.CAPTURE_NOT_CONNECTED)
+        UnavailableReason.NOT_ENABLED in reasons -> AiAssistState.Failed(AiFailure.NO_CONVERSATION, captureDisabled = true)
+        UnavailableReason.UNSUPPORTED_APP in reasons -> AiAssistState.Failed(AiFailure.UNSUPPORTED_CHAT_APP)
+        else -> AiAssistState.Failed(AiFailure.NO_CONVERSATION)
     }
 
     private fun fail(reason: AiFailure) {

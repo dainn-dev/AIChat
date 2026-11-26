@@ -46,10 +46,10 @@ class AccessibilityConversationProviderTest {
     }
 
     @Test
-    fun `an enabled but not yet connected service is NOT_ENABLED`() = runTest {
+    fun `an enabled but not connected service is NOT_CONNECTED, not NOT_ENABLED`() = runTest {
         val result = provider { SnapshotOutcome.NotRunning }.capture()
 
-        assertEquals(CaptureResult.Unavailable(UnavailableReason.NOT_ENABLED), result)
+        assertEquals(CaptureResult.Unavailable(UnavailableReason.NOT_CONNECTED), result)
     }
 
     @Test

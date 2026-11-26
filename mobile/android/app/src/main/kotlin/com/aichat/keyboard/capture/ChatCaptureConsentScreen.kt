@@ -17,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,8 +38,9 @@ import kotlinx.serialization.Serializable
 import org.florisboard.lib.compose.stringRes
 
 /**
- * Prominent disclosure and consent for the chat reader (Google Play's accessibility policy): what is read, when,
- * where it goes, and how to turn it off, before the user is sent to the system accessibility settings.
+ * Prominent disclosure and consent for the chat reader (Google Play's accessibility policy): what is read (including
+ * end-to-end encrypted chats), when, where it goes, the clipboard fallback, and how to turn it off, before the user
+ * is sent to the system accessibility settings. The user can agree or decline ("No thanks" just goes back).
  *
  * No `ui://florisboard/...` deep link, like the other AIChat routes.
  */
@@ -73,6 +75,7 @@ fun ChatCaptureConsentScreen() = FlorisScreen {
     previewFieldVisible = false
 
     val context = LocalContext.current
+    val navController = LocalNavController.current
     val enabled = rememberCaptureEnabled()
 
     content {
@@ -80,6 +83,7 @@ fun ChatCaptureConsentScreen() = FlorisScreen {
         Section(R.string.aichat__capture__what_heading, R.string.aichat__capture__what_body)
         Section(R.string.aichat__capture__when_heading, R.string.aichat__capture__when_body)
         Section(R.string.aichat__capture__where_heading, R.string.aichat__capture__where_body)
+        Section(R.string.aichat__capture__clipboard_heading, R.string.aichat__capture__clipboard_body)
         Section(R.string.aichat__capture__off_heading, R.string.aichat__capture__off_body)
 
         Text(
@@ -96,6 +100,10 @@ fun ChatCaptureConsentScreen() = FlorisScreen {
                 Paragraph(R.string.aichat__capture__how_body, horizontalPadding = 0)
                 Button(onClick = { openAccessibilitySettings(context) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringRes(R.string.aichat__capture__agree_button))
+                }
+                // Declining just goes back; nothing is turned on.
+                TextButton(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringRes(R.string.aichat__capture__decline_button))
                 }
             }
         }

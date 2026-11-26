@@ -10,7 +10,8 @@ import java.util.Locale
 /**
  * Recognises the non-message text of a chat screen (times, date separators, delivery and presence lines, reaction
  * badges) in English and Vietnamese, as Messenger and Zalo show them. Patterns are anchored on the whole text so a
- * message that merely contains a time ("hẹn 9h tối nhé") is kept.
+ * message that merely contains a time ("hẹn 9h tối nhé") is kept. Forms that are also plausible messages on their own
+ * ([isPositionalNoise]) are left to the parser, which checks where they sit.
  */
 object ChatNoise {
     private const val TIME = """\d{1,2}[:.h]\d{2}(?:\s?(?:am|pm|sa|ch|a\.m\.|p\.m\.))?"""
@@ -39,8 +40,21 @@ object ChatNoise {
             """|active now|đang hoạt động|online|vừa mới truy cập|vừa truy cập""" +
             """|active \d+\s?(?:m|h|d|w|mins?|minutes?|hours?|days?|weeks?) ago""" +
             """|(?:hoạt động|truy cập) \d+ (?:phút|giờ|ngày|tuần) trước""" +
-            """|.{0,40}(?:is typing|đang soạn tin|typing)$ELLIPSIS""" +
+            // "typing…" alone, or "<name> is typing" / "<name> đang soạn tin": never a bare "stop typing".
+            """|(?:.{1,40}\s)?(?:is typing|đang soạn tin(?: nhắn)?)$ELLIPSIS""" +
+            """|typing$ELLIPSIS""" +
             ")$",
+    )
+
+    /**
+     * Text that is noise only by position: a lone day word ("Hôm nay", "Friday"), a lone time or short date ("9h30",
+     * "3.50", "1-2") or a bare delivery/presence word ("Seen", "online", "read"). Any of these is also a plausible
+     * short message, so the parser drops them only when they sit where the app puts its labels (centered, or small
+     * and right under a bubble), never as a left or right bubble of their own.
+     */
+    private val positional = Regex(
+        """^(?:$DAY_FULL|$TIME|\d{1,2}[/.-]\d{1,2}""" +
+            """|seen|đã xem|delivered|đã nhận|sent|đã gửi|sending|đang gửi|read|đã đọc|received|online)$""",
     )
 
     private val trailingCount = Regex("""^(.*?)\s*\d{1,4}$""")
@@ -48,6 +62,12 @@ object ChatNoise {
     fun isTimestampOrDate(text: String): Boolean {
         val normalized = normalize(text)
         return timestampOrDate.matches(normalized) && !dayAbbreviationAlone.matches(normalized)
+    }
+
+    /** True when [text] is a timestamp, date or status that is also a plausible message on its own. */
+    fun isPositionalNoise(text: String): Boolean {
+        val normalized = normalize(text)
+        return positional.matches(normalized) && (isTimestampOrDate(text) || isStatus(text))
     }
 
     /** Delivery ("Seen", "Đã xem"), presence ("Active now", "Vừa mới truy cập") and typing lines. */

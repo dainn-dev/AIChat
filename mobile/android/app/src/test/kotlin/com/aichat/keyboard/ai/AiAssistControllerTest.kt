@@ -17,9 +17,17 @@ import kotlin.test.assertTrue
 class AiAssistControllerTest {
     private class FakeEditor(var text: String? = "xin chao", var available: Boolean = true) : AiEditorPort {
         val replaced = mutableListOf<String>()
+
+        /** The field is longer than the read cap: only part of it is visible. */
+        var truncated = false
+        var replaceWorks = true
         override fun isAvailable() = available
-        override fun readAllText() = text
+        override fun readAllText(): FieldRead = when {
+            truncated -> FieldRead.TooLong
+            else -> text?.let { FieldRead.Text(it) } ?: FieldRead.Unreadable
+        }
         override fun replaceAllText(text: String): Boolean {
+            if (!replaceWorks || truncated) return false
             replaced += text
             this.text = text
             return true
@@ -68,7 +76,7 @@ class AiAssistControllerTest {
 
         assertEquals(listOf<Pair<AiAction, String>>(friendly to "xin chao"), backend.calls)
         assertEquals(listOf("Xin chào!"), editor.replaced)
-        assertEquals(AiAssistState.Done(original = "  xin chao  "), c.state.value)
+        assertEquals(AiAssistState.Done(original = "  xin chao  ", applied = "Xin chào!"), c.state.value)
     }
 
     @Test
@@ -178,5 +186,57 @@ class AiAssistControllerTest {
 
         assertEquals(AiAssistState.Closed, c.state.value)
         assertTrue(editor.replaced.isEmpty())
+    }
+    @Test
+    fun `a field longer than the read cap fails as too long without calling the backend`() = runTest {
+        val backend = FakeBackend()
+        val editor = FakeEditor().apply { truncated = true }
+        val c = controller(editor, backend)
+        c.run(friendly)
+        advanceUntilIdle()
+        assertEquals(AiAssistState.Failed(AiFailure.TOO_LONG), c.state.value)
+        assertTrue(backend.calls.isEmpty())
+        assertTrue(editor.replaced.isEmpty())
+    }
+
+    @Test
+    fun `undo does not overwrite text the user changed after the AI result`() = runTest {
+        val editor = FakeEditor(text = "xin chao")
+        val c = controller(editor, FakeBackend())
+        c.run(friendly)
+        advanceUntilIdle()
+
+        editor.text = "Xin chào! hẹn gặp lại"
+        c.undo()
+
+        assertEquals("Xin chào! hẹn gặp lại", editor.text)
+        assertEquals(AiAssistState.Failed(AiFailure.TEXT_CHANGED), c.state.value)
+    }
+
+    @Test
+    fun `undo that cannot write the field reports unavailable`() = runTest {
+        val editor = FakeEditor(text = "xin chao")
+        val c = controller(editor, FakeBackend())
+        c.run(friendly)
+        advanceUntilIdle()
+
+        editor.replaceWorks = false
+        c.undo()
+
+        assertEquals("Xin chào!", editor.text)
+        assertEquals(AiAssistState.Failed(AiFailure.UNAVAILABLE), c.state.value)
+    }
+
+    @Test
+    fun `undo with an unreadable field reports unavailable`() = runTest {
+        val editor = FakeEditor(text = "xin chao")
+        val c = controller(editor, FakeBackend())
+        c.run(friendly)
+        advanceUntilIdle()
+
+        editor.text = null
+        c.undo()
+
+        assertEquals(AiAssistState.Failed(AiFailure.UNAVAILABLE), c.state.value)
     }
 }

@@ -156,14 +156,17 @@ class FlorisImeService : LifecycleInputMethodService() {
         /**
          * Hides the IME and launches [FlorisAppActivity].
          */
-        fun launchSettings() {
-            val ims = FlorisImeServiceReference.get() ?: return
+        // AIChat MODIFIED: returns false when the service is not running (nothing launched), so callers such as
+        // com.aichat.keyboard.capture.ChatCaptureLauncher only leave a request pending when settings opens.
+        fun launchSettings(): Boolean {
+            val ims = FlorisImeServiceReference.get() ?: return false
             ims.requestHideSelf(0)
             ims.launchActivity(FlorisAppActivity::class) {
                 it.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
+            return true
         }
 
         fun showUi() {

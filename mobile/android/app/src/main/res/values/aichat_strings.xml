@@ -13,11 +13,11 @@
     <string name="aichat__capture__summary_off">Off: turn on so Suggest replies can see the chat</string>
     <string name="aichat__capture__intro">To suggest replies that fit the conversation, AIChat can read the chat you are replying to. This uses Android\'s accessibility service. Please read what it does before you turn it on.</string>
     <string name="aichat__capture__what_heading">What is read</string>
-    <string name="aichat__capture__what_body">Only the messages visible on screen in Messenger or Zalo, and the name of the person you are chatting with. Other apps are never read. Password fields and the text you are typing are never read.</string>
+    <string name="aichat__capture__what_body">Only the messages visible on screen in Messenger or Zalo, and the name of the person you are chatting with. This includes end-to-end encrypted chats: what is on your screen is read as you see it. Other apps are never read. Password fields and the text you are typing are never read.</string>
     <string name="aichat__capture__when_heading">When it is read</string>
     <string name="aichat__capture__when_body">Only at the moment you tap Suggest replies in the AIChat keyboard. Nothing is read in the background, and nothing is kept on your phone.</string>
     <string name="aichat__capture__where_heading">Where it goes</string>
-    <string name="aichat__capture__where_body">The messages are sent over an encrypted connection to AIChat\'s server to write the reply suggestions. If you turned on memory in your account, the server can keep the conversation to make later suggestions better; you can delete it at any time. In incognito mode nothing is kept.</string>
+    <string name="aichat__capture__where_body">The messages are sent over an encrypted connection to AIChat\'s server to write the reply suggestions, including messages from end-to-end encrypted chats. If you turned on memory in your account, the server can keep the conversation to make later suggestions better; you can delete it at any time. In incognito mode nothing is kept.</string>
     <string name="aichat__capture__off_heading">You stay in control</string>
     <string name="aichat__capture__off_body">You can turn this off at any time in your phone\'s Accessibility settings. Without it, you can still copy a message and tap Suggest replies.</string>
     <string name="aichat__capture__how_body">Tap the button below, open AIChat chat reader under Downloaded apps (or Installed services), and turn it on.</string>
@@ -25,6 +25,9 @@
     <string name="aichat__capture__manage_button">Open Accessibility settings</string>
     <string name="aichat__capture__status_on">Status: on</string>
     <string name="aichat__capture__status_off">Status: off</string>
+    <string name="aichat__capture__clipboard_heading">When the chat can\'t be read</string>
+    <string name="aichat__capture__clipboard_body">If chat reading is off, or you are in an app other than Messenger or Zalo, Suggest replies uses the text you copied in the last 2 minutes instead: it is sent to AIChat\'s server as the other person\'s message. Copied codes, passwords and links with keys are never sent.</string>
+    <string name="aichat__capture__decline_button">No thanks</string>
     <string name="aichat__capture__service_label">AIChat chat reader</string>
     <string name="aichat__capture__service_description">Reads the messages visible in Messenger or Zalo only when you tap Suggest replies in the AIChat keyboard, and sends them to AIChat\'s server to write reply suggestions. It does not read other apps, password fields or what you type, and it does nothing in the background.</string>
 
@@ -160,6 +163,10 @@
     <string name="aichat__ai__back">‹ Back</string>
     <string name="aichat__ai__enable_reading">Turn on</string>
     <string name="aichat__ai__error_no_conversation">Can\'t read the chat. Turn on chat reading or copy the last message</string>
+    <string name="aichat__ai__open_reading">Settings</string>
+    <string name="aichat__ai__error_chat_unreadable">Couldn\'t read this chat. Scroll to the last message and try again</string>
+    <string name="aichat__ai__error_reader_not_connected">Turn the chat reader off and on again</string>
+    <string name="aichat__ai__error_unsupported_app">Only Messenger and Zalo can be read. Copy the last message to get suggestions</string>
     <string name="aichat__ai__rewrite_friendly">Friendly</string>
     <string name="aichat__ai__rewrite_polite">Polite</string>
     <string name="aichat__ai__rewrite_funny">Funny</string>
