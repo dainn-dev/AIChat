@@ -102,9 +102,13 @@ fun UpdateScreen() = FlorisScreen {
                 return@Column
             }
             Text(statusText(state), style = MaterialTheme.typography.bodyMedium)
-            if (state is UpdateState.Downloading) {
+            // Captured: the progress lambda runs at draw time, when the state may already be Installing, so it
+            // must not re-read and cast `state` (that crashed with a ClassCastException mid-update).
+            val downloading = state as? UpdateState.Downloading
+            if (downloading != null) {
+                val progress = downloading.progress.coerceIn(0f, 1f)
                 LinearProgressIndicator(
-                    progress = { (state as UpdateState.Downloading).progress.coerceIn(0f, 1f) },
+                    progress = { progress },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
