@@ -158,6 +158,26 @@
             </intent-filter>
         </activity>
 
+        <!-- AIChat MODIFIED: "create sticker from photo" (com.aichat.keyboard.sticker.creator). The subject is cut out
+             on-device (ML Kit subject segmentation); the photo is never uploaded. Opened from the keyboard, or from
+             the share sheet ("Tạo sticker"): exported only for this SEND image/* filter, and the activity rejects
+             non-content: URIs and this app's own providers. -->
+        <activity
+            android:name="com.aichat.keyboard.sticker.creator.StickerCreatorActivity"
+            android:label="@string/aichat__sticker_creator__target_label"
+            android:icon="@mipmap/floris_app_icon"
+            android:roundIcon="@mipmap/floris_app_icon_round"
+            android:theme="@style/FlorisAppTheme"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+        </activity>
+
         <!-- Copy to Clipboard Activity -->
         <activity
             android:name="dev.patrickgold.florisboard.ime.clipboard.FlorisCopyToClipboardActivity"
