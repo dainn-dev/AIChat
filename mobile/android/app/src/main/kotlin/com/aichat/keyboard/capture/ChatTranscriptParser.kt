@@ -10,7 +10,7 @@ import com.aichat.keyboard.reply.CapturedConversation
 import kotlin.math.abs
 
 /**
- * Turns the visible views of a Messenger or Zalo chat into an ordered conversation.
+ * Turns the visible views of a supported chat app ([SupportedMessenger]) into an ordered conversation.
  *
  * Layout heuristics, not view ids, do the work (both apps obfuscate and change their ids between versions):
  * - the top [HEADER_FRACTION] of the window is the toolbar; its first plain text line is the contact name;

@@ -3,11 +3,11 @@
 <resources>
     <!-- Màn hình đồng ý đọc tin nhắn (trợ năng), workstream A -->
     <string name="aichat__capture__title">Đọc tin nhắn để gợi ý trả lời</string>
-    <string name="aichat__capture__summary_on">Đang bật: đọc cuộc trò chuyện Messenger hoặc Zalo đang mở khi bạn bấm Gợi ý trả lời</string>
+    <string name="aichat__capture__summary_on">Đang bật: đọc cuộc trò chuyện Messenger, Zalo, WhatsApp, Gmail hoặc Google Chat đang mở khi bạn bấm Gợi ý trả lời</string>
     <string name="aichat__capture__summary_off">Đang tắt: bật để Gợi ý trả lời đọc được tin nhắn</string>
     <string name="aichat__capture__intro">Để gợi ý câu trả lời hợp với cuộc trò chuyện, AIChat có thể đọc đoạn chat bạn đang trả lời. Tính năng này dùng dịch vụ trợ năng của Android. Vui lòng đọc kỹ trước khi bật.</string>
     <string name="aichat__capture__what_heading">Đọc những gì</string>
-    <string name="aichat__capture__what_body">Chỉ các tin nhắn đang hiện trên màn hình trong Messenger hoặc Zalo, và tên người bạn đang chat. Kể cả các cuộc trò chuyện mã hoá đầu cuối: nội dung trên màn hình được đọc đúng như bạn thấy. Không bao giờ đọc ứng dụng khác. Không bao giờ đọc ô mật khẩu hay nội dung bạn đang gõ.</string>
+    <string name="aichat__capture__what_body">Chỉ các tin nhắn đang hiện trên màn hình trong Messenger, Zalo, WhatsApp, Gmail hoặc Google Chat, và tên người bạn đang chat. Kể cả các cuộc trò chuyện mã hoá đầu cuối: nội dung trên màn hình được đọc đúng như bạn thấy. Không bao giờ đọc ứng dụng khác. Không bao giờ đọc ô mật khẩu hay nội dung bạn đang gõ.</string>
     <string name="aichat__capture__when_heading">Đọc khi nào</string>
     <string name="aichat__capture__when_body">Chỉ đúng lúc bạn bấm Gợi ý trả lời trên bàn phím AIChat. Không đọc ngầm, và không lưu gì trên điện thoại.</string>
     <string name="aichat__capture__where_heading">Gửi đi đâu</string>
@@ -20,13 +20,13 @@
     <string name="aichat__capture__status_on">Trạng thái: đang bật</string>
     <string name="aichat__capture__status_off">Trạng thái: đang tắt</string>
     <string name="aichat__capture__clipboard_heading">Khi không đọc được đoạn chat</string>
-    <string name="aichat__capture__clipboard_body">Nếu đang tắt đọc tin nhắn, hoặc bạn ở ứng dụng khác ngoài Messenger và Zalo, Gợi ý trả lời sẽ dùng nội dung bạn vừa copy trong 2 phút gần nhất: nội dung đó được gửi tới máy chủ AIChat như tin nhắn của người kia. Mã xác nhận, mật khẩu và đường link chứa khoá không bao giờ được gửi.</string>
+    <string name="aichat__capture__clipboard_body">Nếu đang tắt đọc tin nhắn, hoặc bạn ở ứng dụng khác ngoài Messenger, Zalo, WhatsApp, Gmail và Google Chat, Gợi ý trả lời sẽ dùng nội dung bạn vừa copy trong 2 phút gần nhất: nội dung đó được gửi tới máy chủ AIChat như tin nhắn của người kia. Mã xác nhận, mật khẩu và đường link chứa khoá không bao giờ được gửi.</string>
     <string name="aichat__capture__decline_button">Không, cảm ơn</string>
     <string name="aichat__capture__restricted_heading">Không bật được hoặc thấy \"Cài đặt bị hạn chế\"?</string>
     <string name="aichat__capture__restricted_body">Android chặn quyền này với ứng dụng cài từ file APK thay vì từ cửa hàng. Để cho phép:\n1. Bấm nút phía trên, chọn AIChat đọc tin nhắn và thử bật. Khi hiện \"Cài đặt bị hạn chế\", bấm OK. Android chỉ hiện tuỳ chọn ở bước 3 sau lần thử này.\n2. Quay lại đây và bấm Mở thông tin ứng dụng bên dưới.\n3. Bấm ⋮ (góc trên bên phải), chọn Cho phép cài đặt hạn chế, rồi xác nhận bằng mã PIN hoặc vân tay.\n4. Bấm lại nút phía trên và bật AIChat đọc tin nhắn.</string>
     <string name="aichat__capture__restricted_button">Mở thông tin ứng dụng</string>
     <string name="aichat__capture__service_label">AIChat đọc tin nhắn</string>
-    <string name="aichat__capture__service_description">Chỉ đọc các tin nhắn đang hiện trong Messenger hoặc Zalo khi bạn bấm Gợi ý trả lời trên bàn phím AIChat, rồi gửi tới máy chủ AIChat để viết gợi ý trả lời. Không đọc ứng dụng khác, ô mật khẩu hay nội dung bạn gõ, và không chạy ngầm.</string>
+    <string name="aichat__capture__service_description">Chỉ đọc các tin nhắn đang hiện trong Messenger, Zalo, WhatsApp, Gmail hoặc Google Chat khi bạn bấm Gợi ý trả lời trên bàn phím AIChat, rồi gửi tới máy chủ AIChat để viết gợi ý trả lời. Không đọc ứng dụng khác, ô mật khẩu hay nội dung bạn gõ, và không chạy ngầm.</string>
 
     <!-- Settings home entry -->
     <string name="aichat__account__title">Tài khoản AIChat</string>
@@ -177,7 +177,7 @@
     <string name="aichat__ai__open_reading">Cài đặt</string>
     <string name="aichat__ai__error_chat_unreadable">Không đọc được đoạn chat này. Cuộn tới tin nhắn cuối rồi thử lại</string>
     <string name="aichat__ai__error_reader_not_connected">Hãy tắt rồi bật lại dịch vụ đọc tin nhắn</string>
-    <string name="aichat__ai__error_unsupported_app">Chỉ đọc được Messenger và Zalo. Hãy copy tin nhắn cuối để gợi ý</string>
+    <string name="aichat__ai__error_unsupported_app">Chỉ đọc được Messenger, Zalo, WhatsApp, Gmail và Google Chat. Hãy copy tin nhắn cuối để gợi ý</string>
     <string name="aichat__ai__rewrite_friendly">Thân thiện</string>
     <string name="aichat__ai__rewrite_polite">Lịch sự</string>
     <string name="aichat__ai__rewrite_funny">Hài hước</string>
@@ -284,7 +284,7 @@
     <string name="aichat__bottom_bar__schedule">Hẹn giờ gửi tin</string>
     <string name="aichat__schedule__title">Hẹn giờ gửi tin</string>
     <string name="aichat__schedule__to">Gửi cho {name} · {app}</string>
-    <string name="aichat__schedule__no_recipient">Hãy mở một cuộc trò chuyện Zalo hoặc Messenger (đã bật Đọc chat) để AIChat biết gửi cho ai.</string>
+    <string name="aichat__schedule__no_recipient">Hãy mở một cuộc trò chuyện Messenger, Zalo, WhatsApp, Gmail hoặc Google Chat (đã bật Đọc chat) để AIChat biết gửi cho ai.</string>
     <string name="aichat__schedule__message_hint">Nội dung tin nhắn</string>
     <string name="aichat__schedule__in_past">Chọn thời điểm cách bây giờ ít nhất 1 phút.</string>
     <string name="aichat__schedule__cancel">Huỷ</string>

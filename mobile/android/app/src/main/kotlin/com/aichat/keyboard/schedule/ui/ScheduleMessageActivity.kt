@@ -176,11 +176,6 @@ private fun formatSendAt(context: Context, epochMs: Long): String {
     return "$time, $day"
 }
 
-private fun SupportedMessenger.displayName(): String = when (this) {
-    SupportedMessenger.MESSENGER -> "Messenger"
-    SupportedMessenger.ZALO -> "Zalo"
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScheduleMessageScreen(
@@ -233,7 +228,7 @@ private fun ScheduleMessageScreen(
                         text = stringRes(
                             R.string.aichat__schedule__to,
                             "name" to recipient.contactLabel,
-                            "app" to recipient.messenger.displayName(),
+                            "app" to recipient.messenger.displayName,
                         ),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,

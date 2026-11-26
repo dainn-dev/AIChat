@@ -3,6 +3,7 @@ package com.aichat.keyboard.capture
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -18,6 +19,24 @@ class CaptureSupportTest {
         assertEquals("zalo", SupportedMessenger.ZALO.platform)
         assertNull(SupportedMessenger.fromPackage("com.facebook.katana"))
         assertNull(SupportedMessenger.fromPackage(null))
+    }
+
+    @Test
+    fun `WhatsApp, Gmail and Google Chat are supported, WhatsApp Business shares the WhatsApp platform`() {
+        assertEquals("whatsapp", SupportedMessenger.fromPackage("com.whatsapp")?.platform)
+        assertEquals("whatsapp", SupportedMessenger.fromPackage("com.whatsapp.w4b")?.platform)
+        assertEquals("gmail", SupportedMessenger.fromPackage("com.google.android.gm")?.platform)
+        assertEquals("google_chat", SupportedMessenger.fromPackage("com.google.android.apps.dynamite")?.platform)
+    }
+
+    @Test
+    fun `the accessibility service is limited to exactly the supported packages`() {
+        // Gradle runs unit tests from the module directory.
+        val xml = java.io.File("src/main/res/xml/aichat_accessibility_service.xml").readText()
+        val declared = assertNotNull(Regex("""android:packageNames="([^"]*)"""").find(xml)).groupValues[1]
+            .split(',').map { it.trim() }.toSet()
+
+        assertEquals(SupportedMessenger.entries.map { it.packageName }.toSet(), declared)
     }
 
     @Test
