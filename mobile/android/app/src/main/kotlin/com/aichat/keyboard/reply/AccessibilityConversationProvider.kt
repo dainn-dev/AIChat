@@ -9,12 +9,15 @@ import com.aichat.keyboard.capture.ChatCaptureService
 import com.aichat.keyboard.capture.ChatTranscriptParser
 import com.aichat.keyboard.capture.ChatWindowSnapshot
 import com.aichat.keyboard.capture.SnapshotOutcome
+import com.aichat.keyboard.capture.SupportedMessenger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Reads the visible chat of a [com.aichat.keyboard.capture.SupportedMessenger] app through [ChatCaptureService], only when the
- * user asks for reply suggestions. Never throws: every failure maps to an [UnavailableReason].
+ * Reads the visible chat of the app in front through [ChatCaptureService], only when the user asks for reply
+ * suggestions. Never throws: every failure maps to an [UnavailableReason]. When an app other than a
+ * [SupportedMessenger] shows nothing the parser recognises as a chat, that is [UnavailableReason.UNSUPPORTED_APP], so
+ * the clipboard may stand in; in a known messenger it stays [UnavailableReason.NOTHING_FOUND].
  */
 class AccessibilityConversationProvider internal constructor(
     private val isServiceEnabled: () -> Boolean,
@@ -55,7 +58,12 @@ class AccessibilityConversationProvider internal constructor(
                 } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                     null
                 }
-                conversation?.let { CaptureResult.Captured(it) } ?: unavailable(UnavailableReason.NOTHING_FOUND)
+                when {
+                    conversation != null -> CaptureResult.Captured(conversation)
+                    SupportedMessenger.fromPackage(outcome.snapshot.packageName) == null ->
+                        unavailable(UnavailableReason.UNSUPPORTED_APP)
+                    else -> unavailable(UnavailableReason.NOTHING_FOUND)
+                }
             }
         }
     }

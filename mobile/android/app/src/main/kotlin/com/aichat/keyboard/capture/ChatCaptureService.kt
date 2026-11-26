@@ -22,7 +22,7 @@ import kotlinx.coroutines.runInterruptible
 /**
  * AIChat's chat reader. It is idle by design: it ignores every accessibility event, keeps no history and stores
  * nothing. Only when the keyboard asks ([requestSnapshot], after the user taps "Gợi ý trả lời") does it read the
- * visible views of the chat app in front, and only if that app is a [SupportedMessenger].
+ * visible views of the app in front (any app except AIChat itself); the parser decides whether it shows a chat.
  *
  * The keyboard runs in the same process, so the connected instance is reached through a static reference.
  */
@@ -57,7 +57,8 @@ class ChatCaptureService : AccessibilityService() {
         val target = findChatWindow() ?: return SnapshotOutcome.Failed
         val root = target.root
         try {
-            if (SupportedMessenger.fromPackage(root.packageName?.toString()) == null) {
+            val pkg = root.packageName?.toString()
+            if (pkg.isNullOrEmpty() || pkg == packageName) {
                 return SnapshotOutcome.UnsupportedApp
             }
             val bounds = target.bounds
