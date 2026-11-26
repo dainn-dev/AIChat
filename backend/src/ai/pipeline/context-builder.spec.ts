@@ -80,4 +80,31 @@ describe('ContextBuilder language instructions', () => {
     });
     expect(system).toContain("Keep the draft's original language.");
   });
+
+  it('explains Vietnamese teen code and pronoun mirroring in reply and analyze prompts', () => {
+    const reply = builder.buildReplyPrompt(base).system;
+    const analyze = builder.buildAnalyzePrompt({
+      messages: base.messages,
+      memories: [],
+    }).system;
+    for (const system of [reply, analyze]) {
+      expect(system).toContain('ko/k/kh/hok/hong/hông/khum = không');
+      expect(system).toContain('ms = mới');
+      expect(system).toContain('bn = bạn or bao nhiêu');
+    }
+  });
+
+  it('derives the Vietnamese pronoun pair per contact, never from other contacts', () => {
+    const { system } = builder.buildReplyPrompt(base);
+    expect(system).toContain('work out the pair for THIS conversation');
+    expect(system).toContain('how "them" addresses "me"');
+    expect(system).toContain('Never carry pronouns over from other contacts');
+    expect(system).toContain('never guess age or gender from a name');
+  });
+
+  it('anchors replies on the latest message from them and asks back when unclear', () => {
+    const { system } = builder.buildReplyPrompt(base);
+    expect(system).toContain('most recent message(s) from "them"');
+    expect(system).toContain('prefer a safe reply');
+  });
 });
