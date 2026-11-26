@@ -660,6 +660,16 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
     }
 
+    // AIChat MODIFIED: a photo from the gallery as the keyboard background (com.aichat.keyboard.theme.background).
+    val aichatKeyboardBackground = AiChatKeyboardBackground()
+    inner class AiChatKeyboardBackground {
+        /** File name inside `KeyboardBackgroundStore`'s directory; empty = no background image. */
+        val imageFile = string(
+            key = "aichat_keyboard_background__image_file",
+            default = "",
+        )
+    }
+
     val other = Other()
     inner class Other {
         val settingsTheme = enum(

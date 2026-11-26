@@ -104,6 +104,8 @@ fun ThemeScreen() = FlorisScreen {
             icon = Icons.Default.Brightness2,
             enabledIf = { prefs.theme.mode isEqualTo ThemeMode.FOLLOW_TIME },
         )
+        // AIChat MODIFIED: a photo from the gallery as the keyboard background.
+        com.aichat.keyboard.theme.background.KeyboardBackgroundPreferences()
         ColorPickerPreference(
             pref = prefs.theme.accentColor,
             title = stringRes(R.string.pref__theme__theme_accent_color__label),

@@ -278,4 +278,11 @@
     <string name="aichat__sticker_suggest__pref_label">Suggest stickers while typing</string>
     <string name="aichat__sticker_suggest__pref_summary">Shows matching stickers in the suggestion bar for words like “thanks” or “haha”. Works offline.</string>
     <string name="aichat__sticker_suggest__send">Send sticker %1$s</string>
+    <!-- Keyboard background photo (com.aichat.keyboard.theme.background), on the theme settings screen. -->
+    <string name="aichat__keyboard_background__title">Keyboard background</string>
+    <string name="aichat__keyboard_background__summary_none">Choose a photo from your phone</string>
+    <string name="aichat__keyboard_background__summary_set">Using your photo. Tap to choose another</string>
+    <string name="aichat__keyboard_background__importing">Setting the background…</string>
+    <string name="aichat__keyboard_background__remove">Remove background</string>
+    <string name="aichat__keyboard_background__error">This photo could not be used.</string>
 </resources>

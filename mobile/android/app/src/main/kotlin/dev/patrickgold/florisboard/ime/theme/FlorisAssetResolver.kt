@@ -24,6 +24,9 @@ import java.net.URI
 
 class FlorisAssetResolver(val context: Context, val themeInfo: ThemeManager.ThemeInfo) : SnyggAssetResolver {
     override fun resolveAbsolutePath(uri: String) = runCatching {
+        // AIChat MODIFIED: the user's keyboard background photo lives outside the theme extension.
+        com.aichat.keyboard.theme.background.KeyboardBackgroundStore.resolveAssetPath(context, uri)
+            ?.let { return@runCatching it }
         val uri = URI.create(uri)
         require(uri.scheme == "flex")
         require(uri.authority.isNullOrEmpty())
