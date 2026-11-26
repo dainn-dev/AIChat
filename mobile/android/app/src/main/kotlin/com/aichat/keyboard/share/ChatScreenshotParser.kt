@@ -32,11 +32,14 @@ data class ParsedChat(
  * Layout rules, all relative to the image size so they work for any resolution:
  * - A full phone screenshot (portrait, height >= [PHONE_ASPECT] x width) has a status bar, an app header (where
  *   the partner's name is read) and an input bar at the bottom; those bands are dropped. A cropped image has none.
- * - An input placeholder ("Aa", "Nhắn tin", "Message", ...) in the lower half ends the chat: anything below it is
- *   the input bar or an open keyboard.
- * - Timestamps, date separators, "Seen"/"Đã xem" and centered system lines are not messages.
+ * - An input placeholder ("Aa", "Nhắn tin", "Message", ...) ends the chat only when it is in the bottom input band
+ *   or sits above an open keyboard (rows of single letters); anywhere else it is an ordinary message.
+ * - "Seen"/"Đã xem" receipts and centered system lines (date separators included) are not messages. A time, date or
+ *   weekday ("cn", "sat", "9h30", "Hôm nay") is dropped only when centered or attached to the bubble above it as its
+ *   trailing time; alone on the left or right it is a message.
  * - Lines that are close vertically and share a left edge are one bubble (text is left-aligned inside a bubble).
- * - A bubble closer to the right edge than to the left one is the user's (`me`), otherwise the partner's.
+ * - A bubble is the user's (`me`) only when its right edge touches the right edge of the image and its left margin
+ *   is the larger one; anything else (wide partner bubbles after an avatar included) is the partner's.
  */
 object ChatScreenshotParser {
     /** `@ArrayMaxSize(100)` on the backend's reply DTO. */
@@ -55,6 +58,8 @@ object ChatScreenshotParser {
     private const val CENTERED_MAX_WIDTH = 0.6
     private const val SAME_BUBBLE_GAP = 0.6
     private const val SAME_BUBBLE_LEFT = 0.05
+    private const val ME_MAX_RIGHT_MARGIN = 0.07
+    private const val KEYBOARD_ROW_MIN_KEYS = 5
     private const val MAX_NAME_LENGTH = 40
     private const val MAX_NAME_WORDS = 6
 
@@ -76,6 +81,7 @@ object ChatScreenshotParser {
         }
         body = cutAtInputBar(body, imageHeight)
         body = body.filterNot { isNoise(it.text) || isCenteredSystemLine(it, imageWidth) }
+        body = dropTrailingTimes(body, imageWidth)
 
         val messages = groupBubbles(body, imageWidth).map { bubble -> bubble.toMessage(imageWidth) }
         return ParsedChat(messages.takeLast(MAX_MESSAGES), contactLabel)
@@ -87,10 +93,22 @@ object ChatScreenshotParser {
         line.bottom <= imageHeight * STATUS_BAR_BOTTOM ||
             (line.top < imageHeight * STATUS_BAND && STATUS_BAR_TEXT.matches(line.text))
 
+    /**
+     * Cuts at the input bar: a placeholder in the lower half that is in the bottom input band or has an open keyboard
+     * below it. A lone "Message"/"Aa" bubble elsewhere is a message and nothing is cut.
+     */
     private fun cutAtInputBar(lines: List<OcrLine>, imageHeight: Int): List<OcrLine> {
-        val bar = lines.firstOrNull { it.top >= imageHeight * INPUT_SEARCH_FROM && isInputPlaceholder(it.text) }
-            ?: return lines
+        val bar = lines.withIndex().firstOrNull { (index, line) ->
+            line.top >= imageHeight * INPUT_SEARCH_FROM &&
+                isInputPlaceholder(line.text) &&
+                (line.top >= imageHeight * INPUT_BAND_TOP || lines.drop(index + 1).any { isKeyboardRow(it.text) })
+        }?.value ?: return lines
         return lines.filter { it.top < bar.top }
+    }
+
+    private fun isKeyboardRow(text: String): Boolean {
+        val keys = text.split(' ')
+        return keys.size >= KEYBOARD_ROW_MIN_KEYS && keys.all { it.length == 1 }
     }
 
     private fun detectContactName(header: List<OcrLine>): String? = header
@@ -111,6 +129,34 @@ object ChatScreenshotParser {
 
     private fun isNoise(text: String): Boolean = NOISE.any { it.matches(text) }
 
+    private fun isTimestamp(text: String): Boolean = TIMESTAMP.any { it.matches(text) }
+
+    /**
+     * Drops times/dates attached to the line above them (inside or right under the same bubble). The bubble keeps the
+     * time's right edge, since an inline time is often what reaches the bubble's right side.
+     */
+    private fun dropTrailingTimes(lines: List<OcrLine>, imageWidth: Int): List<OcrLine> {
+        val kept = mutableListOf<OcrLine>()
+        for (line in lines) {
+            val previous = kept.lastOrNull()
+            if (previous != null && isTimestamp(line.text) && isAttached(previous, line, imageWidth)) {
+                kept[kept.lastIndex] = previous.copy(right = maxOf(previous.right, line.right))
+            } else {
+                kept += line
+            }
+        }
+        return kept
+    }
+
+    private fun isAttached(previous: OcrLine, line: OcrLine, imageWidth: Int): Boolean {
+        val gap = line.top - previous.bottom
+        val lineHeight = (previous.height + line.height) / 2.0
+        val tolerance = imageWidth * SAME_BUBBLE_LEFT
+        return gap < lineHeight * SAME_BUBBLE_GAP &&
+            line.left <= previous.right + tolerance &&
+            line.right >= previous.left - tolerance
+    }
+
     private fun isInputPlaceholder(text: String): Boolean = INPUT_PLACEHOLDER.matches(text)
 
     private fun isCenteredSystemLine(line: OcrLine, imageWidth: Int): Boolean =
@@ -125,7 +171,9 @@ object ChatScreenshotParser {
         fun toMessage(imageWidth: Int): ChatMessage {
             val left = lines.minOf { it.left }
             val right = lines.maxOf { it.right }
-            val sender = if (imageWidth - right < left) MessageSender.ME else MessageSender.THEM
+            val rightMargin = imageWidth - right
+            val isMine = rightMargin <= imageWidth * ME_MAX_RIGHT_MARGIN && left > rightMargin
+            val sender = if (isMine) MessageSender.ME else MessageSender.THEM
             val content = lines.joinToString(" ") { it.text }.take(MAX_CONTENT_LENGTH)
             return ChatMessage(sender, content)
         }
@@ -162,7 +210,8 @@ object ChatScreenshotParser {
     private const val DAY_WORD = "(hôm nay|hôm qua|today|yesterday|thứ\\s?[2-7]|thứ\\s(hai|ba|tư|năm|sáu|bảy)|" +
         "chủ nhật|cn|t[2-7]|mon(day)?|tue(sday)?|wed(nesday)?|thu(rsday)?|fri(day)?|sat(urday)?|sun(day)?)\\.?"
 
-    private val NOISE: List<Regex> = listOf(
+    /** Times, dates and weekdays: separators when centered, trailing times when attached, otherwise messages. */
+    private val TIMESTAMP: List<Regex> = listOf(
         // 10:30, 10:30 PM, 21h05
         Regex("^$CLOCK$", RegexOption.IGNORE_CASE),
         // 12/05/2026, 12/05/2026 10:30, 12 tháng 5, 12 thg 5 2026 10:30
@@ -172,6 +221,10 @@ object ChatScreenshotParser {
         Regex("^$DAY_WORD(,?\\s*(lúc|at)?\\s*$CLOCK)?$", RegexOption.IGNORE_CASE),
         Regex("^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(,?\\s*\\d{4})?" +
             "(,?\\s*(at)?\\s*$CLOCK)?$", RegexOption.IGNORE_CASE),
+    )
+
+    /** Never a message, wherever it is. */
+    private val NOISE: List<Regex> = listOf(
         // Delivery / read receipts
         Regex(
             "^(seen|delivered|sent|read|sending|đã xem|đã gửi|đã nhận|đang gửi)(\\s+(by|bởi|lúc|at)\\s+.+|\\s+\\d.*)?$",
