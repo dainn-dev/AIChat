@@ -8,7 +8,8 @@ import org.florisboard.lib.android.showShortToast
 
 /**
  * The one entry point every sticker UI uses to send a sticker (palette, typing suggestions, AI reply suggestions):
- * sends through [StickerSender], never throws (except cancellation) and tells the user when it did not work.
+ * sends through [StickerSender], never throws (except cancellation), tells the user when it did not work and
+ * records successful sends in the recent stickers.
  * Must be called on the main thread.
  */
 object StickerSendFlow {
@@ -25,6 +26,8 @@ object StickerSendFlow {
             StickerSender.Result.FAILED
         }
         report(context, result)
+        // Every UI sends through here, so the "Gần đây" tab also sees stickers sent from suggestions.
+        StickerRepository.get(context).recordSent(sticker, result)
         return result
     }
 

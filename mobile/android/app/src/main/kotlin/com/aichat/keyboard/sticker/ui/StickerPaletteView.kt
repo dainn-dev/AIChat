@@ -111,8 +111,7 @@ fun StickerPaletteView(modifier: Modifier = Modifier) {
         sending = true
         scope.launch {
             try {
-                val result = StickerSendFlow.sendAndReport(context, sticker)
-                repository.recordSent(sticker, result)
+                StickerSendFlow.sendAndReport(context, sticker)
             } finally {
                 sending = false
             }
