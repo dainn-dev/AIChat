@@ -670,6 +670,15 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
     }
 
+    // AIChat MODIFIED: in-app updates from GitHub Releases (com.aichat.keyboard.update).
+    val aichatUpdates = AiChatUpdates()
+    inner class AiChatUpdates {
+        val autoUpdate = boolean(
+            key = "aichat_updates__auto_update",
+            default = true,
+        )
+    }
+
     val other = Other()
     inner class Other {
         val settingsTheme = enum(

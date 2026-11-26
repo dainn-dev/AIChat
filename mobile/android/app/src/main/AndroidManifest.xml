@@ -12,6 +12,12 @@
     <!-- Permission needed to create notifications on devices running Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- AIChat MODIFIED: in-app updates from GitHub Releases (com.aichat.keyboard.update). The app installs its own
+         newer, same-signed APK; UPDATE_PACKAGES_WITHOUT_USER_ACTION lets Android 12+ skip the confirmation once the
+         app is its own installer of record. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"/>
+
     <!-- Android 11+ only: Define that FlorisBoard requests to see all apps that
           ship with an IME or Spell Check service. This is used to guide the user
           in the Settings Ui why FlorisBoard may not be working.
@@ -205,6 +211,21 @@
                 <data android:mimeType="image/*"/>
             </intent-filter>
         </activity>
+
+        <!-- AIChat MODIFIED: install status of a self-update (com.aichat.keyboard.update). Only the system installer
+             calls it, through the app's own explicit pending intent, so it is not exported. -->
+        <receiver
+            android:name="com.aichat.keyboard.update.UpdateInstallReceiver"
+            android:exported="false"/>
+
+        <!-- AIChat MODIFIED: "Đã cập nhật" after a self-update. MY_PACKAGE_REPLACED is sent only to this app. -->
+        <receiver
+            android:name="com.aichat.keyboard.update.UpdateReplacedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
 
         <!-- Clipboard Media File Provider -->
         <provider
