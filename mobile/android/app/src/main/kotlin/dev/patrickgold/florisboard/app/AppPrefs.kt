@@ -651,6 +651,15 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
     }
 
+    // AIChat MODIFIED: sticker suggestions while typing (com.aichat.keyboard.sticker.suggest), on by default.
+    val aichatStickerSuggest = AiChatStickerSuggest()
+    inner class AiChatStickerSuggest {
+        val enabled = boolean(
+            key = "aichat_sticker_suggest__enabled",
+            default = true,
+        )
+    }
+
     val other = Other()
     inner class Other {
         val settingsTheme = enum(

@@ -61,6 +61,13 @@ object Payloads {
       "usage": { "replies_used": 1, "replies_limit": 20, "screenshots_used": 0, "screenshots_limit": 5 }
     }"""
 
+    fun replyWithStickerTags(tags: String) = """{
+      "suggestions": [ { "tone": "Flirty", "text": "…" } ],
+      "conversation_id": null,
+      "usage": $USAGE,
+      "sticker_tags": $tags
+    }"""
+
     const val CONVERSATIONS = """{
       "conversations": [
         { "id": "0d6f1f4a-9c11-4b8a-9a52-7b0c4a3e2f4e", "platform": "zalo", "contact_label": "Linh", "source": "keyboard",
