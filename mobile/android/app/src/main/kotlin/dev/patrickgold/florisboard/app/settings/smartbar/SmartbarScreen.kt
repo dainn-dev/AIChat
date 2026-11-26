@@ -46,6 +46,13 @@ fun SmartbarScreen() = FlorisScreen {
             entries = enumDisplayEntriesOf(SmartbarLayout::class),
             enabledIf = { prefs.smartbar.enabled isEqualTo true },
         )
+        // AIChat MODIFIED: sticker suggestions while typing (com.aichat.keyboard.sticker.suggest).
+        SwitchPreference(
+            prefs.aichatStickerSuggest.enabled,
+            title = stringRes(R.string.aichat__sticker_suggest__pref_label),
+            summary = stringRes(R.string.aichat__sticker_suggest__pref_summary),
+            enabledIf = { prefs.smartbar.enabled isEqualTo true },
+        )
 
         PreferenceGroup(title = stringRes(R.string.pref__smartbar__group_layout_specific__label)) {
             ListPreference(

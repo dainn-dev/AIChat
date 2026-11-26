@@ -10,6 +10,7 @@ import com.aichat.keyboard.core.network.model.Tone
 import com.aichat.keyboard.reply.CapturedConversation
 import com.aichat.keyboard.reply.ConversationCapturer
 import com.aichat.keyboard.reply.UnavailableReason
+import com.aichat.keyboard.sticker.StickerTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,8 +76,11 @@ sealed interface AiAssistState {
     /** Reply flow: the tone chips (Flirty, Funny, ...) are shown. */
     data object ChoosingReplyTone : AiAssistState
 
-    /** Reply flow: suggested replies; picking one fills the field. */
-    data class Suggestions(val replies: List<String>) : AiAssistState
+    /**
+     * Reply flow: suggested replies; picking one fills the field. [stickerTags]: stickers that fit the chat
+     * (from the backend's `sticker_tags`), shown next to the replies.
+     */
+    data class Suggestions(val replies: List<String>, val stickerTags: List<StickerTag> = emptyList()) : AiAssistState
 
     /**
      * [captureDisabled] is set with [AiFailure.NO_CONVERSATION] when a chat reader is switched off (e.g. the
@@ -111,13 +115,16 @@ interface AiEditorPort {
     fun replaceAllText(text: String): Boolean
 }
 
+/** Suggested replies, best first, and the sticker tags that fit the chat (may be empty). */
+data class ReplySuggestions(val replies: List<String>, val stickerTags: List<StickerTag> = emptyList())
+
 /** The backend calls behind the AI button. */
 interface AiTextBackend {
     /** Rewrite or translate [text]; returns the new text. */
     suspend fun run(action: AiAction, text: String): ApiResult<String>
 
     /** Suggested replies to [conversation] in [tone], best first. */
-    suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<List<String>>
+    suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions>
 }
 
 /**
@@ -188,8 +195,12 @@ class AiAssistController(
                 is ConversationCapturer.Outcome.NotFound -> noConversation(outcome.reasons.values)
                 is ConversationCapturer.Outcome.Found -> when (val result = backend.reply(outcome.conversation, tone)) {
                     is ApiResult.Failure -> AiAssistState.Failed(result.error.toFailure())
-                    is ApiResult.Success -> result.value.filter { it.isNotBlank() }.let { replies ->
-                        if (replies.isEmpty()) AiAssistState.Failed(AiFailure.SERVER) else AiAssistState.Suggestions(replies)
+                    is ApiResult.Success -> result.value.replies.filter { it.isNotBlank() }.let { replies ->
+                        if (replies.isEmpty()) {
+                            AiAssistState.Failed(AiFailure.SERVER)
+                        } else {
+                            AiAssistState.Suggestions(replies, result.value.stickerTags)
+                        }
                     }
                 }
             }

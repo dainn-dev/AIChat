@@ -234,4 +234,9 @@
     <string name="aichat__share__error_timeout">AI took too long. Try again.</string>
     <string name="aichat__share__error_server">AI is unavailable right now. Try again later.</string>
     <string name="aichat__share__retry">Try again</string>
+
+    <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
+    <string name="aichat__sticker_suggest__pref_label">Suggest stickers while typing</string>
+    <string name="aichat__sticker_suggest__pref_summary">Shows matching stickers in the suggestion bar for words like “thanks” or “haha”. Works offline.</string>
+    <string name="aichat__sticker_suggest__send">Send sticker %1$s</string>
 </resources>

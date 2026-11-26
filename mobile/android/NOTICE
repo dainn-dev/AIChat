@@ -162,7 +162,15 @@ The full delta from upstream is:
   app/src/main/AndroidManifest.xml (also)
       <queries> entry for ACTION_SEND image/*, so StickerSender can share a sticker into chat apps whose chat field
       does not accept images.
+  app/src/main/AndroidManifest.xml (also)
       Non-exported com.aichat.keyboard.sticker.TextStickerMakerActivity ("Tạo sticker chữ").
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/Smartbar.kt (also)
+      Suggestions-only layout shows sticker suggestion thumbnails after the word suggestions
+      (com.aichat.keyboard.sticker.suggest.CandidatesWithStickerSuggestions).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
+      New aichatStickerSuggest preference group (sticker suggestions while typing, on by default).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/smartbar/SmartbarScreen.kt
+      "Suggest stickers while typing" switch.
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,

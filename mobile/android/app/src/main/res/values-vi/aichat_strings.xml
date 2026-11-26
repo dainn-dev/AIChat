@@ -230,4 +230,9 @@
     <string name="aichat__share__error_timeout">AI phản hồi quá lâu. Hãy thử lại.</string>
     <string name="aichat__share__error_server">AI đang gặp lỗi. Hãy thử lại sau.</string>
     <string name="aichat__share__retry">Thử lại</string>
+
+    <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
+    <string name="aichat__sticker_suggest__pref_label">Gợi ý sticker khi gõ</string>
+    <string name="aichat__sticker_suggest__pref_summary">Hiện sticker phù hợp trên thanh gợi ý khi gõ các từ như “cảm ơn” hay “haha”. Hoạt động không cần mạng.</string>
+    <string name="aichat__sticker_suggest__send">Gửi sticker %1$s</string>
 </resources>

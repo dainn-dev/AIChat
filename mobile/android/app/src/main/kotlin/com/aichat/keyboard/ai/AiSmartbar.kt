@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aichat.keyboard.capture.ChatCaptureLauncher
 import com.aichat.keyboard.core.network.model.Tone
+import com.aichat.keyboard.sticker.StickerTag
+import com.aichat.keyboard.sticker.suggest.AiReplyStickerSuggestions
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
@@ -114,7 +116,7 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
             AiAssistState.Closed -> Unit
             AiAssistState.Ready -> ActionChips(controller)
             AiAssistState.ChoosingReplyTone -> ToneChips(controller)
-            is AiAssistState.Suggestions -> SuggestionPanel(controller, s.replies)
+            is AiAssistState.Suggestions -> SuggestionPanel(controller, s.replies, s.stickerTags)
             is AiAssistState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.padding(horizontal = 8.dp).size(18.dp),
@@ -182,22 +184,26 @@ private fun ToneChips(controller: AiAssistController) {
 
 /**
  * Reply suggestions, shown in the taller smartbar ([AiSmartbarLayout.SUGGESTION_ROWS] rows): one row of chips
- * (back, and the tones to ask again in another tone), then the replies as multi-line cards side by side.
+ * (back, and the tones to ask again in another tone) with up to three matching stickers at its end, then the
+ * replies as multi-line cards side by side.
  */
 @Composable
-private fun RowScope.SuggestionPanel(controller: AiAssistController, replies: List<String>) {
+private fun RowScope.SuggestionPanel(controller: AiAssistController, replies: List<String>, stickerTags: List<StickerTag>) {
     val rowHeight = FlorisImeSizing.smartbarHeight
     val cardAreaHeight = rowHeight * (AiSmartbarLayout.SUGGESTION_ROWS - 1)
     val maxLines = AiSmartbarLayout.cardMaxLines(cardAreaHeight.value / LocalDensity.current.fontScale)
     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-        LazyRow(
-            modifier = Modifier.fillMaxWidth().height(rowHeight),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            item { Chip(R.string.aichat__ai__back) { controller.startReply() } }
-            items(ReplyTones) { (tone, label) ->
-                Chip(label) { controller.requestReplies(tone) }
+        Row(modifier = Modifier.fillMaxWidth().height(rowHeight), verticalAlignment = Alignment.CenterVertically) {
+            LazyRow(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                item { Chip(R.string.aichat__ai__back) { controller.startReply() } }
+                items(ReplyTones) { (tone, label) ->
+                    Chip(label) { controller.requestReplies(tone) }
+                }
             }
+            AiReplyStickerSuggestions(tags = stickerTags, height = rowHeight)
         }
         LazyRow(
             modifier = Modifier.fillMaxWidth().height(cardAreaHeight),

@@ -46,7 +46,7 @@ class AiAssistControllerTest {
         override suspend fun reply(
             conversation: com.aichat.keyboard.reply.CapturedConversation,
             tone: Tone,
-        ): ApiResult<List<String>> = ApiResult.Success(emptyList())
+        ): ApiResult<ReplySuggestions> = ApiResult.Success(ReplySuggestions(emptyList()))
     }
 
     private fun TestScope.controller(editor: AiEditorPort, backend: AiTextBackend) =
