@@ -236,6 +236,44 @@
     <string name="aichat__share__error_server">AI is unavailable right now. Try again later.</string>
     <string name="aichat__share__retry">Try again</string>
 
+    <!-- Create sticker from photo (com.aichat.keyboard.sticker.creator) -->
+    <string name="aichat__sticker_creator__add_option">Create sticker from photo</string>
+    <string name="aichat__sticker_creator__target_label">Create sticker</string>
+    <string name="aichat__sticker_creator__title">Create sticker</string>
+    <string name="aichat__sticker_creator__back">Back</string>
+    <string name="aichat__sticker_creator__close">Close</string>
+    <string name="aichat__sticker_creator__retry">Try again</string>
+    <string name="aichat__sticker_creator__checking">Getting ready…</string>
+    <string name="aichat__sticker_creator__download_title">Downloading the cut-out model</string>
+    <string name="aichat__sticker_creator__download_body">This happens only once and needs an internet connection. After that, stickers are made right on your phone and your photos are never uploaded.</string>
+    <string name="aichat__sticker_creator__unsupported">This phone cannot cut subjects out of photos (Google Play services is missing or out of date). You can still add whole images as stickers from the sticker panel of the keyboard.</string>
+    <string name="aichat__sticker_creator__pick_prompt">Choose a photo with a person, pet or object.</string>
+    <string name="aichat__sticker_creator__pick_photo">Choose photo</string>
+    <string name="aichat__sticker_creator__pick_another">Choose another photo</string>
+    <string name="aichat__sticker_creator__decoding">Opening the photo…</string>
+    <string name="aichat__sticker_creator__segmenting">Finding the subjects…</string>
+    <string name="aichat__sticker_creator__select_hint">Tap a subject to select or unselect it.</string>
+    <string name="aichat__sticker_creator__select_all">Select all</string>
+    <string name="aichat__sticker_creator__next">Next</string>
+    <string name="aichat__sticker_creator__photo_description">Photo with {count} subjects found, {selected} selected</string>
+    <string name="aichat__sticker_creator__subject_toggle">Select or unselect subject {index}</string>
+    <string name="aichat__sticker_creator__effect_title">Style</string>
+    <string name="aichat__sticker_creator__effect_original">Original</string>
+    <string name="aichat__sticker_creator__effect_outline">White border</string>
+    <string name="aichat__sticker_creator__effect_comic">Comic</string>
+    <string name="aichat__sticker_creator__effect_puffy">Puffy</string>
+    <string name="aichat__sticker_creator__effect_shiny">Shiny</string>
+    <string name="aichat__sticker_creator__preview_description">Sticker preview, style: {effect}</string>
+    <string name="aichat__sticker_creator__save">Save sticker</string>
+    <string name="aichat__sticker_creator__saving">Saving…</string>
+    <string name="aichat__sticker_creator__saved">Added to My stickers</string>
+    <string name="aichat__sticker_creator__error_download">Could not download the model. Check your internet connection and try again.</string>
+    <string name="aichat__sticker_creator__error_unreadable">This photo could not be opened.</string>
+    <string name="aichat__sticker_creator__error_no_subjects">No person, pet or object stands out in this photo. You can use the whole photo instead.</string>
+    <string name="aichat__sticker_creator__use_whole_photo">Use whole photo</string>
+    <string name="aichat__sticker_creator__error_segment">Could not cut out the subject. Try again.</string>
+    <string name="aichat__sticker_creator__error_render">Could not make the sticker. Try again.</string>
+    <string name="aichat__sticker_creator__error_save">Could not save the sticker. Try again.</string>
     <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
     <string name="aichat__sticker_suggest__pref_label">Suggest stickers while typing</string>
     <string name="aichat__sticker_suggest__pref_summary">Shows matching stickers in the suggestion bar for words like “thanks” or “haha”. Works offline.</string>

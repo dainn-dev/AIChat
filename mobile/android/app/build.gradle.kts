@@ -264,6 +264,8 @@ dependencies {
     implementation(projects.core.network)
     // AIChat MODIFIED: on-device OCR (bundled Latin model) for the screenshot share target.
     implementation(libs.google.mlkit.text.recognition)
+    // AIChat MODIFIED: on-device subject segmentation for "create sticker from photo" (model delivered by Play services).
+    implementation(libs.google.mlkit.subject.segmentation)
 
     testImplementation(libs.kotlin.test.junit5)
     // AIChat MODIFIED: AIChat ViewModel tests (Main dispatcher + MockWebServer-backed AiChatClient).

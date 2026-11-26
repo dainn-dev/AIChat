@@ -232,6 +232,44 @@
     <string name="aichat__share__error_server">AI đang gặp lỗi. Hãy thử lại sau.</string>
     <string name="aichat__share__retry">Thử lại</string>
 
+    <!-- Create sticker from photo (com.aichat.keyboard.sticker.creator) -->
+    <string name="aichat__sticker_creator__add_option">Tạo sticker từ ảnh</string>
+    <string name="aichat__sticker_creator__target_label">Tạo sticker</string>
+    <string name="aichat__sticker_creator__title">Tạo sticker</string>
+    <string name="aichat__sticker_creator__back">Quay lại</string>
+    <string name="aichat__sticker_creator__close">Đóng</string>
+    <string name="aichat__sticker_creator__retry">Thử lại</string>
+    <string name="aichat__sticker_creator__checking">Đang chuẩn bị…</string>
+    <string name="aichat__sticker_creator__download_title">Đang tải mô hình tách nền</string>
+    <string name="aichat__sticker_creator__download_body">Chỉ tải một lần và cần kết nối mạng. Sau đó sticker được tạo ngay trên điện thoại, ảnh của bạn không bao giờ được tải lên.</string>
+    <string name="aichat__sticker_creator__unsupported">Điện thoại này chưa hỗ trợ tách chủ thể khỏi ảnh (thiếu hoặc cũ Google Play services). Bạn vẫn có thể thêm cả ảnh làm sticker từ bảng sticker trên bàn phím.</string>
+    <string name="aichat__sticker_creator__pick_prompt">Chọn một ảnh có người, thú cưng hoặc đồ vật.</string>
+    <string name="aichat__sticker_creator__pick_photo">Chọn ảnh</string>
+    <string name="aichat__sticker_creator__pick_another">Chọn ảnh khác</string>
+    <string name="aichat__sticker_creator__decoding">Đang mở ảnh…</string>
+    <string name="aichat__sticker_creator__segmenting">Đang tìm chủ thể…</string>
+    <string name="aichat__sticker_creator__select_hint">Chạm vào chủ thể để chọn hoặc bỏ chọn.</string>
+    <string name="aichat__sticker_creator__select_all">Chọn tất cả</string>
+    <string name="aichat__sticker_creator__next">Tiếp</string>
+    <string name="aichat__sticker_creator__photo_description">Ảnh có {count} chủ thể, đã chọn {selected}</string>
+    <string name="aichat__sticker_creator__subject_toggle">Chọn hoặc bỏ chọn chủ thể {index}</string>
+    <string name="aichat__sticker_creator__effect_title">Kiểu</string>
+    <string name="aichat__sticker_creator__effect_original">Gốc</string>
+    <string name="aichat__sticker_creator__effect_outline">Viền trắng</string>
+    <string name="aichat__sticker_creator__effect_comic">Truyện tranh</string>
+    <string name="aichat__sticker_creator__effect_puffy">Phồng</string>
+    <string name="aichat__sticker_creator__effect_shiny">Ánh kim</string>
+    <string name="aichat__sticker_creator__preview_description">Xem trước sticker, kiểu: {effect}</string>
+    <string name="aichat__sticker_creator__save">Lưu sticker</string>
+    <string name="aichat__sticker_creator__saving">Đang lưu…</string>
+    <string name="aichat__sticker_creator__saved">Đã thêm vào Sticker của tôi</string>
+    <string name="aichat__sticker_creator__error_download">Không tải được mô hình. Kiểm tra kết nối mạng rồi thử lại.</string>
+    <string name="aichat__sticker_creator__error_unreadable">Không mở được ảnh này.</string>
+    <string name="aichat__sticker_creator__error_no_subjects">Không tìm thấy người, thú cưng hay đồ vật nổi bật trong ảnh. Bạn có thể dùng cả ảnh.</string>
+    <string name="aichat__sticker_creator__use_whole_photo">Dùng cả ảnh</string>
+    <string name="aichat__sticker_creator__error_segment">Không tách được chủ thể. Hãy thử lại.</string>
+    <string name="aichat__sticker_creator__error_render">Không tạo được sticker. Hãy thử lại.</string>
+    <string name="aichat__sticker_creator__error_save">Không lưu được sticker. Hãy thử lại.</string>
     <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
     <string name="aichat__sticker_suggest__pref_label">Gợi ý sticker khi gõ</string>
     <string name="aichat__sticker_suggest__pref_summary">Hiện sticker phù hợp trên thanh gợi ý khi gõ các từ như “cảm ơn” hay “haha”. Hoạt động không cần mạng.</string>
