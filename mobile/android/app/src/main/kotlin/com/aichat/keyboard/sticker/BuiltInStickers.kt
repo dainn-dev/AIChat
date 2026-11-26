@@ -20,28 +20,46 @@ object BuiltInStickers {
     private const val RED = 0xFFFF3B30.toInt()
     private const val INDIGO = 0xFF5856D6.toInt()
 
-    private data class Phrase(val id: String, val text: String, val background: Int, val foreground: Int = WHITE)
+    private data class Phrase(
+        val id: String,
+        val text: String,
+        val background: Int,
+        val foreground: Int = WHITE,
+        val tags: Set<StickerTag> = emptySet(),
+    )
 
     private val phrases = listOf(
-        Phrase("cam-on", "Cảm ơn\nnhiều!", BLUE),
-        Phrase("ok-nha", "OK nha\n👌", GREEN),
-        Phrase("haha", "Haha\n😂", YELLOW, BLACK),
-        Phrase("yeu-lam", "Yêu lắm\n❤️", PINK),
-        Phrase("cho-xiu", "Chờ xíu\nnha", ORANGE),
-        Phrase("tuyet-voi", "Tuyệt\nvời!", PURPLE),
-        Phrase("xin-loi", "Xin lỗi\nnha 🙏", TEAL),
-        Phrase("ngu-ngon", "Ngủ ngon\n🌙", INDIGO),
-        Phrase("dang-toi", "Đang tới\nđây!", RED),
-        Phrase("vang-a", "Vâng ạ", BLUE),
-        Phrase("chuc-mung", "Chúc mừng\n🎉", ORANGE),
-        Phrase("an-com", "Ăn cơm\nchưa?", GREEN),
+        Phrase("cam-on", "Cảm ơn\nnhiều!", BLUE, tags = setOf(StickerTag.THANKS)),
+        Phrase("ok-nha", "OK nha\n👌", GREEN, tags = setOf(StickerTag.OK, StickerTag.YES)),
+        Phrase("haha", "Haha\n😂", YELLOW, BLACK, tags = setOf(StickerTag.LAUGH)),
+        Phrase("yeu-lam", "Yêu lắm\n❤️", PINK, tags = setOf(StickerTag.LOVE)),
+        Phrase("cho-xiu", "Chờ xíu\nnha", ORANGE, tags = setOf(StickerTag.WAIT)),
+        Phrase("tuyet-voi", "Tuyệt\nvời!", PURPLE, tags = setOf(StickerTag.GREAT, StickerTag.CHEER)),
+        Phrase("xin-loi", "Xin lỗi\nnha 🙏", TEAL, tags = setOf(StickerTag.SORRY)),
+        Phrase("ngu-ngon", "Ngủ ngon\n🌙", INDIGO, tags = setOf(StickerTag.GOODNIGHT, StickerTag.BYE)),
+        Phrase("dang-toi", "Đang tới\nđây!", RED, tags = setOf(StickerTag.COMING)),
+        Phrase("vang-a", "Vâng ạ", BLUE, tags = setOf(StickerTag.YES, StickerTag.OK)),
+        Phrase("chuc-mung", "Chúc mừng\n🎉", ORANGE, tags = setOf(StickerTag.CONGRATS, StickerTag.CHEER)),
+        Phrase("an-com", "Ăn cơm\nchưa?", GREEN, tags = setOf(StickerTag.EAT)),
     )
 
     private val emojis = listOf(
-        "joy" to "😂", "heart" to "❤️", "thumbs-up" to "👍", "smiling-hearts" to "🥰",
-        "sob" to "😭", "pray" to "🙏", "fire" to "🔥", "party" to "🎉",
-        "cool" to "😎", "thinking" to "🤔", "sleeping" to "😴", "pleading" to "🥺",
-        "wave" to "👋", "hundred" to "💯", "angry" to "😡", "hug" to "🤗",
+        Triple("joy", "😂", setOf(StickerTag.LAUGH)),
+        Triple("heart", "❤️", setOf(StickerTag.LOVE)),
+        Triple("thumbs-up", "👍", setOf(StickerTag.OK, StickerTag.YES, StickerTag.GREAT)),
+        Triple("smiling-hearts", "🥰", setOf(StickerTag.LOVE)),
+        Triple("sob", "😭", setOf(StickerTag.SAD)),
+        Triple("pray", "🙏", setOf(StickerTag.PLEASE, StickerTag.THANKS, StickerTag.SORRY)),
+        Triple("fire", "🔥", setOf(StickerTag.GREAT, StickerTag.COOL)),
+        Triple("party", "🎉", setOf(StickerTag.CONGRATS, StickerTag.CHEER)),
+        Triple("cool", "😎", setOf(StickerTag.COOL)),
+        Triple("thinking", "🤔", setOf(StickerTag.THINKING)),
+        Triple("sleeping", "😴", setOf(StickerTag.GOODNIGHT)),
+        Triple("pleading", "🥺", setOf(StickerTag.PLEASE, StickerTag.SAD)),
+        Triple("wave", "👋", setOf(StickerTag.HELLO, StickerTag.BYE)),
+        Triple("hundred", "💯", setOf(StickerTag.GREAT, StickerTag.YES)),
+        Triple("angry", "😡", setOf(StickerTag.ANGRY)),
+        Triple("hug", "🤗", setOf(StickerTag.LOVE, StickerTag.MISS_YOU, StickerTag.THANKS)),
     )
 
     val packs: List<StickerPack> = listOf(
@@ -54,6 +72,7 @@ object BuiltInStickers {
                     id = "builtin-text.${phrase.id}",
                     description = phrase.text.replace('\n', ' '),
                     source = StickerSource.Text(phrase.text, phrase.background, phrase.foreground),
+                    tags = phrase.tags,
                 )
             },
         ),
@@ -61,8 +80,8 @@ object BuiltInStickers {
             id = "builtin-emoji",
             title = "Emoji lớn",
             icon = "😂",
-            stickers = emojis.map { (id, emoji) ->
-                Sticker(id = "builtin-emoji.$id", description = emoji, source = StickerSource.Emoji(emoji))
+            stickers = emojis.map { (id, emoji, tags) ->
+                Sticker(id = "builtin-emoji.$id", description = emoji, source = StickerSource.Emoji(emoji), tags = tags)
             },
         ),
     )

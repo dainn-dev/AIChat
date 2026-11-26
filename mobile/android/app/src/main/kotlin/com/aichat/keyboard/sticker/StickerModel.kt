@@ -20,6 +20,8 @@ data class Sticker(
     /** Spoken by TalkBack and attached to the committed image as its label. */
     val description: String,
     val source: StickerSource,
+    /** What the sticker says or means ([StickerTag]); drives sticker suggestions. Empty for untagged stickers. */
+    val tags: Set<StickerTag> = emptySet(),
 ) {
     /** File-name-safe form of [id], used to name the image in the share cache. */
     val cacheKey: String
