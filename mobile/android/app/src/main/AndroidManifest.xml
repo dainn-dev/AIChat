@@ -70,6 +70,22 @@
             <meta-data android:name="android.view.textservice.scs" android:resource="@xml/spellchecker"/>
         </service>
 
+        <!-- AIChat MODIFIED: chat reader for reply suggestions. Reads the visible Messenger/Zalo chat only when the
+             user taps "Gợi ý trả lời"; disclosed on the consent screen (com.aichat.keyboard.capture). Exported only to
+             the system: BIND_ACCESSIBILITY_SERVICE is held by the system alone. -->
+        <service
+            android:name="com.aichat.keyboard.capture.ChatCaptureService"
+            android:label="@string/aichat__capture__service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/aichat_accessibility_service"/>
+        </service>
+
         <!-- Main App Activity -->
         <activity
             android:name="dev.patrickgold.florisboard.app.FlorisAppActivity"

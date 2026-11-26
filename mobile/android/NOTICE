@@ -132,6 +132,13 @@ The full delta from upstream is:
   app/src/main/assets/ime/keyboard/org.florisboard.layouts/layouts/charactersMod/default.json
       iOS-like bottom row: 123, emoji, space, return; "@" or "/" and "." only in email / URL fields; the language
       key moved to the bottom strip. (JSON array root, so no "aichatModified" key can mark it.)
+  app/src/main/AndroidManifest.xml (also)
+      com.aichat.keyboard.capture.ChatCaptureService (chat reader for reply suggestions; accessibility service
+      bound only by the system through BIND_ACCESSIBILITY_SERVICE, config in res/xml/aichat_accessibility_service.xml).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/Routes.kt (also)
+      Registers the chat reader consent screen (aichatCaptureGraph()).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/HomeScreen.kt (also)
+      "Read messages to suggest replies" (Đọc tin nhắn để gợi ý trả lời) entry below the AIChat account.
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
@@ -146,4 +153,5 @@ Files added by AIChat (not part of upstream):
   app/src/main/res/xml/network_security_config.xml,
   app/src/main/assets/ime/theme/com.aichat.themes/ (iOS-style themes generated from floris_day.json by
   tools/gen_aichat_themes.py), tools/gen_aichat_themes.py,
-  app/src/debug/res/xml/network_security_config.xml
+  app/src/debug/res/xml/network_security_config.xml,
+  app/src/main/res/xml/aichat_accessibility_service.xml
