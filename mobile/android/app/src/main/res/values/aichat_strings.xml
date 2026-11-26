@@ -156,4 +156,34 @@
     <string name="aichat__ai__error_timeout">AI took too long, try again</string>
     <string name="aichat__ai__error_server">AI is unavailable, try again later</string>
     <string name="aichat__ai__error_text_changed">The text changed, try again</string>
+
+    <!-- Screenshot share target (com.aichat.keyboard.share) -->
+    <string name="aichat__share__target_label">AIChat reply suggestions</string>
+    <string name="aichat__share__title">Reply suggestions</string>
+    <string name="aichat__share__close">Close</string>
+    <string name="aichat__share__reading">Reading the screenshot on your phone…</string>
+    <string name="aichat__share__unreadable">No chat messages were found in this image. Share a screenshot of a conversation.</string>
+    <string name="aichat__share__privacy_note">The image stays on your phone. Only the messages below are sent to AIChat, and they are not saved.</string>
+    <string name="aichat__share__conversation_title">Conversation</string>
+    <string name="aichat__share__contact">With {name}</string>
+    <string name="aichat__share__flip_hint">Tap a message to switch who sent it.</string>
+    <string name="aichat__share__sender_me">Me</string>
+    <string name="aichat__share__sender_them">Them</string>
+    <string name="aichat__share__tone_title">Choose a tone</string>
+    <string name="aichat__share__tone_flirty">😏 Flirty</string>
+    <string name="aichat__share__tone_funny">😄 Funny</string>
+    <string name="aichat__share__tone_friendly">🙂 Friendly</string>
+    <string name="aichat__share__tone_polite">Polite</string>
+    <string name="aichat__share__tone_mature">Mature</string>
+    <string name="aichat__share__loading">Writing replies…</string>
+    <string name="aichat__share__suggestions_title">Suggestions</string>
+    <string name="aichat__share__copy">Copy</string>
+    <string name="aichat__share__copied">Copied</string>
+    <string name="aichat__share__error_not_signed_in">Sign in to AIChat to get reply suggestions.</string>
+    <string name="aichat__share__sign_in">Sign in</string>
+    <string name="aichat__share__error_quota">You have used today\'s AI limit. Try again tomorrow.</string>
+    <string name="aichat__share__error_network">No internet connection.</string>
+    <string name="aichat__share__error_timeout">AI took too long. Try again.</string>
+    <string name="aichat__share__error_server">AI is unavailable right now. Try again later.</string>
+    <string name="aichat__share__retry">Try again</string>
 </resources>

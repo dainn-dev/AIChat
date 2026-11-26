@@ -123,6 +123,24 @@
             android:taskAffinity=""
             android:exported="false"/>
 
+        <!-- AIChat MODIFIED: share target for chat screenshots ("Gợi ý trả lời AIChat"). The image is read on-device
+             (ML Kit OCR) and never uploaded; only the parsed messages go to /v1/keyboard/reply. Exported only for
+             this SEND image/* filter; the activity also rejects non-content: URIs and this app's own providers. -->
+        <activity
+            android:name="com.aichat.keyboard.share.ShareReplyActivity"
+            android:label="@string/aichat__share__target_label"
+            android:icon="@mipmap/floris_app_icon"
+            android:roundIcon="@mipmap/floris_app_icon_round"
+            android:theme="@style/FlorisAppTheme"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+        </activity>
+
         <!-- Copy to Clipboard Activity -->
         <activity
             android:name="dev.patrickgold.florisboard.ime.clipboard.FlorisCopyToClipboardActivity"

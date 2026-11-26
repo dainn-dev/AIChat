@@ -232,6 +232,8 @@ dependencies {
     implementation("com.aichat:vi-input")
     // AIChat MODIFIED: AIChat backend client and session store.
     implementation(projects.core.network)
+    // AIChat MODIFIED: on-device OCR (bundled Latin model) for the screenshot share target.
+    implementation(libs.google.mlkit.text.recognition)
 
     testImplementation(libs.kotlin.test.junit5)
     // AIChat MODIFIED: AIChat ViewModel tests (Main dispatcher + MockWebServer-backed AiChatClient).

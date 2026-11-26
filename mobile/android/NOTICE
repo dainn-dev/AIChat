@@ -125,6 +125,12 @@ The full delta from upstream is:
   app/src/main/assets/ime/keyboard/org.florisboard.layouts/layouts/charactersMod/default.json
       iOS-like bottom row: 123, emoji, space, return; "@" or "/" and "." only in email / URL fields; the language
       key moved to the bottom strip. (JSON array root, so no "aichatModified" key can mark it.)
+  gradle/libs.versions.toml (also)
+      ML Kit text recognition 16.0.1 (bundled Latin model) for the screenshot share target.
+  app/build.gradle.kts (also)
+      Dependency on ML Kit text recognition (bundled Latin model).
+  app/src/main/AndroidManifest.xml (also)
+      Exported com.aichat.keyboard.share.ShareReplyActivity (ACTION_SEND image/* share target).
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
