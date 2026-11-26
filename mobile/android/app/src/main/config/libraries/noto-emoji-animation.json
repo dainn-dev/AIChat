@@ -1,0 +1,15 @@
+{
+  "uniqueId": "noto-emoji-animation",
+  "name": "Animated Noto Emoji (sticker pack \"Emoji động\")",
+  "description": "Animated emoji stickers from Google's Animated Noto Emoji, resized to 192 px with half the frames, licensed under CC BY 4.0.",
+  "developers": [
+    {
+      "name": "Google",
+      "organisationUrl": "https://github.com/googlefonts"
+    }
+  ],
+  "website": "https://googlefonts.github.io/noto-emoji-animation/",
+  "licenses": [
+    "noto-emoji-animation-cc-by-4.0"
+  ]
+}

@@ -111,4 +111,40 @@ describe('OutputValidator', () => {
       );
     });
   });
+
+  describe('toStickerTags (keyboard sticker suggestions)', () => {
+    it('keeps known tags in order', () => {
+      expect(v.toStickerTags({ sticker_tags: ['laugh', 'love'] })).toEqual([
+        'laugh',
+        'love',
+      ]);
+    });
+
+    it('lowercases and trims, drops unknown tags, dedupes and caps at 3', () => {
+      expect(
+        v.toStickerTags({
+          sticker_tags: [
+            '  THANKS ',
+            'party',
+            'thanks',
+            'Miss_You',
+            42,
+            null,
+            'ok',
+            'yes',
+          ],
+        }),
+      ).toEqual(['thanks', 'miss_you', 'ok']);
+    });
+
+    it('defaults to [] on missing or invalid sticker_tags', () => {
+      expect(v.toStickerTags(null)).toEqual([]);
+      expect(v.toStickerTags('laugh')).toEqual([]);
+      expect(v.toStickerTags(['laugh'])).toEqual([]);
+      expect(v.toStickerTags({ replies: [] })).toEqual([]);
+      expect(v.toStickerTags({ sticker_tags: 'laugh' })).toEqual([]);
+      expect(v.toStickerTags({ sticker_tags: { 0: 'laugh' } })).toEqual([]);
+      expect(v.toStickerTags({ sticker_tags: ['nope', ''] })).toEqual([]);
+    });
+  });
 });

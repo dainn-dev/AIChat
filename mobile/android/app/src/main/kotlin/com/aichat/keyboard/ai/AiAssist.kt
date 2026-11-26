@@ -21,6 +21,7 @@ import com.aichat.keyboard.reply.CapturedConversation
 import com.aichat.keyboard.reply.ClipboardConversationProvider
 import com.aichat.keyboard.reply.ConversationCapturer
 import com.aichat.keyboard.core.network.model.KeyboardTranslateRequest
+import com.aichat.keyboard.sticker.suggest.StickerSuggestLogic
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.editorInstance
 import dev.patrickgold.florisboard.ime.editor.EditorInstance
@@ -76,7 +77,7 @@ internal class AiChatTextBackend(
     private val client: AiChatClient,
     private val isIncognito: () -> Boolean,
 ) : AiTextBackend {
-    override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<List<String>> {
+    override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions> {
         val request = KeyboardReplyRequest(
             conversation = conversation.messages,
             tone = tone,
@@ -85,7 +86,13 @@ internal class AiChatTextBackend(
             contactLabel = conversation.contactLabel,
             remember = if (isIncognito()) false else null,
         )
-        val result = client.reply(request).map { response -> response.suggestions.map { it.text } }
+        val result = client.reply(request).map { response ->
+            ReplySuggestions(
+                replies = response.suggestions.map { it.text },
+                // Unknown tag names (a newer backend) are dropped.
+                stickerTags = StickerSuggestLogic.tagsFromWire(response.stickerTags),
+            )
+        }
         result.errorOrNull()?.let { Log.w(TAG, "Reply failed: ${it.logSummary()}") }
         return result
     }

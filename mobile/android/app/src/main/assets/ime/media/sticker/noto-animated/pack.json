@@ -1,0 +1,33 @@
+{
+  "id": "noto-animated",
+  "title": "Emoji động",
+  "icon": "😂",
+  "attribution": "Animated Noto Emoji by Google, CC BY 4.0 (https://googlefonts.github.io/noto-emoji-animation/). Resized to 192 px and every second frame merged; see app/src/main/config/libraries/noto-emoji-animation.json.",
+  "stickers": [
+    { "file": "emoji_u1f602.webp", "description": "Cười ra nước mắt", "tags": ["laugh"] },
+    { "file": "emoji_u1f923.webp", "description": "Cười lăn lộn", "tags": ["laugh"] },
+    { "file": "emoji_u1f970.webp", "description": "Mặt cười với trái tim", "tags": ["love"] },
+    { "file": "emoji_u2764_fe0f.webp", "description": "Trái tim đỏ", "tags": ["love"] },
+    { "file": "emoji_u1f618.webp", "description": "Hôn gió", "tags": ["love", "miss_you", "bye"] },
+    { "file": "emoji_u1f64f.webp", "description": "Chắp tay cảm ơn", "tags": ["thanks", "please"] },
+    { "file": "emoji_u1f44c.webp", "description": "OK", "tags": ["ok"] },
+    { "file": "emoji_u1f44d.webp", "description": "Like", "tags": ["ok", "yes", "great"] },
+    { "file": "emoji_u1f44e.webp", "description": "Không thích", "tags": ["no"] },
+    { "file": "emoji_u1f44f.webp", "description": "Vỗ tay", "tags": ["congrats", "great"] },
+    { "file": "emoji_u1f97a.webp", "description": "Mắt cún năn nỉ", "tags": ["please", "sorry", "miss_you"] },
+    { "file": "emoji_u1f634.webp", "description": "Ngủ ngon", "tags": ["goodnight"] },
+    { "file": "emoji_u1f973.webp", "description": "Ăn mừng", "tags": ["congrats", "cheer"] },
+    { "file": "emoji_u1f62d.webp", "description": "Khóc nức nở", "tags": ["sad"] },
+    { "file": "emoji_u1f620.webp", "description": "Tức giận", "tags": ["angry"] },
+    { "file": "emoji_u1f631.webp", "description": "Hoảng hốt", "tags": ["surprised"] },
+    { "file": "emoji_u1f62e.webp", "description": "Ngạc nhiên", "tags": ["surprised"] },
+    { "file": "emoji_u1f60e.webp", "description": "Ngầu", "tags": ["cool"] },
+    { "file": "emoji_u1f914.webp", "description": "Suy nghĩ", "tags": ["thinking"] },
+    { "file": "emoji_u1f44b.webp", "description": "Vẫy tay chào", "tags": ["hello", "bye"] },
+    { "file": "emoji_u1f4aa.webp", "description": "Cố lên", "tags": ["cheer", "great"] },
+    { "file": "emoji_u23f3.webp", "description": "Chờ chút", "tags": ["wait", "busy"] },
+    { "file": "emoji_u1f680.webp", "description": "Tới liền", "tags": ["coming"] },
+    { "file": "emoji_u1f60b.webp", "description": "Ngon quá", "tags": ["eat"] },
+    { "file": "emoji_u1f525.webp", "description": "Đỉnh quá", "tags": ["great", "cool"] }
+  ]
+}

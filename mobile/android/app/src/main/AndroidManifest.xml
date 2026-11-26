@@ -23,6 +23,12 @@
         <intent>
             <action android:name="android.service.textservice.SpellCheckerService"/>
         </intent>
+        <!-- AIChat MODIFIED: lets the keyboard see which chat apps take a shared image, to send a sticker through
+             the app's share screen when its chat field does not accept images (com.aichat.keyboard.sticker.StickerSender). -->
+        <intent>
+            <action android:name="android.intent.action.SEND"/>
+            <data android:mimeType="image/*"/>
+        </intent>
     </queries>
 
     <!-- AIChat MODIFIED: Android auto-backup and device-to-device transfer disabled for v1 (the app will
@@ -135,6 +141,16 @@
         <activity
             android:name="com.aichat.keyboard.sticker.StickerImportActivity"
             android:theme="@style/FlorisAppTheme.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="false"/>
+
+        <!-- AIChat MODIFIED: "Tạo sticker chữ", the text sticker maker opened from the sticker panel's add menu (the
+             keyboard cannot host a text field itself). Opened only by the keyboard, so it is not exported. -->
+        <activity
+            android:name="com.aichat.keyboard.sticker.TextStickerMakerActivity"
+            android:theme="@style/FlorisAppTheme.Transparent"
+            android:windowSoftInputMode="stateVisible|adjustResize"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:exported="false"/>

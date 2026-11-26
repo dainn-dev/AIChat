@@ -79,6 +79,7 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
     jest.resetAllMocks();
     keyboard.reply.mockResolvedValue({
       suggestions: [{ tone: 'Friendly', text: 'ok nhé' }],
+      sticker_tags: ['ok', 'thanks'],
       conversation_id: null,
       usage: {},
     });
@@ -98,6 +99,7 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('conversation_id', null);
+      expect(res.body.sticker_tags).toEqual(['ok', 'thanks']);
       const [user, dto] = keyboard.reply.mock.calls[0];
       expect(user.sub).toBe('user-1');
       expect(dto).toMatchObject({

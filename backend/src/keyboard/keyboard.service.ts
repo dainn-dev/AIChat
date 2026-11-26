@@ -48,12 +48,12 @@ export class KeyboardService {
     dto: KeyboardReplyDto,
   ): Promise<KeyboardReplyResponse> {
     const tier = this.toUsageTier(user.tier);
-    const suggestions = await this.usage.runWithQuota(
+    const { replies, stickerTags } = await this.usage.runWithQuota(
       user.sub,
       tier,
       UsageMetric.Reply,
       () =>
-        this.pipeline.generateReplies(
+        this.pipeline.generateRepliesWithStickers(
           {
             messages: dto.conversation,
             tone: dto.tone,
@@ -74,7 +74,12 @@ export class KeyboardService {
       this.persistCapture(user, dto),
       this.snapshot(user.sub, tier),
     ]);
-    return { suggestions, conversation_id: conversationId, usage };
+    return {
+      suggestions: replies,
+      sticker_tags: stickerTags,
+      conversation_id: conversationId,
+      usage,
+    };
   }
 
   async rewrite(

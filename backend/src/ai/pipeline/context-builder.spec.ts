@@ -64,6 +64,19 @@ describe('ContextBuilder language instructions', () => {
     expect(system).toContain('{"replies":[{"text":"..."}]}');
   });
 
+  it('asks for sticker_tags from the fixed vocabulary only when requested', () => {
+    const plain = builder.buildReplyPrompt(base).system;
+    expect(plain).not.toContain('sticker_tags');
+
+    const { system } = builder.buildReplyPrompt({ ...base, stickerTags: true });
+    expect(system).toContain(
+      '{"replies":[{"text":"..."}],"sticker_tags":["..."]}',
+    );
+    expect(system).toContain('0-3 sticker tags');
+    expect(system).toContain('miss_you');
+    expect(system).toContain('please');
+  });
+
   it('pins the rewrite language when lang is set', () => {
     const { system } = builder.buildRewritePrompt({
       text: 'ok see u',

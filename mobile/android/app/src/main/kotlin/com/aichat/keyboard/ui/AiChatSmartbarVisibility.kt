@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiAssistState
 import com.aichat.keyboard.ai.AiSmartbarLayout
+import com.aichat.keyboard.sticker.suggest.rememberTypingStickerSuggestion
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.nlp.NlpInlineAutofill
 import dev.patrickgold.florisboard.ime.smartbar.SmartbarLayout
@@ -34,10 +35,13 @@ fun isSmartbarVisible(): Boolean {
     val layout by prefs.smartbar.layout.observeAsState()
     val aiController = remember { AiAssist.controller(context) }
     val aiState by aiController.state.collectAsState()
+    val stickerSuggestion = rememberTypingStickerSuggestion()
     return AiChatSizing.shouldShowSmartbar(
         enabled = enabled,
         suggestionsOnly = layout == SmartbarLayout.SUGGESTIONS_ONLY,
-        hasSuggestions = candidates.isNotEmpty() || (AndroidVersion.ATLEAST_API30_R && inlineSuggestions.isNotEmpty()),
+        // Sticker suggestions open the bar too (e.g. after "cảm ơn " when there are no word suggestions).
+        hasSuggestions = candidates.isNotEmpty() || (AndroidVersion.ATLEAST_API30_R && inlineSuggestions.isNotEmpty()) ||
+            stickerSuggestion != null,
         aiOpen = aiState != AiAssistState.Closed,
     )
 }

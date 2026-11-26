@@ -50,11 +50,12 @@ class AiReplyFlowTest {
     }
 
     private class FakeBackend(
-        var replies: ApiResult<List<String>> = ApiResult.Success(listOf("Rảnh chứ, đi đâu nè?", "Có, còn bạn?")),
+        var replies: ApiResult<ReplySuggestions> =
+            ApiResult.Success(ReplySuggestions(listOf("Rảnh chứ, đi đâu nè?", "Có, còn bạn?"))),
     ) : AiTextBackend {
         val replyCalls = mutableListOf<Pair<CapturedConversation, Tone>>()
         override suspend fun run(action: AiAction, text: String): ApiResult<String> = ApiResult.Success(text)
-        override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<List<String>> {
+        override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions> {
             replyCalls += conversation to tone
             return replies
         }
@@ -85,6 +86,18 @@ class AiReplyFlowTest {
 
         assertEquals(listOf(chat to Tone.FLIRTY), backend.replyCalls)
         assertEquals(AiAssistState.Suggestions(listOf("Rảnh chứ, đi đâu nè?", "Có, còn bạn?")), c.state.value)
+    }
+
+    @Test
+    fun `sticker tags from the backend are kept with the suggestions`() = runTest {
+        val tags = listOf(com.aichat.keyboard.sticker.StickerTag.THANKS, com.aichat.keyboard.sticker.StickerTag.LOVE)
+        val backend = FakeBackend(replies = ApiResult.Success(ReplySuggestions(listOf("Cảm ơn nha"), tags)))
+        val c = controller(listOf(FakeProvider("a", CaptureResult.Captured(chat))), backend)
+
+        c.requestReplies(Tone.FRIENDLY)
+        advanceUntilIdle()
+
+        assertEquals(AiAssistState.Suggestions(listOf("Cảm ơn nha"), tags), c.state.value)
     }
 
     @Test
@@ -152,7 +165,7 @@ class AiReplyFlowTest {
     fun `an empty suggestion list is a server failure, not an empty row`() = runTest {
         val c = controller(
             listOf(FakeProvider("a", CaptureResult.Captured(chat))),
-            FakeBackend(replies = ApiResult.Success(emptyList())),
+            FakeBackend(replies = ApiResult.Success(ReplySuggestions(emptyList()))),
         )
         c.requestReplies(Tone.FRIENDLY)
         advanceUntilIdle()
@@ -189,9 +202,9 @@ class AiReplyFlowTest {
             val gate = CompletableDeferred<Unit>()
             var calls = 0
             override suspend fun run(action: AiAction, text: String): ApiResult<String> = ApiResult.Success(text)
-            override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<List<String>> {
+            override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions> {
                 if (calls++ > 0) gate.await()
-                return ApiResult.Success(listOf("ok"))
+                return ApiResult.Success(ReplySuggestions(listOf("ok")))
             }
         }
         val c = controller(listOf(FakeProvider("a", CaptureResult.Captured(chat))), backend)

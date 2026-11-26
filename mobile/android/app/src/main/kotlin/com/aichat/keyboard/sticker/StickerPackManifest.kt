@@ -8,10 +8,11 @@ import kotlinx.serialization.json.Json
  *
  * ```json
  * { "id": "cats", "title": "Mèo", "icon": "🐱",
- *   "stickers": [ { "file": "hi.png", "description": "Mèo chào" } ] }
+ *   "stickers": [ { "file": "hi.png", "description": "Mèo chào", "tags": ["hello"] } ] }
  * ```
  *
  * Files must sit directly in the pack folder and be PNG, WebP, GIF or JPEG; other entries are skipped.
+ * `tags` is optional and holds [StickerTag] wire names; unknown names are ignored (a newer pack may know more tags).
  */
 object StickerPackManifest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -27,7 +28,11 @@ object StickerPackManifest {
     )
 
     @Serializable
-    private data class Entry(val file: String, val description: String? = null)
+    private data class Entry(
+        val file: String,
+        val description: String? = null,
+        val tags: List<String> = emptyList(),
+    )
 
     /** The pack, or null if [text] is not a valid manifest or lists no usable sticker. */
     fun parse(text: String, assetDir: String): StickerPack? {
@@ -42,6 +47,7 @@ object StickerPackManifest {
                     id = "asset:${manifest.id}:${entry.file}",
                     description = entry.description?.takeIf { it.isNotBlank() } ?: manifest.title,
                     source = StickerSource.Asset("$assetDir/${entry.file}"),
+                    tags = entry.tags.mapNotNull(StickerTag::fromWire).toSet(),
                 )
             }
         if (stickers.isEmpty()) return null

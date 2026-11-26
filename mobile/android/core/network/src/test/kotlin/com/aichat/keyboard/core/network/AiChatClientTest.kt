@@ -327,6 +327,38 @@ class AiChatClientTest {
     }
 
     @Test
+    fun `reply without sticker_tags decodes them as empty`() = runBlocking {
+        server.enqueue(jsonResponse(200, Payloads.REPLY))
+
+        val result = client(InMemoryTokenStore(oldTokens)).reply(replyRequest)
+
+        assertEquals(emptyList(), (result as ApiResult.Success).value.stickerTags)
+    }
+
+    @Test
+    fun `reply with sticker_tags decodes them, unknown names included`() = runBlocking {
+        server.enqueue(jsonResponse(200, Payloads.replyWithStickerTags("""["thanks","love","unicorn"]""")))
+
+        val result = client(InMemoryTokenStore(oldTokens)).reply(replyRequest)
+
+        val value = (result as ApiResult.Success).value
+        assertEquals(listOf("thanks", "love", "unicorn"), value.stickerTags)
+        assertEquals(1, value.suggestions.size)
+    }
+
+    @Test
+    fun `a null or malformed sticker_tags never fails the reply`() = runBlocking {
+        for (tags in listOf("null", "\"thanks\"", "{}", """["ok", 3, null, {"a":1}]""")) {
+            server.enqueue(jsonResponse(200, Payloads.replyWithStickerTags(tags)))
+
+            val result = client(InMemoryTokenStore(oldTokens)).reply(replyRequest)
+
+            val expected = if (tags.startsWith("[")) listOf("ok") else emptyList()
+            assertEquals(expected, (result as ApiResult.Success).value.stickerTags, tags)
+        }
+    }
+
+    @Test
     fun `reply 429 maps to QuotaExceeded with the limit`() = runBlocking {
         server.enqueue(
             errorResponse(

@@ -1,7 +1,16 @@
 package com.aichat.keyboard.core.network.model
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonPrimitive
 
 /*
  * Wire models for the AIChat backend. Classes that carry passwords or tokens override toString() so they can
@@ -250,7 +259,33 @@ data class KeyboardReplyResponse(
     /** Stored conversation id, or null. Null does NOT mean nothing was stored; see keyboard-api.md. */
     @SerialName("conversation_id") val conversationId: String? = null,
     val usage: Usage,
+    /**
+     * 0-3 sticker tag wire names that fit the conversation (`StickerTag` vocabulary in the app). Optional: an
+     * older backend leaves it out, and a `null` or malformed value decodes as empty rather than failing the reply.
+     * Unknown names are kept here; the app drops them.
+     */
+    @SerialName("sticker_tags")
+    @Serializable(with = LenientStringListSerializer::class)
+    val stickerTags: List<String> = emptyList(),
 )
+
+/**
+ * Decodes a JSON array of strings, skipping non-string elements; anything else (`null`, an object) becomes an empty
+ * list. For optional, purely decorative fields that must never make a whole response fail to parse.
+ */
+internal object LenientStringListSerializer : KSerializer<List<String>> {
+    private val delegate = ListSerializer(String.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun deserialize(decoder: Decoder): List<String> {
+        val jsonDecoder = decoder as? JsonDecoder ?: return delegate.deserialize(decoder)
+        val array = jsonDecoder.decodeJsonElement() as? JsonArray ?: return emptyList()
+        return array.mapNotNull { element -> (element as? JsonPrimitive)?.takeIf { it.isString }?.content }
+    }
+
+    override fun serialize(encoder: Encoder, value: List<String>) = delegate.serialize(encoder, value)
+}
 
 /** `POST /v1/keyboard/rewrite`. */
 @Serializable
