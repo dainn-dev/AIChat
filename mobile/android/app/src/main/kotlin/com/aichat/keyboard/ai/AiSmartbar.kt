@@ -9,10 +9,14 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.provider.Settings
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,17 +33,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aichat.keyboard.core.network.model.Tone
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.R
+import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import dev.patrickgold.florisboard.subtypeManager
-import org.florisboard.lib.snygg.ui.SnyggChip
+import org.florisboard.lib.snygg.ui.SnyggBox
 import org.florisboard.lib.snygg.ui.SnyggIcon
 import org.florisboard.lib.snygg.ui.SnyggIconButton
+import org.florisboard.lib.snygg.ui.SnyggRow
 import org.florisboard.lib.snygg.ui.SnyggText
 
 /** The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. */
@@ -108,7 +118,7 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
             AiAssistState.Closed -> Unit
             AiAssistState.Ready -> ActionChips(controller)
             AiAssistState.ChoosingReplyTone -> ToneChips(controller)
-            is AiAssistState.Suggestions -> SuggestionChips(controller, s.replies)
+            is AiAssistState.Suggestions -> SuggestionPanel(controller, s.replies)
             is AiAssistState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.padding(horizontal = 8.dp).size(18.dp),
@@ -168,23 +178,55 @@ private fun ToneChips(controller: AiAssistController) {
     }
 }
 
+/**
+ * Reply suggestions, shown in the taller smartbar ([AiSmartbarLayout.SUGGESTION_ROWS] rows): one row of chips
+ * (back, and the tones to ask again in another tone), then the replies as multi-line cards side by side.
+ */
 @Composable
-private fun SuggestionChips(controller: AiAssistController, replies: List<String>) {
-    LazyRow(
-        modifier = Modifier.fillMaxHeight(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        item { Chip(R.string.aichat__ai__back) { controller.startReply() } }
-        items(replies) { reply ->
-            SnyggChip(
-                elementName = FlorisImeUi.ClipboardFilterChip.elementName,
-                attributes = ChipAttrs,
-                onClick = { controller.pickSuggestion(reply) },
-                text = reply,
-            )
+private fun RowScope.SuggestionPanel(controller: AiAssistController, replies: List<String>) {
+    val rowHeight = FlorisImeSizing.smartbarHeight
+    val cardAreaHeight = rowHeight * (AiSmartbarLayout.SUGGESTION_ROWS - 1)
+    val maxLines = AiSmartbarLayout.cardMaxLines(cardAreaHeight.value / LocalDensity.current.fontScale)
+    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().height(rowHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            item { Chip(R.string.aichat__ai__back) { controller.startReply() } }
+            items(ReplyTones) { (tone, label) ->
+                Chip(label) { controller.requestReplies(tone) }
+            }
+        }
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().height(cardAreaHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            items(replies) { reply ->
+                SnyggBox(
+                    elementName = FlorisImeUi.ClipboardFilterChip.elementName,
+                    attributes = ChipAttrs,
+                    modifier = Modifier
+                        .fillParentMaxWidth(if (replies.size > 1) CARD_WIDTH_FRACTION else 1f)
+                        .fillMaxHeight(),
+                    clickAndSemanticsModifier = Modifier.clickable { controller.pickSuggestion(reply) },
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        text = reply,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                        fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
+                        lineHeight = AiSmartbarLayout.LINE_HEIGHT_SP.sp,
+                        maxLines = maxLines,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
+
+/** Cards narrower than the bar, so the next one peeks in and the row reads as scrollable. */
+private const val CARD_WIDTH_FRACTION = 0.8f
 
 /** Opens the system accessibility settings, where the user can turn on AIChat's chat reader. */
 private fun openAccessibilitySettings(context: Context) {
@@ -192,14 +234,23 @@ private fun openAccessibilitySettings(context: Context) {
     runCatching { context.startActivity(intent) }
 }
 
+/** A one-line chip at [AiSmartbarLayout.TEXT_SIZE_SP] (the smartbar's ~17sp made the chips overflow). */
 @Composable
 private fun Chip(@StringRes label: Int, active: Boolean = false, onClick: () -> Unit) {
-    SnyggChip(
+    SnyggRow(
         elementName = FlorisImeUi.ClipboardFilterChip.elementName,
         attributes = if (active) ActiveChipAttrs else ChipAttrs,
-        onClick = onClick,
-        text = keyboardString(label),
-    )
+        clickAndSemanticsModifier = Modifier.clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = keyboardString(label),
+            modifier = Modifier.padding(horizontal = 4.dp),
+            fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @Composable

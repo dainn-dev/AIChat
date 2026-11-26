@@ -150,4 +150,14 @@
     <string name="aichat__ai__error_timeout">AI phản hồi quá lâu, hãy thử lại</string>
     <string name="aichat__ai__error_server">AI đang gặp lỗi, thử lại sau</string>
     <string name="aichat__ai__error_text_changed">Nội dung đã thay đổi, hãy thử lại</string>
+
+    <!-- Mic key (com.aichat.keyboard.voice) -->
+    <string name="aichat__voice__unavailable">Máy này chưa có nhập bằng giọng nói. Hãy cài hoặc bật Google nhập bằng giọng nói</string>
+    <string name="aichat__voice__permission_denied">Hãy cho phép dùng micrô để nhập bằng giọng nói</string>
+    <string name="aichat__voice__prompt">Mời bạn nói</string>
+    <string name="aichat__voice__listening">Đang nghe…</string>
+    <string name="aichat__voice__tap_to_finish">Chạm vào đây khi nói xong, chạm ra ngoài để hủy</string>
+    <string name="aichat__voice__no_match">Chưa nghe rõ, hãy thử lại</string>
+    <string name="aichat__voice__error_network">Nhập bằng giọng nói cần kết nối mạng</string>
+    <string name="aichat__voice__error">Nhập bằng giọng nói bị lỗi, hãy thử lại</string>
 </resources>

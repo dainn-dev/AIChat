@@ -34,7 +34,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InlineSuggestionsRequest
 import android.view.inputmethod.InlineSuggestionsResponse
 import android.view.inputmethod.InputConnection
-import android.view.inputmethod.InputMethodInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -118,7 +117,6 @@ import org.florisboard.lib.android.AndroidInternalR
 import org.florisboard.lib.android.AndroidVersion
 import org.florisboard.lib.android.isOrientationLandscape
 import org.florisboard.lib.android.isOrientationPortrait
-import org.florisboard.lib.android.showShortToastSync
 import org.florisboard.lib.android.systemServiceOrNull
 import org.florisboard.lib.compose.ProvideLocalizedResources
 import org.florisboard.lib.kotlin.collectIn
@@ -231,25 +229,10 @@ class FlorisImeService : LifecycleInputMethodService() {
 
         fun switchToVoiceInputMethod(): Boolean {
             val ims = FlorisImeServiceReference.get() ?: return false
-            val imm = ims.systemServiceOrNull(InputMethodManager::class) ?: return false
-            val list: List<InputMethodInfo> = imm.enabledInputMethodList
-            for (el in list) {
-                for (i in 0 until el.subtypeCount) {
-                    if (el.getSubtypeAt(i).mode != "voice") continue
-                    if (AndroidVersion.ATLEAST_API28_P) {
-                        ims.switchInputMethod(el.id, el.getSubtypeAt(i))
-                        return true
-                    } else {
-                        ims.window.window?.let { window ->
-                            @Suppress("DEPRECATION")
-                            imm.setInputMethod(window.attributes.token, el.id)
-                            return true
-                        }
-                    }
-                }
-            }
-            ims.showShortToastSync("Failed to find voice IME, do you have one installed?")
-            return false
+            // AIChat MODIFIED: upstream only switched to an enabled voice IME and otherwise showed an English toast,
+            // so the mic key looked dead on phones without Google voice typing. VoiceInput switches to a voice IME
+            // when there is one, else runs Android speech recognition, else shows a localized message.
+            return com.aichat.keyboard.voice.VoiceInput.start(ims)
         }
     }
 
@@ -352,6 +335,8 @@ class FlorisImeService : LifecycleInputMethodService() {
         if (info == null) return
         val editorInfo = FlorisEditorInfo.wrap(info)
         editorInstance.handleStartInput(editorInfo)
+        // AIChat MODIFIED: commit text recognized by the mic key's speech screen once its app has the focus again.
+        com.aichat.keyboard.voice.VoiceInput.onStartInput(this, info)
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {

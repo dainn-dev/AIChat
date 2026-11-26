@@ -92,7 +92,8 @@ object FlorisImeSizing {
                     extendedActionsPlacement != ExtendedActionsPlacement.OVERLAY_APP_UI) {
                     smartbarHeight * 2
                 } else {
-                    smartbarHeight
+                    // AIChat MODIFIED: the main row grows while AI reply suggestions are shown.
+                    smartbarHeight * com.aichat.keyboard.ui.smartbarMainRowCount()
                 }
             } else {
                 0.dp
