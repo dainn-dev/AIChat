@@ -5,6 +5,27 @@
     Placeholders use FlorisBoard's {name} syntax (org.florisboard.lib.compose.stringRes).
 -->
 <resources>
+    <!-- Chat reader (accessibility) consent screen, workstream A -->
+    <string name="aichat__capture__title">Read messages to suggest replies</string>
+    <string name="aichat__capture__summary_on">On: reads the open Messenger or Zalo chat when you tap Suggest replies</string>
+    <string name="aichat__capture__summary_off">Off: turn on so Suggest replies can see the chat</string>
+    <string name="aichat__capture__intro">To suggest replies that fit the conversation, AIChat can read the chat you are replying to. This uses Android\'s accessibility service. Please read what it does before you turn it on.</string>
+    <string name="aichat__capture__what_heading">What is read</string>
+    <string name="aichat__capture__what_body">Only the messages visible on screen in Messenger or Zalo, and the name of the person you are chatting with. Other apps are never read. Password fields and the text you are typing are never read.</string>
+    <string name="aichat__capture__when_heading">When it is read</string>
+    <string name="aichat__capture__when_body">Only at the moment you tap Suggest replies in the AIChat keyboard. Nothing is read in the background, and nothing is kept on your phone.</string>
+    <string name="aichat__capture__where_heading">Where it goes</string>
+    <string name="aichat__capture__where_body">The messages are sent over an encrypted connection to AIChat\'s server to write the reply suggestions. If you turned on memory in your account, the server can keep the conversation to make later suggestions better; you can delete it at any time. In incognito mode nothing is kept.</string>
+    <string name="aichat__capture__off_heading">You stay in control</string>
+    <string name="aichat__capture__off_body">You can turn this off at any time in your phone\'s Accessibility settings. Without it, you can still copy a message and tap Suggest replies.</string>
+    <string name="aichat__capture__how_body">Tap the button below, open AIChat chat reader under Downloaded apps (or Installed services), and turn it on.</string>
+    <string name="aichat__capture__agree_button">Agree and open Accessibility settings</string>
+    <string name="aichat__capture__manage_button">Open Accessibility settings</string>
+    <string name="aichat__capture__status_on">Status: on</string>
+    <string name="aichat__capture__status_off">Status: off</string>
+    <string name="aichat__capture__service_label">AIChat chat reader</string>
+    <string name="aichat__capture__service_description">Reads the messages visible in Messenger or Zalo only when you tap Suggest replies in the AIChat keyboard, and sends them to AIChat\'s server to write reply suggestions. It does not read other apps, password fields or what you type, and it does nothing in the background.</string>
+
     <!-- Settings home entry -->
     <string name="aichat__account__title">AIChat account</string>
     <string name="aichat__account__summary_signed_out">Sign in to get AI reply suggestions</string>

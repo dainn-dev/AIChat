@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- AIChat: Vietnamese strings for the AIChat account, memory and privacy screens (English fallback in values/). -->
 <resources>
+    <!-- Màn hình đồng ý đọc tin nhắn (trợ năng), workstream A -->
+    <string name="aichat__capture__title">Đọc tin nhắn để gợi ý trả lời</string>
+    <string name="aichat__capture__summary_on">Đang bật: đọc cuộc trò chuyện Messenger hoặc Zalo đang mở khi bạn bấm Gợi ý trả lời</string>
+    <string name="aichat__capture__summary_off">Đang tắt: bật để Gợi ý trả lời đọc được tin nhắn</string>
+    <string name="aichat__capture__intro">Để gợi ý câu trả lời hợp với cuộc trò chuyện, AIChat có thể đọc đoạn chat bạn đang trả lời. Tính năng này dùng dịch vụ trợ năng của Android. Vui lòng đọc kỹ trước khi bật.</string>
+    <string name="aichat__capture__what_heading">Đọc những gì</string>
+    <string name="aichat__capture__what_body">Chỉ các tin nhắn đang hiện trên màn hình trong Messenger hoặc Zalo, và tên người bạn đang chat. Không bao giờ đọc ứng dụng khác. Không bao giờ đọc ô mật khẩu hay nội dung bạn đang gõ.</string>
+    <string name="aichat__capture__when_heading">Đọc khi nào</string>
+    <string name="aichat__capture__when_body">Chỉ đúng lúc bạn bấm Gợi ý trả lời trên bàn phím AIChat. Không đọc ngầm, và không lưu gì trên điện thoại.</string>
+    <string name="aichat__capture__where_heading">Gửi đi đâu</string>
+    <string name="aichat__capture__where_body">Tin nhắn được gửi qua kết nối mã hoá tới máy chủ AIChat để viết gợi ý trả lời. Nếu bạn đã bật ghi nhớ trong tài khoản, máy chủ có thể lưu cuộc trò chuyện để gợi ý lần sau tốt hơn; bạn có thể xoá bất cứ lúc nào. Ở chế độ ẩn danh thì không lưu gì.</string>
+    <string name="aichat__capture__off_heading">Bạn luôn kiểm soát</string>
+    <string name="aichat__capture__off_body">Bạn có thể tắt bất cứ lúc nào trong phần Hỗ trợ tiếp cận (Trợ năng) của điện thoại. Khi tắt, bạn vẫn có thể copy tin nhắn rồi bấm Gợi ý trả lời.</string>
+    <string name="aichat__capture__how_body">Bấm nút bên dưới, mở AIChat đọc tin nhắn trong mục Ứng dụng đã tải xuống (hoặc Dịch vụ đã cài đặt) rồi bật lên.</string>
+    <string name="aichat__capture__agree_button">Đồng ý và mở cài đặt Trợ năng</string>
+    <string name="aichat__capture__manage_button">Mở cài đặt Trợ năng</string>
+    <string name="aichat__capture__status_on">Trạng thái: đang bật</string>
+    <string name="aichat__capture__status_off">Trạng thái: đang tắt</string>
+    <string name="aichat__capture__service_label">AIChat đọc tin nhắn</string>
+    <string name="aichat__capture__service_description">Chỉ đọc các tin nhắn đang hiện trong Messenger hoặc Zalo khi bạn bấm Gợi ý trả lời trên bàn phím AIChat, rồi gửi tới máy chủ AIChat để viết gợi ý trả lời. Không đọc ứng dụng khác, ô mật khẩu hay nội dung bạn gõ, và không chạy ngầm.</string>
+
     <!-- Settings home entry -->
     <string name="aichat__account__title">Tài khoản AIChat</string>
     <string name="aichat__account__summary_signed_out">Đăng nhập để nhận gợi ý trả lời bằng AI</string>

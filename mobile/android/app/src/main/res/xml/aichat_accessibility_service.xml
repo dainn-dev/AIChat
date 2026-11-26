@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AIChat chat reader (com.aichat.keyboard.capture.ChatCaptureService).
+  Kept as narrow as possible: only Messenger and Zalo, one event type that the service ignores, no key filtering,
+  no gestures. Window content is read only when the user taps "Gợi ý trả lời" in the keyboard.
+  flagRetrieveInteractiveWindows: lets the service find the chat window behind the keyboard window.
+  flagReportViewIds: lets the parser recognise the toolbar title.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/aichat__capture__service_description"
+    android:packageNames="com.facebook.orca,com.zing.zalo"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:canRequestFilterKeyEvents="false"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="1000"/>
