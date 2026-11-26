@@ -189,6 +189,7 @@
     <string name="aichat__voice__no_match">Didn\'t catch that, try again</string>
     <string name="aichat__voice__error_network">Voice input needs an internet connection</string>
     <string name="aichat__voice__error">Voice input failed, try again</string>
+    <string name="aichat__voice__blocked_private">Voice input is off in password fields and incognito mode</string>
     <!-- Screenshot share target (com.aichat.keyboard.share) -->
     <string name="aichat__share__target_label">AIChat reply suggestions</string>
     <string name="aichat__share__title">Reply suggestions</string>

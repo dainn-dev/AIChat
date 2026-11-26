@@ -185,6 +185,7 @@
     <string name="aichat__voice__no_match">Chưa nghe rõ, hãy thử lại</string>
     <string name="aichat__voice__error_network">Nhập bằng giọng nói cần kết nối mạng</string>
     <string name="aichat__voice__error">Nhập bằng giọng nói bị lỗi, hãy thử lại</string>
+    <string name="aichat__voice__blocked_private">Không dùng nhập bằng giọng nói trong ô mật khẩu và chế độ ẩn danh</string>
     <!-- Chia sẻ ảnh chụp màn hình (com.aichat.keyboard.share) -->
     <string name="aichat__share__target_label">Gợi ý trả lời AIChat</string>
     <string name="aichat__share__title">Gợi ý trả lời</string>

@@ -79,7 +79,6 @@ class VoiceInputActivity : ComponentActivity() {
     private var partialText by mutableStateOf("")
 
     private val languageTag: String get() = intent.getStringExtra(EXTRA_LANGUAGE) ?: DEFAULT_LANGUAGE
-    private val targetPackage: String? get() = intent.getStringExtra(EXTRA_TARGET_PACKAGE)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,12 +89,14 @@ class VoiceInputActivity : ComponentActivity() {
         }
         when (intent.getStringExtra(EXTRA_ROUTE)) {
             VoiceInputRoute.RECOGNIZER_ACTIVITY.name -> openRecognizerScreen()
-            VoiceInputRoute.SPEECH_RECOGNIZER.name -> {
-                setContent { ListeningSheet(partialText, onStop = ::stopListening, onCancel = ::cancel) }
-                if (hasMicPermission()) startListening() else micPermission.launch(Manifest.permission.RECORD_AUDIO)
-            }
+            VoiceInputRoute.SPEECH_RECOGNIZER.name -> listenInApp()
             else -> finish()
         }
+    }
+
+    private fun listenInApp() {
+        setContent { ListeningSheet(partialText, onStop = ::stopListening, onCancel = ::cancel) }
+        if (hasMicPermission()) startListening() else micPermission.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     override fun onStop() {
@@ -110,8 +111,17 @@ class VoiceInputActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /**
+     * The speech screen, pinned to a trusted app ([VoiceInput.trustedRecognizerPackage]): the implicit intent could
+     * otherwise be answered by any installed app, whose text we would commit. No trusted screen: listen in-app.
+     */
     private fun openRecognizerScreen() {
+        val trustedPackage = VoiceInput.trustedRecognizerPackage(this) ?: run {
+            listenInApp()
+            return
+        }
         val intent = recognitionIntent()
+            .setPackage(trustedPackage)
             .putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.aichat__voice__prompt))
         try {
             recognizerScreen.launch(intent)
@@ -166,7 +176,7 @@ class VoiceInputActivity : ComponentActivity() {
         if (text == null) {
             VoiceInput.showMessage(this, R.string.aichat__voice__no_match)
         } else {
-            VoiceInput.offerResult(text, targetPackage)
+            VoiceInput.offerResult(text)
         }
     }
 
@@ -203,16 +213,14 @@ class VoiceInputActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_ROUTE = "com.aichat.keyboard.voice.ROUTE"
         private const val EXTRA_LANGUAGE = "com.aichat.keyboard.voice.LANGUAGE"
-        private const val EXTRA_TARGET_PACKAGE = "com.aichat.keyboard.voice.TARGET_PACKAGE"
         private const val DEFAULT_LANGUAGE = "en-US"
 
         /** Opened from the keyboard (a service context, hence the new task). */
-        fun launch(context: Context, route: VoiceInputRoute, languageTag: String, targetPackage: String?) {
+        fun launch(context: Context, route: VoiceInputRoute, languageTag: String) {
             val intent = Intent(context, VoiceInputActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 .putExtra(EXTRA_ROUTE, route.name)
                 .putExtra(EXTRA_LANGUAGE, languageTag)
-                .putExtra(EXTRA_TARGET_PACKAGE, targetPackage)
             context.startActivity(intent)
         }
     }
