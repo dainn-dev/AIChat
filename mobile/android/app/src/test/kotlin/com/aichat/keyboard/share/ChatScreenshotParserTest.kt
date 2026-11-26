@@ -169,9 +169,10 @@ class ChatScreenshotParserTest {
         val chat = parse(
             them("Ok", top = 1300),
             them("Message", top = 1450),
-            line("Aa", left = 950, top = 1600, right = 1030),
+            line("Aa", left = 1350, top = 1600, right = 1520),
             them("Tin nhắn", top = 2000),
             them("still a message", top = 2100),
+            width = 1600, // cropped / landscape-style screenshot, not a full portrait screen
         )
         assertEquals(
             listOf(
@@ -258,6 +259,46 @@ class ChatScreenshotParserTest {
     }
 
     @Test
+    fun `full Messenger screenshot drops chrome and standalone sender label and classifies bubbles`() {
+        val width = 1260
+        val height = 2800
+        val chat = ChatScreenshotParser.parse(
+            listOf(
+                OcrLine("16:14", 25, 30, 80, 55),
+                OcrLine("Sample Contact", 260, 120, 520, 165),
+                OcrLine("Active now", 260, 178, 520, 205),
+                // Outgoing text above a photo/sticker attachment.
+                OcrLine("Nice!", 960, 1320, 1230, 1390),
+                // OCR text overlaid on the sticker image: centered multiline block between bubbles.
+                OcrLine("A FICTIONAL STICKER CAPTION WITH WORDS", 270, 1500, 980, 1560),
+                OcrLine("MORE FICTIONAL CAPTION WORDS HERE", 270, 1570, 970, 1630),
+                OcrLine("THIS OVERLAY IS NOT A CHAT MESSAGE", 280, 1640, 960, 1700),
+                OcrLine("REMOVE IT FROM OCR RESULTS", 410, 1710, 840, 1770),
+                // A reaction emoji and incoming sender label are separate OCR nodes.
+                OcrLine(":)", 180, 1850, 310, 1910),
+                OcrLine("Sample Contact", 42, 1970, 210, 2010),
+                OcrLine("Are you free for coffee this weekend?", 42, 2050, 810, 2140),
+                // The user's outgoing, right-aligned reply.
+                OcrLine("Sure, that sounds lovely!", 410, 2300, 1230, 2370),
+                OcrLine("Absolutely, count me in", 410, 2380, 1230, 2450),
+                OcrLine("Delivered", 990, 2490, 1180, 2530),
+                OcrLine("Message", 450, 1880, 790, 1930),
+            ),
+            imageWidth = width,
+            imageHeight = height,
+        )
+        assertEquals("Sample Contact", chat.contactLabel)
+        assertEquals(
+            listOf(
+                ChatMessage(ME, "Nice!"),
+                ChatMessage(THEM, "Are you free for coffee this weekend?"),
+                ChatMessage(ME, "Sure, that sounds lovely! Absolutely, count me in"),
+            ),
+            chat.messages,
+        )
+    }
+
+    @Test
     fun `a cropped screenshot keeps its top lines and detects no contact`() {
         val chat = ChatScreenshotParser.parse(
             listOf(
@@ -270,6 +311,30 @@ class ChatScreenshotParserTest {
         assertNull(chat.contactLabel)
         assertEquals(
             listOf(ChatMessage(THEM, "Tối nay đi ăn không?"), ChatMessage(ME, "ok luôn")),
+            chat.messages,
+        )
+    }
+
+    @Test
+    fun `Messenger full screen aspect of 1260x2800 keeps both sides and removes header composer`() {
+        val chat = ChatScreenshotParser.parse(
+            listOf(
+                OcrLine("16:42", 25, 30, 80, 55),
+                OcrLine("Sample Contact", 280, 140, 650, 205),
+                OcrLine("Active now", 280, 215, 510, 250),
+                OcrLine("Are you free for coffee this weekend?", 80, 1935, 890, 2090),
+                OcrLine("Sure, that sounds lovely!", 420, 2180, 1210, 2325),
+                OcrLine("Message", 350, 2490, 1060, 2610),
+            ),
+            imageWidth = 1260,
+            imageHeight = 2800,
+        )
+        assertEquals("Sample Contact", chat.contactLabel)
+        assertEquals(
+            listOf(
+                ChatMessage(THEM, "Are you free for coffee this weekend?"),
+                ChatMessage(ME, "Sure, that sounds lovely!"),
+            ),
             chat.messages,
         )
     }

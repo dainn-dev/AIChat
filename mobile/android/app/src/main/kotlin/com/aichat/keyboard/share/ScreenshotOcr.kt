@@ -8,6 +8,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
@@ -30,6 +31,8 @@ import kotlin.coroutines.resumeWithException
  * recycled as soon as recognition ends. Nothing about the image or its text is logged.
  */
 object ScreenshotOcr {
+    private const val TAG = "ShareReply"
+
     /** Long screenshots are scaled down to keep the bitmap small; text stays readable at this width. */
     private const val MAX_WIDTH = 1440
     private const val MAX_PIXELS = 1440 * 8000
@@ -50,17 +53,26 @@ object ScreenshotOcr {
     }
 
     private suspend fun decodeAndRecognize(context: Context, uri: Uri): ParsedChat? {
-        val bitmap = runInterruptible { decode(context, uri) } ?: return null
+        val bitmap = runInterruptible { decode(context, uri) }
+        if (bitmap == null) {
+            Log.w(TAG, "Screenshot: decode failed")
+            return null
+        }
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         var cancelled = false
         return try {
             val text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
-            ChatScreenshotParser.parse(text.toOcrLines(), bitmap.width, bitmap.height)
+            val lines = text.toOcrLines()
+            ChatScreenshotParser.parse(lines, bitmap.width, bitmap.height).also {
+                // Counts and sizes only; the text itself is never logged.
+                Log.i(TAG, "Screenshot: ${bitmap.width}x${bitmap.height}, ocrLines=${lines.size}, messages=${it.messages.size}")
+            }
         } catch (e: CancellationException) {
             cancelled = true
             throw e
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
             // ML Kit reports failures as MlKitException; any failure means "could not read this image".
+            Log.w(TAG, "Screenshot: recognition failed (${e.javaClass.simpleName})")
             null
         } finally {
             // After a cancellation ML Kit may still be reading the bitmap: leave both to the garbage collector.
@@ -84,9 +96,11 @@ object ScreenshotOcr {
             }
             resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
         }
-    } catch (_: IOException) {
+    } catch (e: IOException) {
+        Log.w(TAG, "Screenshot: image I/O failed (${e.javaClass.simpleName})")
         null
-    } catch (_: SecurityException) {
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Screenshot: image permission denied")
         null
     } catch (_: OutOfMemoryError) {
         null

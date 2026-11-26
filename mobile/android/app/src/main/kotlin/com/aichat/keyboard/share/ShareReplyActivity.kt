@@ -8,6 +8,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -119,6 +120,8 @@ class ShareReplyActivity : ComponentActivity() {
             ownPackage = packageName,
             resolveOwner = { authority -> providerOwner(authority) },
         )
+        // Diagnostics: scheme/authority only, never the path or the image.
+        Log.i(TAG, "Shared image: scheme=${uri.scheme} authority=${uri.encodedAuthority} accepted=$accepted")
         return if (accepted) uri else null
     }
 
@@ -126,5 +129,9 @@ class ShareReplyActivity : ComponentActivity() {
         packageManager.resolveContentProvider(authority, 0)?.packageName
     } catch (_: RuntimeException) {
         null
+    }
+
+    private companion object {
+        const val TAG = "ShareReply"
     }
 }

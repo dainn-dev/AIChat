@@ -48,17 +48,25 @@ object ChatScreenshotParser {
     /** `@MaxLength(4000)` on the backend's message DTO. */
     const val MAX_CONTENT_LENGTH = 4000
 
-    private const val PHONE_ASPECT = 1.6
+    // Full phone screenshots are taller than 1.6:1 (the vivo test device is 1260x2800 = 2.22:1).
+    private const val PHONE_ASPECT = 1.8
     private const val STATUS_BAR_BOTTOM = 0.045
     private const val STATUS_BAND = 0.06
     private const val HEADER_BAND = 0.12
-    private const val INPUT_BAND_TOP = 0.91
+    // Chat screenshots may have large photo/sticker bubbles. Messenger often overlays text near y=700 in a
+    // 2800px screenshot, then continues with ordinary bubbles much lower. Discard chrome only at the very bottom.
+    // Full phone screenshots include the system navigation area, so the composer is around 87-92% of the image.
+    private const val FULL_SCREEN_INPUT_BAND_TOP = 0.87
+    private const val CROPPED_INPUT_BAND_TOP = 0.91
+    private const val MESSENGER_SCREENSHOT_ASPECT = 1.85
     private const val INPUT_SEARCH_FROM = 0.5
     private const val CENTER_TOLERANCE = 0.03
     private const val CENTERED_MAX_WIDTH = 0.6
     private const val SAME_BUBBLE_GAP = 0.6
     private const val SAME_BUBBLE_LEFT = 0.05
-    private const val ME_MAX_RIGHT_MARGIN = 0.07
+    // The screenshot includes Android navigation/status insets; Messenger's own bubble edge leaves a larger margin
+    // than the parser's original 7% threshold on this 1260px vivo screen.
+    private const val ME_MAX_RIGHT_MARGIN = 0.11
     private const val KEYBOARD_ROW_MIN_KEYS = 5
     private const val MAX_NAME_LENGTH = 40
     private const val MAX_NAME_WORDS = 6
@@ -69,7 +77,7 @@ object ChatScreenshotParser {
             .map { it.copy(text = cleanText(it.text)) }
             .filter { it.text.isNotEmpty() && it.right > it.left && it.bottom > it.top }
             .sortedWith(compareBy({ it.top }, { it.left }))
-        val isFullScreen = imageHeight >= imageWidth * PHONE_ASPECT
+        val isFullScreen = imageHeight >= imageWidth * MESSENGER_SCREENSHOT_ASPECT
 
         var body = clean
         var contactLabel: String? = null
@@ -77,11 +85,14 @@ object ChatScreenshotParser {
             val headerEnd = imageHeight * HEADER_BAND
             val header = body.filter { it.top < headerEnd && !isStatusBar(it, imageHeight) }
             contactLabel = detectContactName(header)
-            body = body.filter { it.top >= headerEnd && it.top < imageHeight * INPUT_BAND_TOP }
+            body = body.filter { it.top >= headerEnd && it.top < imageHeight * FULL_SCREEN_INPUT_BAND_TOP }
         }
-        body = cutAtInputBar(body, imageHeight)
+        body = cutAtInputBar(body, imageWidth, imageHeight, fullScreen = isFullScreen)
         body = body.filterNot { isNoise(it.text) || isCenteredSystemLine(it, imageWidth) }
         body = dropTrailingTimes(body, imageWidth)
+        body = dropStickerOverlayText(body, imageWidth)
+        body = dropIncomingSenderLabels(body, imageWidth)
+        body = dropStandaloneReactions(body, imageWidth)
 
         val messages = groupBubbles(body, imageWidth).map { bubble -> bubble.toMessage(imageWidth) }
         return ParsedChat(messages.takeLast(MAX_MESSAGES), contactLabel)
@@ -97,11 +108,13 @@ object ChatScreenshotParser {
      * Cuts at the input bar: a placeholder in the lower half that is in the bottom input band or has an open keyboard
      * below it. A lone "Message"/"Aa" bubble elsewhere is a message and nothing is cut.
      */
-    private fun cutAtInputBar(lines: List<OcrLine>, imageHeight: Int): List<OcrLine> {
+    private fun cutAtInputBar(lines: List<OcrLine>, imageWidth: Int, imageHeight: Int, fullScreen: Boolean): List<OcrLine> {
+        val inputBandTop = if (fullScreen) FULL_SCREEN_INPUT_BAND_TOP else CROPPED_INPUT_BAND_TOP
         val bar = lines.withIndex().firstOrNull { (index, line) ->
             line.top >= imageHeight * INPUT_SEARCH_FROM &&
                 isInputPlaceholder(line.text) &&
-                (line.top >= imageHeight * INPUT_BAND_TOP || lines.drop(index + 1).any { isKeyboardRow(it.text) })
+                (line.top >= imageHeight * inputBandTop && line.left >= imageWidth * 0.15 ||
+                    lines.drop(index + 1).any { isKeyboardRow(it.text) })
         }?.value ?: return lines
         return lines.filter { it.top < bar.top }
     }
@@ -156,6 +169,42 @@ object ChatScreenshotParser {
             line.left <= previous.right + tolerance &&
             line.right >= previous.left - tolerance
     }
+
+    /** Messenger group chats show the sender name as a small, left-aligned line immediately above the bubble. */
+    private fun dropIncomingSenderLabels(lines: List<OcrLine>, imageWidth: Int): List<OcrLine> =
+        lines.filterIndexed { index, line ->
+            val next = lines.getOrNull(index + 1) ?: return@filterIndexed true
+            val resemblesSender = looksLikeName(line.text) && line.height <= next.height * 0.85 &&
+                line.left < imageWidth * 0.45 && !isNoise(line.text)
+            val attachedToIncomingBubble = next.left >= line.left - imageWidth * 0.02 &&
+                next.left < imageWidth * 0.50 && next.top - line.bottom in 0..(next.height * 0.8).toInt()
+            !(resemblesSender && attachedToIncomingBubble)
+        }
+
+    /** OCR often reads a sticker caption or short title over a photo as if it were a chat bubble. */
+    private fun dropStickerOverlayText(lines: List<OcrLine>, imageWidth: Int): List<OcrLine> = lines.filterIndexed { index, line ->
+        val previous = lines.getOrNull(index - 1)
+        val next = lines.getOrNull(index + 1)
+        val isShortOverlay = line.text.length in 2..40 && line.height <= maxOf(previous?.height ?: 0, next?.height ?: 0)
+        val isCentredPhotoCaption = previous != null && next != null &&
+            previous.bottom < line.top && next.top > line.bottom &&
+            abs(line.centerX - imageWidth / 2) <= imageWidth * 0.12 &&
+            abs(previous.centerX - line.centerX) <= imageWidth * 0.35 &&
+            abs(next.centerX - line.centerX) <= imageWidth * 0.35
+        !(isShortOverlay && isCentredPhotoCaption)
+    }
+
+    /** Reactions such as :), :V or <3 appear as a small avatar-adjacent line, not message text. */
+    private fun dropStandaloneReactions(lines: List<OcrLine>, imageWidth: Int): List<OcrLine> =
+        lines.filterIndexed { index, line ->
+            if (!REACTION.matches(line.text)) return@filterIndexed true
+            val previous = lines.getOrNull(index - 1)
+            val next = lines.getOrNull(index + 1)
+            val nearPrevious = previous != null && line.top - previous.bottom in 0..(imageWidth * 0.18).toInt()
+            val nearNext = next != null && next.top - line.bottom in 0..(imageWidth * 0.18).toInt()
+            val avatarAdjacent = line.left < imageWidth * 0.18 && (nearPrevious || nearNext)
+            !avatarAdjacent
+        }
 
     private fun isInputPlaceholder(text: String): Boolean = INPUT_PLACEHOLDER.matches(text)
 
@@ -234,6 +283,8 @@ object ChatScreenshotParser {
         Regex("^(edited|đã chỉnh sửa|đã thu hồi.*|message unsent.*|tin nhắn đã (được )?thu hồi.*)$",
             RegexOption.IGNORE_CASE),
     )
+
+    private val REACTION = Regex("^(?::[-^]?[)D(PpVv/]|<3|😂|🤣|😭|❤️|👍|👎|😍|😢|😡)$")
 
     private val ACTIVITY_STATUS = Regex(
         "(active|online|offline|typing|đang hoạt động|đang nhập|hoạt động|truy cập|vừa mới|phút trước|giờ trước|" +
