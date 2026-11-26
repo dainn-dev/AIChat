@@ -236,6 +236,7 @@
     <string name="aichat__share__retry">Try again</string>
 
     <!-- Create sticker from photo (com.aichat.keyboard.sticker.creator) -->
+    <string name="aichat__sticker_creator__add_option">Create sticker from photo</string>
     <string name="aichat__sticker_creator__target_label">Create sticker</string>
     <string name="aichat__sticker_creator__title">Create sticker</string>
     <string name="aichat__sticker_creator__back">Back</string>

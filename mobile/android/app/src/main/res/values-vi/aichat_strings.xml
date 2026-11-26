@@ -232,6 +232,7 @@
     <string name="aichat__share__retry">Thử lại</string>
 
     <!-- Create sticker from photo (com.aichat.keyboard.sticker.creator) -->
+    <string name="aichat__sticker_creator__add_option">Tạo sticker từ ảnh</string>
     <string name="aichat__sticker_creator__target_label">Tạo sticker</string>
     <string name="aichat__sticker_creator__title">Tạo sticker</string>
     <string name="aichat__sticker_creator__back">Quay lại</string>
