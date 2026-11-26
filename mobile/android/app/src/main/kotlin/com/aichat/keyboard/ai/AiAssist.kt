@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.inputmethod.InputConnection
 import com.aichat.keyboard.core.network.AiChat
 import com.aichat.keyboard.core.network.AiChatClient
+import com.aichat.keyboard.core.network.error.ApiError
 import com.aichat.keyboard.core.network.error.ApiResult
 import com.aichat.keyboard.core.network.error.errorOrNull
 import com.aichat.keyboard.core.network.error.map
@@ -85,7 +86,7 @@ internal class AiChatTextBackend(
             remember = if (isIncognito()) false else null,
         )
         val result = client.reply(request).map { response -> response.suggestions.map { it.text } }
-        result.errorOrNull()?.let { Log.w(TAG, "Reply failed: $it") }
+        result.errorOrNull()?.let { Log.w(TAG, "Reply failed: ${it.logSummary()}") }
         return result
     }
 
@@ -98,9 +99,26 @@ internal class AiChatTextBackend(
             // Replies go through reply(); the controller never routes them here.
             is AiAction.Reply -> error("Reply is not a text transform")
         }
-        // Error type and the server's message only; never the user's text.
-        result.errorOrNull()?.let { Log.w(TAG, "${action::class.simpleName} failed: $it") }
+        result.errorOrNull()?.let { Log.w(TAG, "${action::class.simpleName} failed: ${it.logSummary()}") }
         return result
+    }
+
+    /**
+     * Error class and HTTP status only. The server's message and validation fields can echo request content, and
+     * the user's text must never reach the log.
+     */
+    private fun ApiError.logSummary(): String {
+        val status = when (this) {
+            is ApiError.Unauthorized -> 401
+            is ApiError.Upstream -> status
+            is ApiError.Unknown -> status
+            else -> null
+        }
+        val name = when (this) {
+            is ApiError.Network -> "Network(${cause.javaClass.simpleName})"
+            else -> javaClass.simpleName
+        }
+        return if (status != null) "$name status=$status" else name
     }
 
     private companion object {
@@ -111,8 +129,8 @@ internal class AiChatTextBackend(
 
 /**
  * The whole focused field through the [InputConnection]: the text before the cursor, the selection and the text
- * after it. Reads are capped just above the backend limit, so a longer field is reported as too long instead of
- * being cut silently.
+ * after it. Reads are capped just above the backend limit; a read that hits the cap on either side is reported as
+ * [FieldRead.TooLong] (and replace-all refuses it), so a long field is never cut or partly deleted.
  */
 internal class ImeAiEditorPort(
     private val editorInstance: EditorInstance,
@@ -123,11 +141,12 @@ internal class ImeAiEditorPort(
             !editorInstance.activeInfo.isRawInputEditor &&
             keyboardManager.activeState.keyVariation != KeyVariation.PASSWORD
 
-    override fun readAllText(): String? {
-        val ic = FlorisImeService.currentInputConnection() ?: return null
+    override fun readAllText(): FieldRead {
+        val ic = FlorisImeService.currentInputConnection() ?: return FieldRead.Unreadable
         editorInstance.viInput.finishWord()
         ic.finishComposingText()
-        return ic.snapshot()?.text
+        val snapshot = ic.snapshot() ?: return FieldRead.Unreadable
+        return if (snapshot.isTruncated) FieldRead.TooLong else FieldRead.Text(snapshot.text)
     }
 
     override fun replaceAllText(text: String): Boolean {
@@ -137,6 +156,8 @@ internal class ImeAiEditorPort(
         try {
             ic.finishComposingText()
             val snapshot = ic.snapshot() ?: return false
+            // Deleting only the visible part of a longer field would lose text that undo cannot bring back.
+            if (snapshot.isTruncated) return false
             if (snapshot.selected.isNotEmpty()) ic.commitText("", 1)
             ic.deleteSurroundingText(snapshot.before.length, snapshot.after.length)
             return ic.commitText(text, 1)
@@ -147,6 +168,9 @@ internal class ImeAiEditorPort(
 
     private class Snapshot(val before: String, val selected: String, val after: String) {
         val text: String get() = before + selected + after
+
+        /** A side read up to the cap may continue past it. */
+        val isTruncated: Boolean get() = before.length >= READ_LIMIT || after.length >= READ_LIMIT
     }
 
     private fun InputConnection.snapshot(): Snapshot? {

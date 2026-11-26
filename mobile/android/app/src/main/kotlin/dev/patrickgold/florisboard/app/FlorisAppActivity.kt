@@ -194,10 +194,13 @@ class FlorisAppActivity : ComponentActivity() {
         // extension import), see onNewIntent.
 
         // AIChat MODIFIED: the keyboard's "Turn on" chip asks for the chat-reader consent screen. In-process only
-        // (com.aichat.keyboard.capture.ChatCaptureLauncher), so external apps still cannot navigate settings.
+        // (com.aichat.keyboard.capture.ChatCaptureLauncher), so external apps still cannot navigate settings. The
+        // request is a timestamp; consumePendingConsent() ignores a stale one (older than ~10 s).
         LaunchedEffect(navController, isImeSetUp) {
             com.aichat.keyboard.capture.ChatCaptureLauncher.pendingConsent.collect { pending ->
-                if (pending && isImeSetUp && com.aichat.keyboard.capture.ChatCaptureLauncher.consumePendingConsent()) {
+                if (pending != null && isImeSetUp &&
+                    com.aichat.keyboard.capture.ChatCaptureLauncher.consumePendingConsent()
+                ) {
                     navController.navigate(com.aichat.keyboard.capture.ChatCaptureRoutes.Consent)
                 }
             }

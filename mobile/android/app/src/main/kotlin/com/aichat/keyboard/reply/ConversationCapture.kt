@@ -43,6 +43,9 @@ enum class UnavailableReason {
 
     /** The source is enabled but found no messages. */
     NOTHING_FOUND,
+
+    /** The source is enabled in settings but not running (e.g. the accessibility service is not connected). */
+    NOT_CONNECTED,
 }
 
 /**
@@ -53,10 +56,19 @@ interface ConversationProvider {
     /** Stable id for logs and settings, e.g. `accessibility`, `clipboard`. */
     val id: String
 
+    /**
+     * Whether to try this provider after the earlier ones gave [earlier] (provider id to reason). A fallback such
+     * as the clipboard uses it to stay out of the way when an earlier, better source should have worked.
+     */
+    fun shouldTry(earlier: Map<String, UnavailableReason>): Boolean = true
+
     suspend fun capture(): CaptureResult
 }
 
-/** Tries [providers] in order and returns the first conversation found, or the reasons every provider gave. */
+/**
+ * Tries [providers] in order and returns the first conversation found, or the reasons every tried provider gave.
+ * A provider whose [ConversationProvider.shouldTry] is false is skipped and gives no reason.
+ */
 class ConversationCapturer(private val providers: List<ConversationProvider>) {
     sealed interface Outcome {
         data class Found(val providerId: String, val conversation: CapturedConversation) : Outcome
@@ -66,6 +78,7 @@ class ConversationCapturer(private val providers: List<ConversationProvider>) {
     suspend fun capture(): Outcome {
         val reasons = linkedMapOf<String, UnavailableReason>()
         for (provider in providers) {
+            if (!provider.shouldTry(reasons)) continue
             val result = try {
                 provider.capture()
             } catch (e: kotlinx.coroutines.CancellationException) {

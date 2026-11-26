@@ -45,7 +45,8 @@ class AccessibilityConversationProvider internal constructor(
         }
 
         return when (outcome) {
-            SnapshotOutcome.NotRunning -> unavailable(UnavailableReason.NOT_ENABLED)
+            // Enabled in settings but not connected: the user has to switch it off and on again.
+            SnapshotOutcome.NotRunning -> unavailable(UnavailableReason.NOT_CONNECTED)
             SnapshotOutcome.UnsupportedApp -> unavailable(UnavailableReason.UNSUPPORTED_APP)
             SnapshotOutcome.Failed -> unavailable(UnavailableReason.NOTHING_FOUND)
             is SnapshotOutcome.Snapshot -> {

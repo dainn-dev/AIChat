@@ -246,4 +246,83 @@ class ChatTranscriptParserTest {
         assertEquals("Lan", conversation.contactLabel)
         assertTrue(conversation.messages.none { it.content == "Active now" })
     }
+    @Test
+    fun `short real messages that look like days, times or statuses are kept in left and right bubbles`() {
+        val nodes = zaloHeader + listOf(
+            them("Khi nào rảnh?", top = 400),
+            me("Hôm nay", top = 520),
+            them("Friday", top = 640),
+            me("9h30", top = 760),
+            them("3.50", top = 880),
+            me("1-2", top = 1000),
+            them("online", top = 1120),
+            me("read", top = 1240),
+            them("sent", top = 1360),
+            me("Chủ nhật", top = 1480),
+        ) + zaloComposer
+
+        val conversation = assertNotNull(parse(zalo, nodes))
+
+        assertEquals(
+            listOf(
+                "Khi nào rảnh?", "Hôm nay", "Friday", "9h30", "3.50", "1-2", "online", "read", "sent", "Chủ nhật",
+            ),
+            conversation.messages.map { it.content },
+        )
+    }
+
+    @Test
+    fun `centered day separators and lone times are still dropped`() {
+        val nodes = messengerHeader + listOf(
+            node("Hôm nay", left = 440, top = 320, right = 640, bottom = 360),
+            them("hi", top = 380),
+            node("9:41", left = 480, top = 490, right = 600, bottom = 530),
+            me("hello", top = 560),
+        ) + messengerComposer
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf(msg(THEM, "hi"), msg(ME, "hello")), conversation.messages)
+    }
+
+    @Test
+    fun `a typing line that is a real message is kept`() {
+        val nodes = messengerHeader + listOf(them("stop typing", top = 400), me("ok", top = 520))
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf("stop typing", "ok"), conversation.messages.map { it.content })
+    }
+
+    @Test
+    fun `a wide partner bubble after an avatar is them`() {
+        // ~45dp avatar on the left, bubble almost to the right edge but leaving the usual partner gap.
+        val nodes = messengerHeader + listOf(
+            node("a long message from the partner that fills the row", left = 140, top = 400, right = 990, bottom = 580),
+        )
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(THEM, conversation.messages.single().sender)
+    }
+
+    @Test
+    fun `a wide own bubble hugging the right edge is me`() {
+        val nodes = messengerHeader + listOf(
+            node("a long message I sent that fills most of the row", left = 100, top = 400, right = 1040, bottom = 580),
+        )
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(ME, conversation.messages.single().sender)
+    }
+
+    @Test
+    fun `a full-width node is them`() {
+        val nodes = messengerHeader + listOf(node("full width text", left = 0, top = 400, right = 1080, bottom = 480))
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(THEM, conversation.messages.single().sender)
+    }
 }

@@ -129,7 +129,11 @@ The full delta from upstream is:
       Defaults: number-row and symbol hint mode ACCENT_PRIORITY (long-press selects the accented letter first).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt (also)
       Navigates to the chat-reader consent screen when the keyboard asks (in-process request,
-      com.aichat.keyboard.capture.ChatCaptureLauncher); external intents are still ignored.
+      com.aichat.keyboard.capture.ChatCaptureLauncher); external intents are still ignored. The request is a
+      timestamp and a stale one (older than ~10 s) is ignored.
+  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also)
+      launchSettings() returns whether settings was launched (false when the service is not running), so the
+      chat-reader consent request is only left pending when settings actually opens.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt,
   app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also),
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/clipboard/FlorisCopyToClipboardActivity.kt

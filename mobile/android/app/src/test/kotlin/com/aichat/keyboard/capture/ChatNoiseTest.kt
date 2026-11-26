@@ -69,4 +69,27 @@ class ChatNoiseTest {
             assertFalse(ChatNoise.isReactionCount(it), it)
         }
     }
+    @Test
+    fun `lone day words, times, short dates and bare status words need a position to count as noise`() {
+        listOf(
+            "Hôm nay", "today", "Chủ nhật", "Friday", "9h30", "9:41", "3.50", "1-2", "12/3",
+            "online", "read", "sent", "Seen", "Đã xem",
+        ).forEach {
+            assertTrue(ChatNoise.isPositionalNoise(it), it)
+        }
+        // Unambiguous forms are noise wherever they are.
+        listOf("Today at 9:41 AM", "12/03/2026", "Hôm nay lúc 10:30", "Seen by Minh", "Active 5m ago", "Mar 12").forEach {
+            assertFalse(ChatNoise.isPositionalNoise(it), it)
+        }
+    }
+
+    @Test
+    fun `the typing pattern needs a whole word and a typing form`() {
+        listOf("typing…", "Minh is typing...", "Lan đang soạn tin...", "Đang soạn tin nhắn…").forEach {
+            assertTrue(ChatNoise.isStatus(it), it)
+        }
+        listOf("stop typing", "i hate typing", "đừng soạn tin nữa", "retyping").forEach {
+            assertFalse(ChatNoise.isStatus(it), it)
+        }
+    }
 }

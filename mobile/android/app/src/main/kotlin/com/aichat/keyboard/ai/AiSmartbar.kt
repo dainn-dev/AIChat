@@ -47,7 +47,6 @@ import org.florisboard.lib.snygg.ui.SnyggBox
 import org.florisboard.lib.snygg.ui.SnyggIcon
 import org.florisboard.lib.snygg.ui.SnyggIconButton
 import org.florisboard.lib.snygg.ui.SnyggRow
-import org.florisboard.lib.snygg.ui.SnyggText
 
 /** The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. */
 private val AiChips: List<Pair<AiAction, Int>> = listOf(
@@ -129,9 +128,14 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
                 Chip(R.string.aichat__ai__ok) { controller.dismissMessage() }
             }
             is AiAssistState.Failed -> {
-                Message(s.reason.messageRes())
-                if (s.reason == AiFailure.NO_CONVERSATION && s.captureDisabled) {
-                    Chip(R.string.aichat__ai__enable_reading, active = true) {
+                Message(s.messageRes(), maxLines = AiSmartbarLayout.MESSAGE_MAX_LINES)
+                val readerChip = when {
+                    s.reason == AiFailure.NO_CONVERSATION && s.captureDisabled -> R.string.aichat__ai__enable_reading
+                    s.reason == AiFailure.CAPTURE_NOT_CONNECTED -> R.string.aichat__ai__open_reading
+                    else -> null
+                }
+                if (readerChip != null) {
+                    Chip(readerChip, active = true) {
                         controller.reset()
                         // Disclosure and consent first (Play policy); that screen opens the system settings.
                         ChatCaptureLauncher.openConsent()
@@ -245,14 +249,32 @@ private fun Chip(@StringRes label: Int, active: Boolean = false, onClick: () -> 
     }
 }
 
+/** A status or failure message; failures may wrap to [maxLines] lines (the bar grows for them) instead of "…". */
 @Composable
-private fun RowScope.Message(@StringRes text: Int) {
-    SnyggText(
+private fun RowScope.Message(@StringRes text: Int, maxLines: Int = 1) {
+    SnyggBox(
         elementName = FlorisImeUi.SmartbarCandidateWord.elementName,
         modifier = Modifier.weight(1f, fill = false).padding(horizontal = 4.dp),
-        text = keyboardString(text),
-    )
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            text = keyboardString(text),
+            fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
+            lineHeight = AiSmartbarLayout.LINE_HEIGHT_SP.sp,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
+
+/** With the chat reader off, the generic message offers to turn it on or copy; otherwise the chat was unreadable. */
+@StringRes
+private fun AiAssistState.Failed.messageRes(): Int =
+    if (reason == AiFailure.NO_CONVERSATION && !captureDisabled) {
+        R.string.aichat__ai__error_chat_unreadable
+    } else {
+        reason.messageRes()
+    }
 
 @StringRes
 private fun AiFailure.messageRes(): Int = when (this) {
@@ -266,6 +288,8 @@ private fun AiFailure.messageRes(): Int = when (this) {
     AiFailure.SERVER -> R.string.aichat__ai__error_server
     AiFailure.TEXT_CHANGED -> R.string.aichat__ai__error_text_changed
     AiFailure.NO_CONVERSATION -> R.string.aichat__ai__error_no_conversation
+    AiFailure.CAPTURE_NOT_CONNECTED -> R.string.aichat__ai__error_reader_not_connected
+    AiFailure.UNSUPPORTED_CHAT_APP -> R.string.aichat__ai__error_unsupported_app
 }
 
 /**

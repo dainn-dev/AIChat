@@ -33,4 +33,23 @@ class AiSmartbarLayoutTest {
     fun `cards never show more than three lines`() {
         assertEquals(3, AiSmartbarLayout.cardMaxLines(cardAreaHeightDp = 200f))
     }
+    @Test
+    fun `switching tone from the suggestions keeps the tall bar, a first request does not`() {
+        val reply = AiAction.Reply(com.aichat.keyboard.core.network.model.Tone.FUNNY)
+        assertEquals(
+            AiSmartbarLayout.SUGGESTION_ROWS,
+            AiSmartbarLayout.mainRowCount(true, AiAssistState.Loading(reply, fromSuggestions = true)),
+        )
+        assertEquals(1, AiSmartbarLayout.mainRowCount(true, AiAssistState.Loading(reply)))
+    }
+
+    @Test
+    fun `failure messages get two rows so they can wrap`() {
+        assertEquals(
+            AiSmartbarLayout.MESSAGE_ROWS,
+            AiSmartbarLayout.mainRowCount(true, AiAssistState.Failed(AiFailure.UNSUPPORTED_CHAT_APP)),
+        )
+        assertEquals(2, AiSmartbarLayout.MESSAGE_ROWS)
+        assertEquals(1, AiSmartbarLayout.mainRowCount(false, AiAssistState.Failed(AiFailure.QUOTA)))
+    }
 }
