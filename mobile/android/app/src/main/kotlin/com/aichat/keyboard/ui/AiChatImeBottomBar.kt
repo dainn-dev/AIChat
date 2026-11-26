@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
@@ -35,12 +36,14 @@ import dev.patrickgold.florisboard.keyboardManager
 import dev.patrickgold.florisboard.subtypeManager
 import org.florisboard.lib.compose.stringRes
 import org.florisboard.lib.snygg.ui.SnyggIcon
+import org.florisboard.lib.snygg.ui.SnyggIconButton
 
 private val ButtonWidth = 56.dp
 private val IconSize = 24.dp
 
 /**
- * iOS-like strip under the keys: the language (globe) key and the AI button on the left, and a settings key on the
+ * iOS-like strip under the keys: the language (globe) key, the AI button and the clipboard key on the left, and a
+ * settings key on the
  * right where the mic key used to be (no mic key: chat apps have their own voice messages), so the key rows
  * themselves only keep 123 / emoji / space / return. Shown in every input mode so the keyboard height never jumps.
  */
@@ -74,12 +77,42 @@ fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
             // The chips live in the smartbar, which only the text layout has.
             onOpen = { keyboardManager.activeState.imeUiMode = ImeUiMode.TEXT },
         )
+        ClipboardButton()
         Spacer(modifier = Modifier.weight(1f))
         // Opens the DBoard settings app (KeyCode.SETTINGS → FlorisImeService.launchSettings()).
         BarButton(
             keyData = TextKeyData.SETTINGS,
             icon = Icons.Outlined.Settings,
             description = stringRes(R.string.aichat__bottom_bar__settings),
+        )
+    }
+}
+
+/**
+ * Opens the clipboard history to pick an item to paste, and closes it again (back to the letters). The history
+ * itself stays off until the user turns it on in that panel (`clipboard__history_enabled` defaults to false).
+ */
+@Composable
+private fun ClipboardButton() {
+    val context = LocalContext.current
+    val keyboardManager by context.keyboardManager()
+    val state by keyboardManager.activeState.collectAsState()
+    val open = state.imeUiMode == ImeUiMode.CLIPBOARD
+    val description = stringRes(R.string.aichat__bottom_bar__clipboard)
+    SnyggIconButton(
+        elementName = FlorisImeUi.SmartbarActionKey.elementName,
+        onClick = {
+            keyboardManager.activeState.imeUiMode = if (open) ImeUiMode.TEXT else ImeUiMode.CLIPBOARD
+        },
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(ButtonWidth)
+            .semantics { contentDescription = description },
+    ) {
+        SnyggIcon(
+            elementName = FlorisImeUi.SmartbarActionKey.elementName,
+            imageVector = Icons.Outlined.ContentPaste,
+            modifier = Modifier.size(IconSize),
         )
     }
 }
