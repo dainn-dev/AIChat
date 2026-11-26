@@ -91,7 +91,14 @@ class AiChatClient internal constructor(
      * learned only from them server-side; [SettingsResponse.deleted] reports the counts when the backend sends them.
      */
     suspend fun setMemoryOptIn(enabled: Boolean): ApiResult<SettingsResponse> =
-        authed { api.updateSettings(UpdateSettingsRequest(enabled)) }
+        authed { api.updateSettings(UpdateSettingsRequest(memoryOptIn = enabled)) }
+
+    /**
+     * `PATCH /me/settings` with `training_opt_in`: consent to use the conversations stored from now on for model
+     * training. Turning it off leaves the user out of future training runs; it deletes nothing.
+     */
+    suspend fun setTrainingOptIn(enabled: Boolean): ApiResult<SettingsResponse> =
+        authed { api.updateSettings(UpdateSettingsRequest(trainingOptIn = enabled)) }
 
     // -- Conversations and memories ---------------------------------------------------------------------------
 

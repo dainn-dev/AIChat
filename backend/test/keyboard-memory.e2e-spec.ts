@@ -107,11 +107,49 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
     const { token } = await signup();
     const me = await http().get('/me').set(auth(token));
     expect(me.status).toBe(200);
-    expect(me.body.settings).toEqual({ memory_opt_in: false });
+    expect(me.body.settings).toEqual({
+      memory_opt_in: false,
+      training_opt_in: false,
+    });
 
     await optIn(token, true);
     const after = await http().get('/me').set(auth(token));
     expect(after.body.settings.memory_opt_in).toBe(true);
+  });
+
+  it('PATCH training_opt_in starts, keeps and clears the consent window without touching memory_opt_in', async () => {
+    const { token, userId } = await signup();
+    await optIn(token, true);
+    const patch = (value: boolean) =>
+      http()
+        .patch('/me/settings')
+        .set(auth(token))
+        .send({ training_opt_in: value });
+    const consentAt = async (): Promise<Date | null> =>
+      (
+        await ds.query(`SELECT training_opt_in_at FROM users WHERE id = $1`, [
+          userId,
+        ])
+      )[0].training_opt_in_at;
+
+    const on = await patch(true);
+    expect(on.status).toBe(200);
+    expect(on.body).toEqual({
+      settings: { memory_opt_in: true, training_opt_in: true },
+    });
+    const startedAt = await consentAt();
+    expect(startedAt).toBeInstanceOf(Date);
+
+    // Turning it on again keeps the original start.
+    await patch(true);
+    expect(await consentAt()).toEqual(startedAt);
+
+    const off = await patch(false);
+    expect(off.body).toEqual({
+      settings: { memory_opt_in: true, training_opt_in: false },
+    });
+    expect(off.body).not.toHaveProperty('deleted');
+    expect(await consentAt()).toBeNull();
   });
 
   it('does not persist for a user who has not opted in', async () => {
@@ -666,7 +704,7 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
         .send({ memory_opt_in: false });
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
-        settings: { memory_opt_in: false },
+        settings: { memory_opt_in: false, training_opt_in: false },
         deleted: { conversations: 2, memories: 1 },
       });
 
@@ -718,21 +756,23 @@ describe('Keyboard memory capture + erasure, Android Phase 0 (e2e)', () => {
       const legacy = await patch(false); // false -> false
       expect(legacy.status).toBe(200);
       expect(legacy.body).toEqual({
-        settings: { memory_opt_in: false },
+        settings: { memory_opt_in: false, training_opt_in: false },
         deleted: { conversations: 1, memories: 0 },
       });
       expect(await storedMessages(kb)).toHaveLength(0);
 
       const again = await patch(false); // nothing left: counts 0
       expect(again.body).toEqual({
-        settings: { memory_opt_in: false },
+        settings: { memory_opt_in: false, training_opt_in: false },
         deleted: { conversations: 0, memories: 0 },
       });
 
       const kb2 = await createConversation(userId, HIKING, 'keyboard');
       for (const res of [await patch(true), await patch(true)]) {
         expect(res.status).toBe(200);
-        expect(res.body).toEqual({ settings: { memory_opt_in: true } });
+        expect(res.body).toEqual({
+          settings: { memory_opt_in: true, training_opt_in: false },
+        });
       }
       expect(await storedMessages(kb2)).toHaveLength(1);
     });

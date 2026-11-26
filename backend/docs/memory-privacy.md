@@ -173,6 +173,15 @@ in-flight extraction race (old gap 3).
 5. **Merge history window:** scrolled-up re-captures are recognised only
    within the last 500 stored messages of a conversation (`MERGE_HISTORY_LIMIT`).
 
+### 1.2 Model training consent — IMPLEMENTED (needs legal review)
+
+`users.training_opt_in` (default false) lets a user's conversations stored after
+`training_opt_in_at` be exported to fine-tune the reply model on OpenAI. This
+is a different promise from §1: data that went into a trained model is **not**
+erased by memory/conversation deletion or by opt-out; it leaves the model only
+when the model is retrained without it. Details, safeguards and open items in
+`docs/model-training.md`.
+
 ## 2. Sensitive-category filter / redaction (§5.7) — IMPLEMENTED (defaults)
 
 Applied at extraction (MS-4), before anything is embedded or stored

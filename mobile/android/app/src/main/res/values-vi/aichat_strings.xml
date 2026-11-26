@@ -307,4 +307,11 @@
     <string name="aichat__update__notif_confirm_text">Bấm để xác nhận cập nhật.</string>
     <string name="aichat__update__notif_updated_title">Đã cập nhật AIChat Keyboard %1$s</string>
     <string name="aichat__update__notif_updated_text">Bàn phím đã sẵn sàng.</string>
+    <!-- Model-training consent (backend docs/model-training.md), on the account screen. -->
+    <string name="aichat__training__opt_in_title">Đóng góp dữ liệu để cải thiện AI</string>
+    <string name="aichat__training__opt_in_summary">Mặc định tắt. Khi bật, các cuộc trò chuyện được lưu từ lúc này có thể được dùng để huấn luyện mô hình gợi ý trả lời của DBoard.</string>
+    <string name="aichat__training__opt_in_confirm_title">Đóng góp cuộc trò chuyện của bạn?</string>
+    <string name="aichat__training__opt_in_disclosure">Khi bật, các tin nhắn được lưu trên máy chủ DBoard kể từ bây giờ, cả tin của bạn lẫn tin của người bạn đang nhắn, có thể được gửi tới OpenAI để huấn luyện mô hình gợi ý trả lời.\n\n• Chỉ dùng những cuộc trò chuyện được lưu (ví dụ khi bật “Cho phép AIChat ghi nhớ”). Tin nhắn trước lúc bật không bao giờ được dùng.\n• Số điện thoại, email, số thẻ và địa chỉ được che trước. Tài khoản của bạn, tên liên hệ và tên ứng dụng không được gửi đi.\n• Bạn có thể tắt bất cứ lúc nào: khi đó cuộc trò chuyện của bạn không được dùng cho các lần huấn luyện sau. Mô hình đã huấn luyện trước đó không thể quên phần đã học.\n• Chỉ nên bật khi những người bạn nhắn tin không phản đối.</string>
+    <string name="aichat__training__opt_in_confirm_action">Bật</string>
+    <string name="aichat__training__opt_out_done">Đã tắt. Cuộc trò chuyện của bạn sẽ không được dùng cho các lần huấn luyện sau.</string>
 </resources>

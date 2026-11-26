@@ -114,6 +114,11 @@ data class Usage(
 data class UserSettings(
     /** Store keyboard-captured conversations so the Memory engine learns from them. Defaults to false. */
     @SerialName("memory_opt_in") val memoryOptIn: Boolean,
+    /**
+     * Allow stored conversations to be used for model training (backend docs/model-training.md). Defaults to
+     * false, also for backends that do not send it yet.
+     */
+    @SerialName("training_opt_in") val trainingOptIn: Boolean = false,
 )
 
 @Serializable
@@ -124,10 +129,14 @@ data class MeResponse(
     val settings: UserSettings,
 )
 
-/** `PATCH /me/settings` body. `memory_opt_in` is required and must be a JSON boolean. */
+/**
+ * `PATCH /me/settings` body. Send at least one field; a null field is left out of the JSON (`explicitNulls = false`)
+ * and keeps its server value.
+ */
 @Serializable
 data class UpdateSettingsRequest(
-    @SerialName("memory_opt_in") val memoryOptIn: Boolean,
+    @SerialName("memory_opt_in") val memoryOptIn: Boolean? = null,
+    @SerialName("training_opt_in") val trainingOptIn: Boolean? = null,
 )
 
 /**

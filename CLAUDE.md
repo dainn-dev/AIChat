@@ -32,6 +32,8 @@ npm run migration:generate -- src/database/migrations/<Name>
 npm run migration:revert
 
 npm run purge:legacy-optout      # ONE-OFF deploy step (opt-out erasure release); `:prod` variant runs dist/
+npm run training:export -- --out training.jsonl   # fine-tuning dataset of training_opt_in users (docs/model-training.md)
+npm run training:finetune -- --file training.jsonl # upload + start an OpenAI fine-tuning job (`--status <job>` to check)
 ```
 
 **Deploy step (opt-out erasure release):** run `npm run purge:legacy-optout` (or `npm run purge:legacy-optout:prod` from a built image) once after deploying. It erases keyboard conversations and keyboard-only memories of users who opted out before opt-out deleted anything. It is idempotent and logs counts only; re-run it until `failed=0`. See `backend/docs/memory-privacy.md` §1.1.
@@ -75,6 +77,8 @@ Tests and local dev run on the stubs, so they never need an API key. New provide
 - **Supersede**: the writer inserts first, then marks older contradictory singular facts `superseded` with `superseded_by = <new id>`. Erasing the superseding memory (conversation erasure or `DELETE /memories/:id`) reactivates them.
 - **Opt-out at read time**: `PgVectorMemoryRetriever.OPT_OUT_FILTER` excludes extracted memories whose only `memory_sources` are keyboard conversations while the owner has `memory_opt_in = false`. This is defence in depth: every `PATCH /me/settings { memory_opt_in: false }` purges keyboard conversations and keyboard-only memories in one bounded transaction (`ConversationErasureService.purgeKeyboardConversations`, also used by the legacy backfill), so normally nothing is left to filter.
 - **Opt-in**: `users.memory_opt_in` (default false, migration `UserMemoryOptIn1718700000000`) gates keyboard capture storage only. Screenshot/share ingestion is not gated by it.
+
+**Model training** (`src/training/`, `docs/model-training.md`): `users.training_opt_in` (default false, separate from `memory_opt_in`) lets messages stored after `training_opt_in_at` be exported as OpenAI fine-tuning examples (`buildExamples`: prompt from `ContextBuilder.buildReplyPrompt`, answer = the user's real reply, `SensitiveDataFilter` applied, no ids or contact labels). Export and fine-tuning are manual scripts; switching models is `LLM_REPLY_MODEL`. Opt-out and erasure do not remove data from an already trained model.
 
 **Database**: TypeORM, `synchronize: false`. Every schema change must be a migration in `src/database/migrations/`. Entities are auto-discovered by the `**/*.entity.ts` glob. `data-source-options.ts` is shared by the runtime and the migration CLI (`data-source.ts`). The migrations glob excludes `*.spec.ts`, so you can colocate migration specs. Migrations run inside a transaction, so `CREATE INDEX` is non-concurrent (it locks writes on the table while it builds). That is fine at current table sizes. For a large hot table, ship the index in a separate migration with `transaction = false` and `CREATE INDEX CONCURRENTLY`. The Phase 0 migrations (`ConversationSource`, `MemorySources`, `MemorySupersededBy`) use plain `CREATE INDEX` on purpose. The embedding dimension (`EMBEDDING_DIMENSIONS`, default 1536) must match the `memories.embedding vector(N)` column.
 

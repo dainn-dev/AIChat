@@ -311,4 +311,11 @@
     <string name="aichat__update__notif_confirm_text">Tap to confirm the update.</string>
     <string name="aichat__update__notif_updated_title">Updated to AIChat Keyboard %1$s</string>
     <string name="aichat__update__notif_updated_text">The keyboard is ready to use.</string>
+    <!-- Model-training consent (backend docs/model-training.md), on the account screen. -->
+    <string name="aichat__training__opt_in_title">Contribute chats to improve AI</string>
+    <string name="aichat__training__opt_in_summary">Off by default. When on, chats saved from now on may be used to train the DBoard reply model.</string>
+    <string name="aichat__training__opt_in_confirm_title">Contribute your chats?</string>
+    <string name="aichat__training__opt_in_disclosure">When on, messages saved on the DBoard server from now on, both yours and those of the people you chat with, may be sent to OpenAI to train the reply suggestion model.\n\n• Only saved chats are used (for example with “Allow AIChat to remember” on). Messages from before you turn this on are never used.\n• Phone numbers, emails, card numbers and addresses are masked first. Your account, contact names and app names are not sent.\n• You can turn it off at any time: your chats are then left out of future training. A model that was already trained cannot unlearn what it learned.\n• Only turn this on if the people you chat with are fine with it.</string>
+    <string name="aichat__training__opt_in_confirm_action">Turn on</string>
+    <string name="aichat__training__opt_out_done">Turned off. Your chats will not be used in future training.</string>
 </resources>

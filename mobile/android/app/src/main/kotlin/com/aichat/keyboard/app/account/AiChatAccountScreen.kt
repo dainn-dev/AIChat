@@ -255,6 +255,7 @@ private fun AccountDetails(viewModel: AccountViewModel) {
     val navController = LocalNavController.current
     val state by viewModel.state.collectAsState()
     var confirmOptIn by remember { mutableStateOf(false) }
+    var confirmTrainingOptIn by remember { mutableStateOf(false) }
     var confirmOptOut by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
 
@@ -304,6 +305,19 @@ private fun AccountDetails(viewModel: AccountViewModel) {
         )
     }
 
+    // Model-training consent: separate from memory, off by default, confirmed before turning on.
+    OptInRow(
+        title = stringRes(R.string.aichat__training__opt_in_title),
+        description = stringRes(R.string.aichat__training__opt_in_summary),
+        checked = me?.settings?.trainingOptIn ?: false,
+        enabled = me != null && !state.savingTrainingOptIn,
+        onCheckedChange = { enabled ->
+            if (enabled) confirmTrainingOptIn = true else viewModel.setTrainingOptIn(false)
+        },
+    )
+    state.trainingOptInError?.let { AiChatErrorText(it) }
+    if (state.trainingOptOutDone) AiChatInfoText(stringRes(R.string.aichat__training__opt_out_done))
+
     Preference(
         icon = Icons.AutoMirrored.Outlined.Chat,
         title = stringRes(R.string.aichat__conversations__title),
@@ -335,6 +349,15 @@ private fun AccountDetails(viewModel: AccountViewModel) {
             confirmLabel = stringRes(R.string.aichat__memory__opt_in_confirm_action),
             onConfirm = { confirmOptIn = false; viewModel.setMemoryOptIn(true) },
             onDismiss = { confirmOptIn = false },
+        )
+    }
+    if (confirmTrainingOptIn) {
+        AiChatConfirmDialog(
+            title = stringRes(R.string.aichat__training__opt_in_confirm_title),
+            message = stringRes(R.string.aichat__training__opt_in_disclosure),
+            confirmLabel = stringRes(R.string.aichat__training__opt_in_confirm_action),
+            onConfirm = { confirmTrainingOptIn = false; viewModel.setTrainingOptIn(true) },
+            onDismiss = { confirmTrainingOptIn = false },
         )
     }
     if (confirmOptOut) {
@@ -404,18 +427,33 @@ private fun LabeledValue(label: String, value: String) {
 }
 
 @Composable
-private fun MemoryOptInRow(checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun MemoryOptInRow(checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) = OptInRow(
+    title = stringRes(R.string.aichat__memory__opt_in_title),
+    description = stringRes(R.string.aichat__memory__opt_in_disclosure),
+    checked = checked,
+    enabled = enabled,
+    onCheckedChange = onCheckedChange,
+)
+
+@Composable
+private fun OptInRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = stringRes(R.string.aichat__memory__opt_in_title),
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
             Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
         }
         Text(
-            text = stringRes(R.string.aichat__memory__opt_in_disclosure),
+            text = description,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

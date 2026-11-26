@@ -24,7 +24,11 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "purge:legacy-optout": "ts-node src/scripts/purge-legacy-optout.ts",
-    "purge:legacy-optout:prod": "node dist/scripts/purge-legacy-optout.js"
+    "purge:legacy-optout:prod": "node dist/scripts/purge-legacy-optout.js",
+    "training:export": "ts-node src/scripts/export-training-data.ts",
+    "training:export:prod": "node dist/scripts/export-training-data.js",
+    "training:finetune": "ts-node src/scripts/start-fine-tune.ts",
+    "training:finetune:prod": "node dist/scripts/start-fine-tune.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.665.0",

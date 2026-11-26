@@ -48,10 +48,15 @@ export interface UsageView {
 export interface UserSettingsView {
   /** Store keyboard-captured conversations so the Memory engine learns from them. */
   memory_opt_in: boolean;
+  /** Allow stored conversations to be used for model training (docs/model-training.md). */
+  training_opt_in: boolean;
 }
 
 export function toSettingsView(user: User): UserSettingsView {
-  return { memory_opt_in: user.memoryOptIn };
+  return {
+    memory_opt_in: user.memoryOptIn,
+    training_opt_in: user.trainingOptIn,
+  };
 }
 
 /** Response for `GET /me`. */

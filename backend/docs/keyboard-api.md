@@ -165,15 +165,23 @@ These live outside `/v1/keyboard` but gate/undo keyboard storage. Both need
 
 **`GET /me`** now also returns `settings`:
 ```json
-{ "user": { … }, "tier": "free", "usage": { … }, "settings": { "memory_opt_in": false } }
+{ "user": { … }, "tier": "free", "usage": { … },
+  "settings": { "memory_opt_in": false, "training_opt_in": false } }
 ```
 
 **`PATCH /me/settings`**
 ```json
 { "memory_opt_in": true }
 ```
-→ `200 { "settings": { "memory_opt_in": true } }`. `memory_opt_in` is required
-and must be a JSON boolean; unknown fields → `400`.
+→ `200 { "settings": { "memory_opt_in": true, "training_opt_in": false } }`.
+The body takes `memory_opt_in` and/or `training_opt_in`: at least one is
+required, each must be a JSON boolean, a field not sent keeps its value, and
+unknown fields → `400`. The response always carries both settings.
+
+`training_opt_in` is the model-training consent (off by default): `true` lets
+conversations stored from now on be used to fine-tune the reply model,
+`false` leaves the user out of future training and deletes nothing. See
+`docs/model-training.md`.
 
 Sending `false` stops future storage **and** hard-deletes, atomically with the
 flag change, every keyboard-captured conversation (`source: "keyboard"`), its
@@ -182,10 +190,10 @@ does this on **every** `false` request, even if the setting was already off,
 so it is safe to repeat. Screenshot/share conversations and manual memories
 are kept. The response reports what was erased:
 ```json
-{ "settings": { "memory_opt_in": false },
+{ "settings": { "memory_opt_in": false, "training_opt_in": false },
   "deleted": { "conversations": 3, "memories": 5 } }
 ```
-`deleted` is present on every `false` response (counts may be `0`) and absent
+`deleted` is present on every `memory_opt_in: false` response (counts may be `0`) and absent
 when sending `true`, which never deletes anything. Turning it back on does not
 restore anything, so the client should confirm before sending `false` ("This
 will erase chats remembered from the keyboard"). If the erase can't finish in
