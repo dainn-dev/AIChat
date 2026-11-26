@@ -1,6 +1,5 @@
 package com.aichat.keyboard.sticker.ui
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,21 +54,18 @@ import com.aichat.keyboard.sticker.Sticker
 import com.aichat.keyboard.sticker.StickerImportActivity
 import com.aichat.keyboard.sticker.StickerPack
 import com.aichat.keyboard.sticker.StickerRepository
-import com.aichat.keyboard.sticker.StickerSender
+import com.aichat.keyboard.sticker.StickerSendFlow
 import com.aichat.keyboard.sticker.StickerSource
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.ime.input.LocalInputFeedbackController
 import dev.patrickgold.florisboard.ime.text.keyboard.TextKeyData
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import org.florisboard.lib.android.showShortToast
 import org.florisboard.lib.compose.stringRes
 import org.florisboard.lib.snygg.SnyggSelector
 import org.florisboard.lib.snygg.ui.SnyggBox
 import org.florisboard.lib.snygg.ui.rememberSnyggThemeQuery
 
-private const val TAG = "StickerPaletteView"
 private val TileMinSize = 80.dp
 private val TabHeight = 40.dp
 private val TextStickerShape = RoundedCornerShape(18.dp)
@@ -100,23 +96,10 @@ fun StickerPaletteView(modifier: Modifier = Modifier) {
         if (sending) return
         sending = true
         scope.launch {
-            // An uncaught exception here would take down the whole keyboard process.
-            val result = try {
-                StickerSender.send(context, sticker)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Sending sticker ${sticker.id} failed", e)
-                StickerSender.Result.FAILED
+            try {
+                StickerSendFlow.sendAndReport(context, sticker)
             } finally {
                 sending = false
-            }
-            when (result) {
-                StickerSender.Result.UNSUPPORTED -> context.showShortToast(R.string.aichat__stickers__unsupported)
-                StickerSender.Result.FAILED -> context.showShortToast(R.string.aichat__stickers__send_failed)
-                StickerSender.Result.SENT,
-                StickerSender.Result.SENT_AS_TEXT,
-                StickerSender.Result.TARGET_CHANGED -> Unit
             }
         }
     }
