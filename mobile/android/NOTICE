@@ -154,6 +154,12 @@ The full delta from upstream is:
       Registers the chat reader consent screen (aichatCaptureGraph()).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/HomeScreen.kt (also)
       "Read messages to suggest replies" (Đọc tin nhắn để gợi ý trả lời) entry below the AIChat account.
+  gradle/libs.versions.toml (also)
+      ML Kit text recognition 16.0.1 (bundled Latin model) for the screenshot share target.
+  app/build.gradle.kts (also)
+      Dependency on ML Kit text recognition (bundled Latin model).
+  app/src/main/AndroidManifest.xml (also)
+      Exported com.aichat.keyboard.share.ShareReplyActivity (ACTION_SEND image/* share target).
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,

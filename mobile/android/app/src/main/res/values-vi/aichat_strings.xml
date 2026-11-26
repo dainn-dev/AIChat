@@ -185,4 +185,33 @@
     <string name="aichat__voice__no_match">Chưa nghe rõ, hãy thử lại</string>
     <string name="aichat__voice__error_network">Nhập bằng giọng nói cần kết nối mạng</string>
     <string name="aichat__voice__error">Nhập bằng giọng nói bị lỗi, hãy thử lại</string>
+    <!-- Chia sẻ ảnh chụp màn hình (com.aichat.keyboard.share) -->
+    <string name="aichat__share__target_label">Gợi ý trả lời AIChat</string>
+    <string name="aichat__share__title">Gợi ý trả lời</string>
+    <string name="aichat__share__close">Đóng</string>
+    <string name="aichat__share__reading">Đang đọc ảnh chụp ngay trên điện thoại…</string>
+    <string name="aichat__share__unreadable">Không tìm thấy tin nhắn nào trong ảnh này. Hãy chia sẻ ảnh chụp một cuộc trò chuyện.</string>
+    <string name="aichat__share__privacy_note">Ảnh không rời khỏi điện thoại. Chỉ các tin nhắn bên dưới được gửi tới AIChat và không được lưu lại.</string>
+    <string name="aichat__share__conversation_title">Cuộc trò chuyện</string>
+    <string name="aichat__share__contact">Với {name}</string>
+    <string name="aichat__share__flip_hint">Chạm vào tin nhắn để đổi người gửi.</string>
+    <string name="aichat__share__sender_me">Tôi</string>
+    <string name="aichat__share__sender_them">Họ</string>
+    <string name="aichat__share__tone_title">Chọn giọng điệu</string>
+    <string name="aichat__share__tone_flirty">😏 Tán tỉnh</string>
+    <string name="aichat__share__tone_funny">😄 Vui vẻ</string>
+    <string name="aichat__share__tone_friendly">🙂 Thân thiện</string>
+    <string name="aichat__share__tone_polite">Lịch sự</string>
+    <string name="aichat__share__tone_mature">Chín chắn</string>
+    <string name="aichat__share__loading">Đang viết gợi ý…</string>
+    <string name="aichat__share__suggestions_title">Gợi ý</string>
+    <string name="aichat__share__copy">Sao chép</string>
+    <string name="aichat__share__copied">Đã sao chép</string>
+    <string name="aichat__share__error_not_signed_in">Đăng nhập AIChat để nhận gợi ý trả lời.</string>
+    <string name="aichat__share__sign_in">Đăng nhập</string>
+    <string name="aichat__share__error_quota">Đã hết lượt AI hôm nay. Hãy thử lại vào ngày mai.</string>
+    <string name="aichat__share__error_network">Không có kết nối mạng.</string>
+    <string name="aichat__share__error_timeout">AI phản hồi quá lâu. Hãy thử lại.</string>
+    <string name="aichat__share__error_server">AI đang gặp lỗi. Hãy thử lại sau.</string>
+    <string name="aichat__share__retry">Thử lại</string>
 </resources>
