@@ -13,7 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Reads the visible chat of a supported messenger (Messenger, Zalo) through [ChatCaptureService], only when the
+ * Reads the visible chat of a [com.aichat.keyboard.capture.SupportedMessenger] app through [ChatCaptureService], only when the
  * user asks for reply suggestions. Never throws: every failure maps to an [UnavailableReason].
  */
 class AccessibilityConversationProvider internal constructor(

@@ -6,7 +6,7 @@
 - Gửi **tự động qua Accessibility** (không chỉ nhắc nhở).
 - Lưu **chỉ trên máy** (Room + AlarmManager). Không có backend, migration hay API mới. Nội dung tin không gửi lên server.
 
-**Phạm vi v1:** Android, chỉ Zalo (`com.zing.zalo`) và Messenger (`com.facebook.orca`), tức các app đã có trong `SupportedMessenger`. Chỉ gửi văn bản, không gửi ảnh/sticker. Không lặp lại theo lịch.
+**Phạm vi v1:** Android, các app trong `SupportedMessenger`: Zalo, Messenger, WhatsApp (kể cả Business), Gmail, Google Chat. Mỗi app cần driver gửi riêng (Phase 0 kiểm chứng từng app). Gmail đã có "Lên lịch gửi" sẵn trong app nên ưu tiên thấp nhất. Chỉ gửi văn bản, không gửi ảnh/sticker. Không lặp lại theo lịch.
 
 ---
 

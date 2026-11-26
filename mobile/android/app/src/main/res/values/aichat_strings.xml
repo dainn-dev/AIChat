@@ -9,11 +9,11 @@
     <string name="aichat_app_name" translatable="false">DBoard</string>
     <!-- Chat reader (accessibility) consent screen, workstream A -->
     <string name="aichat__capture__title">Read messages to suggest replies</string>
-    <string name="aichat__capture__summary_on">On: reads the open Messenger or Zalo chat when you tap Suggest replies</string>
+    <string name="aichat__capture__summary_on">On: reads the open conversation in Messenger, Zalo, WhatsApp, Gmail or Google Chat when you tap Suggest replies</string>
     <string name="aichat__capture__summary_off">Off: turn on so Suggest replies can see the chat</string>
     <string name="aichat__capture__intro">To suggest replies that fit the conversation, AIChat can read the chat you are replying to. This uses Android\'s accessibility service. Please read what it does before you turn it on.</string>
     <string name="aichat__capture__what_heading">What is read</string>
-    <string name="aichat__capture__what_body">Only the messages visible on screen in Messenger or Zalo, and the name of the person you are chatting with. This includes end-to-end encrypted chats: what is on your screen is read as you see it. Other apps are never read. Password fields and the text you are typing are never read.</string>
+    <string name="aichat__capture__what_body">Only the messages visible on screen in Messenger, Zalo, WhatsApp, Gmail or Google Chat, and the name of the person you are chatting with. This includes end-to-end encrypted chats: what is on your screen is read as you see it. Other apps are never read. Password fields and the text you are typing are never read.</string>
     <string name="aichat__capture__when_heading">When it is read</string>
     <string name="aichat__capture__when_body">Only at the moment you tap Suggest replies in the AIChat keyboard. Nothing is read in the background, and nothing is kept on your phone.</string>
     <string name="aichat__capture__where_heading">Where it goes</string>
@@ -26,13 +26,13 @@
     <string name="aichat__capture__status_on">Status: on</string>
     <string name="aichat__capture__status_off">Status: off</string>
     <string name="aichat__capture__clipboard_heading">When the chat can\'t be read</string>
-    <string name="aichat__capture__clipboard_body">If chat reading is off, or you are in an app other than Messenger or Zalo, Suggest replies uses the text you copied in the last 2 minutes instead: it is sent to AIChat\'s server as the other person\'s message. Copied codes, passwords and links with keys are never sent.</string>
+    <string name="aichat__capture__clipboard_body">If chat reading is off, or you are in an app other than Messenger, Zalo, WhatsApp, Gmail or Google Chat, Suggest replies uses the text you copied in the last 2 minutes instead: it is sent to AIChat\'s server as the other person\'s message. Copied codes, passwords and links with keys are never sent.</string>
     <string name="aichat__capture__decline_button">No thanks</string>
     <string name="aichat__capture__restricted_heading">Switch greyed out or \"Restricted setting\"?</string>
     <string name="aichat__capture__restricted_body">Android blocks this for apps installed from an APK file instead of a store. To allow it:\n1. Tap the button above, then tap AIChat chat reader and try to turn it on. When you see \"Restricted setting\", tap OK. Android only shows the option in step 3 after this attempt.\n2. Come back here and tap Open app info below.\n3. Tap ⋮ (top right), then Allow restricted settings, and confirm with your PIN or fingerprint.\n4. Tap the button above again and turn on AIChat chat reader.</string>
     <string name="aichat__capture__restricted_button">Open app info</string>
     <string name="aichat__capture__service_label">AIChat chat reader</string>
-    <string name="aichat__capture__service_description">Reads the messages visible in Messenger or Zalo only when you tap Suggest replies in the AIChat keyboard, and sends them to AIChat\'s server to write reply suggestions. It does not read other apps, password fields or what you type, and it does nothing in the background.</string>
+    <string name="aichat__capture__service_description">Reads the messages visible in Messenger, Zalo, WhatsApp, Gmail or Google Chat only when you tap Suggest replies in the AIChat keyboard, and sends them to AIChat\'s server to write reply suggestions. It does not read other apps, password fields or what you type, and it does nothing in the background.</string>
 
     <!-- Settings home entry -->
     <string name="aichat__account__title">AIChat account</string>
@@ -185,7 +185,7 @@
     <string name="aichat__ai__open_reading">Settings</string>
     <string name="aichat__ai__error_chat_unreadable">Couldn\'t read this chat. Scroll to the last message and try again</string>
     <string name="aichat__ai__error_reader_not_connected">Turn the chat reader off and on again</string>
-    <string name="aichat__ai__error_unsupported_app">Only Messenger and Zalo can be read. Copy the last message to get suggestions</string>
+    <string name="aichat__ai__error_unsupported_app">Only Messenger, Zalo, WhatsApp, Gmail and Google Chat can be read. Copy the last message to get suggestions</string>
     <string name="aichat__ai__rewrite_friendly">Friendly</string>
     <string name="aichat__ai__rewrite_polite">Polite</string>
     <string name="aichat__ai__rewrite_funny">Funny</string>
@@ -288,7 +288,7 @@
     <string name="aichat__bottom_bar__schedule">Schedule a message</string>
     <string name="aichat__schedule__title">Schedule message</string>
     <string name="aichat__schedule__to">To {name} · {app}</string>
-    <string name="aichat__schedule__no_recipient">Open a Zalo or Messenger chat first (with the chat reader on), so AIChat knows who to send it to.</string>
+    <string name="aichat__schedule__no_recipient">Open a Messenger, Zalo, WhatsApp, Gmail or Google Chat conversation first (with the chat reader on), so AIChat knows who to send it to.</string>
     <string name="aichat__schedule__message_hint">Message</string>
     <string name="aichat__schedule__in_past">Pick a time at least 1 minute from now.</string>
     <string name="aichat__schedule__cancel">Cancel</string>

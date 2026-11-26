@@ -45,10 +45,18 @@ sealed interface SnapshotOutcome {
     data class Snapshot(val snapshot: ChatWindowSnapshot) : SnapshotOutcome
 }
 
-/** The chat apps the service may read, and their `platform` id for `/v1/keyboard/reply`. */
-enum class SupportedMessenger(val packageName: String, val platform: String) {
-    MESSENGER("com.facebook.orca", "messenger"),
-    ZALO("com.zing.zalo", "zalo"),
+/**
+ * The chat apps the service may read, their `platform` id for `/v1/keyboard/reply` (WhatsApp Business shares
+ * `whatsapp`, so per-contact memories stay together) and the name shown to the user. Keep the package list in sync
+ * with `res/xml/aichat_accessibility_service.xml`.
+ */
+enum class SupportedMessenger(val packageName: String, val platform: String, val displayName: String) {
+    MESSENGER("com.facebook.orca", "messenger", "Messenger"),
+    ZALO("com.zing.zalo", "zalo", "Zalo"),
+    WHATSAPP("com.whatsapp", "whatsapp", "WhatsApp"),
+    WHATSAPP_BUSINESS("com.whatsapp.w4b", "whatsapp", "WhatsApp Business"),
+    GMAIL("com.google.android.gm", "gmail", "Gmail"),
+    GOOGLE_CHAT("com.google.android.apps.dynamite", "google_chat", "Google Chat"),
     ;
 
     companion object {
