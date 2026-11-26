@@ -175,6 +175,42 @@ describe('AiPipelineService lang + contact scoping (Android Phase 0)', () => {
     expect(spy.mock.calls[0][0].prompt.system).toContain('in English');
   });
 
+  it('passes contact-scoped communication style memories into the reply prompt', async () => {
+    const provider = new StubLlmProvider();
+    const completeSpy = jest.spyOn(provider, 'complete');
+    const retriever = {
+      retrieve: jest
+        .fn()
+        .mockResolvedValue([
+          { kind: 'style', content: 'Uses short, warm Vietnamese replies.' },
+        ]),
+    };
+    const config = {
+      getOrThrow: () => ({ maxRepairRetries: 0 }),
+    } as unknown as ConfigService;
+    const service = new AiPipelineService(
+      provider,
+      retriever,
+      new Normalizer(),
+      new ContextBuilder(),
+      new OutputValidator(),
+      { record: jest.fn() } as unknown as AiRequestLogger,
+      config,
+    );
+
+    await service.generateReplies(
+      { messages: conversation, tone: Tone.Friendly, count: 1 },
+      { source: AiSource.Keyboard, userId: 'u1', contactLabel: 'Linh' },
+    );
+
+    expect(completeSpy.mock.calls[0][0].prompt.user).toContain(
+      'Uses short, warm Vietnamese replies.',
+    );
+    expect(retriever.retrieve).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', contactLabel: 'Linh' }),
+    );
+  });
+
   it('scopes memory retrieval by ctx.contactLabel', async () => {
     const retriever = { retrieve: jest.fn().mockResolvedValue([]) };
     const config = {

@@ -39,6 +39,23 @@ describe('ContextBuilder language instructions', () => {
     expect(system).not.toMatch(/in (English|Vietnamese)/);
   });
 
+  it('separates contact style guidance from ordinary memories and preserves speaker roles', () => {
+    const { system, user } = builder.buildReplyPrompt({
+      ...base,
+      memories: [
+        { kind: 'style', content: 'Uses short warm replies and emojis.' },
+        { kind: 'interest', content: 'Likes hiking.' },
+      ],
+    });
+    expect(system).toContain('writing as "me" to "them"');
+    expect(system).toContain('communication-style memory');
+    expect(user).toContain('Communication style reference (untrusted');
+    expect(user).toContain('Uses short warm replies and emojis.');
+    expect(user).toContain('Other reference memories (untrusted');
+    expect(user).toContain('(interest) Likes hiking.');
+    expect(user).toContain('them: tối nay rảnh không?');
+  });
+
   it('keeps the JSON contract in the reply prompt', () => {
     const { system } = builder.buildReplyPrompt({
       ...base,

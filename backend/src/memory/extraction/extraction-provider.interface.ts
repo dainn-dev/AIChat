@@ -2,7 +2,7 @@
 export const MEMORY_EXTRACTION_PROVIDER = Symbol('MEMORY_EXTRACTION_PROVIDER');
 
 /** Phase-2 memory kinds (§5.8). location/relationship fold into `fact`. */
-export type MemoryKind = 'interest' | 'job' | 'birthday' | 'fact';
+export type MemoryKind = 'interest' | 'job' | 'birthday' | 'fact' | 'style';
 
 /** Whether a fact describes the contact ("them") or the user ("me"/global). */
 export type FactScope = 'contact' | 'user';
