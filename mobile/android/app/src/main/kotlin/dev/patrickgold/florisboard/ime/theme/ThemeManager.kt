@@ -44,6 +44,8 @@ import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.appContext
 import dev.patrickgold.florisboard.extensionManager
 import dev.patrickgold.florisboard.ime.smartbar.CachedInlineSuggestionsChipStyleSet
+import com.aichat.keyboard.theme.background.KeyboardBackgroundOverlay
+import dev.patrickgold.florisboard.lib.devtools.flogError
 import dev.patrickgold.florisboard.lib.devtools.flogInfo
 import dev.patrickgold.florisboard.lib.ext.ExtensionComponentName
 import dev.patrickgold.florisboard.lib.ext.ExtensionMeta
@@ -88,7 +90,10 @@ class ThemeManager(context: Context) {
     val previewThemeInfo = MutableStateFlow<ThemeInfo?>(null)
     val configurationChangeCounter = MutableStateFlow(0)
 
-    private val cachedThemeInfos = mutableListOf<ThemeInfo>()
+    // AIChat MODIFIED: also keeps each theme's stylesheet JSON, so the keyboard background photo
+    // (com.aichat.keyboard.theme.background) can be laid over it without reloading the extension.
+    private class CachedTheme(val info: ThemeInfo, val stylesheetJson: String)
+    private val cachedThemeInfos = mutableListOf<CachedTheme>()
     private val activeThemeGuard = Mutex(locked = false)
     private val _activeThemeInfo = MutableStateFlow(ThemeInfo.DEFAULT)
     val activeThemeInfo get() = _activeThemeInfo.asStateFlow()
@@ -114,6 +119,7 @@ class ThemeManager(context: Context) {
             previewThemeId,
             previewThemeInfo,
             configurationChangeCounter,
+            prefs.aichatKeyboardBackground.imageFile.asFlow(),
         ) {}.collectIn(scope) {
             updateActiveTheme()
         }
@@ -130,9 +136,9 @@ class ThemeManager(context: Context) {
             return@withLock
         }
         val activeName = evaluateActiveThemeName()
-        val cachedInfo = cachedThemeInfos.find { it.name == activeName }
-        if (cachedInfo != null) {
-            _activeThemeInfo.value = cachedInfo
+        val cached = cachedThemeInfos.find { it.info.name == activeName }
+        if (cached != null) {
+            _activeThemeInfo.value = withKeyboardBackground(cached)
             return@withLock
         }
         val themeExt = extensionManager.getExtensionById(activeName.extensionId) as? ThemeExtension
@@ -154,17 +160,36 @@ class ThemeManager(context: Context) {
             flogInfo { "Loaded extension ${themeExt.meta.id} into $loadedDir" }
             val stylesheetFile = loadedDir.subFile(themeConfig.stylesheetPath())
             val stylesheetJson = stylesheetFile.readText()
-            SnyggStylesheet.fromJson(stylesheetJson).getOrThrow()
+            SnyggStylesheet.fromJson(stylesheetJson).getOrThrow() to stylesheetJson
         }.fold(
-            onSuccess = { newStylesheet ->
+            onSuccess = { (newStylesheet, stylesheetJson) ->
                 val newInfo = ThemeInfo(activeName, themeConfig, newStylesheet, loadedDir, null)
-                cachedThemeInfos.add(newInfo)
-                _activeThemeInfo.value = newInfo
+                val cached = CachedTheme(newInfo, stylesheetJson)
+                cachedThemeInfos.add(cached)
+                _activeThemeInfo.value = withKeyboardBackground(cached)
             },
             onFailure = { cause ->
                 _activeThemeInfo.value = ThemeInfo.DEFAULT.copy(
                     loadFailure = LoadFailure(themeExt.meta, themeConfig, cause)
                 )
+            },
+        )
+    }
+
+    /**
+     * AIChat MODIFIED: [cached] with the user's keyboard background photo, if one is set. The theme is used
+     * as is when there is none or the overlaid stylesheet does not parse (a broken overlay must never take
+     * the keyboard's theme down).
+     */
+    private fun withKeyboardBackground(cached: CachedTheme): ThemeInfo {
+        val imageFile = prefs.aichatKeyboardBackground.imageFile.get()
+        if (imageFile.isEmpty()) return cached.info
+        val json = KeyboardBackgroundOverlay.apply(cached.stylesheetJson, imageFile)
+        return SnyggStylesheet.fromJson(json).fold(
+            onSuccess = { cached.info.copy(stylesheet = it) },
+            onFailure = { cause ->
+                flogError { "Keyboard background overlay failed for ${cached.info.name}: ${cause.message}" }
+                cached.info
             },
         )
     }

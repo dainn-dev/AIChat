@@ -274,4 +274,11 @@
     <string name="aichat__sticker_suggest__pref_label">Gợi ý sticker khi gõ</string>
     <string name="aichat__sticker_suggest__pref_summary">Hiện sticker phù hợp trên thanh gợi ý khi gõ các từ như “cảm ơn” hay “haha”. Hoạt động không cần mạng.</string>
     <string name="aichat__sticker_suggest__send">Gửi sticker %1$s</string>
+    <!-- Keyboard background photo (com.aichat.keyboard.theme.background), on the theme settings screen. -->
+    <string name="aichat__keyboard_background__title">Hình nền bàn phím</string>
+    <string name="aichat__keyboard_background__summary_none">Chọn một ảnh trong máy</string>
+    <string name="aichat__keyboard_background__summary_set">Đang dùng ảnh của bạn. Nhấn để chọn ảnh khác</string>
+    <string name="aichat__keyboard_background__importing">Đang đặt hình nền…</string>
+    <string name="aichat__keyboard_background__remove">Bỏ hình nền</string>
+    <string name="aichat__keyboard_background__error">Không dùng được ảnh này.</string>
 </resources>
