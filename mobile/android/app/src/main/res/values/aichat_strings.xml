@@ -285,4 +285,15 @@
     <string name="aichat__keyboard_background__importing">Setting the background…</string>
     <string name="aichat__keyboard_background__remove">Remove background</string>
     <string name="aichat__keyboard_background__error">This photo could not be used.</string>
+    <string name="aichat__bottom_bar__schedule">Schedule a message</string>
+    <string name="aichat__schedule__title">Schedule message</string>
+    <string name="aichat__schedule__to">To {name} · {app}</string>
+    <string name="aichat__schedule__no_recipient">Open a Zalo or Messenger chat first (with the chat reader on), so AIChat knows who to send it to.</string>
+    <string name="aichat__schedule__message_hint">Message</string>
+    <string name="aichat__schedule__in_past">Pick a time at least 1 minute from now.</string>
+    <string name="aichat__schedule__cancel">Cancel</string>
+    <string name="aichat__schedule__ok">OK</string>
+    <string name="aichat__schedule__save">Schedule</string>
+    <string name="aichat__schedule__saved">Scheduled for {time}.</string>
+    <string name="aichat__schedule__save_failed">The message could not be scheduled.</string>
 </resources>

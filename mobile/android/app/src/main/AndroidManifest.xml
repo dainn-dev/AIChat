@@ -155,6 +155,17 @@
             android:taskAffinity=""
             android:exported="false"/>
 
+        <!-- AIChat MODIFIED: "Hẹn giờ gửi tin", the popup opened from the keyboard's schedule key where the user writes the
+             message and picks the time (com.aichat.keyboard.schedule). The keyboard cannot host a text field itself.
+             Opened only by the keyboard, so it is not exported. -->
+        <activity
+            android:name="com.aichat.keyboard.schedule.ui.ScheduleMessageActivity"
+            android:theme="@style/FlorisAppTheme.Transparent"
+            android:windowSoftInputMode="stateVisible|adjustResize"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="false"/>
+
         <!-- AIChat MODIFIED: share target for chat screenshots ("Gợi ý trả lời AIChat"). The image is read on-device
              (ML Kit OCR) and never uploaded; only the parsed messages go to /v1/keyboard/reply. Exported only for
              this SEND image/* filter; the activity also rejects non-content: URIs and this app's own providers. -->

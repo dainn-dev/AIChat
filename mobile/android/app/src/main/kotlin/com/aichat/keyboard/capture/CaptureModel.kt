@@ -56,6 +56,9 @@ enum class SupportedMessenger(val packageName: String, val platform: String) {
     }
 }
 
+/** The person an open chat is with: the app and the chat's toolbar title. */
+data class ChatRecipient(val messenger: SupportedMessenger, val contactLabel: String)
+
 /** Reads `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` without Android types. */
 object CaptureServiceState {
     /**
