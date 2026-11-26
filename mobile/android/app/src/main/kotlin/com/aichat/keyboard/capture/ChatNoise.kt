@@ -59,6 +59,81 @@ object ChatNoise {
 
     private val trailingCount = Regex("""^(.*?)\s*\d{1,4}$""")
 
+    /**
+     * Messenger's accessibility label for a bubble: "<sender name>, <message>, double tap to see sent/receive date
+     * and time, double tap and hold to react on message". The hint after the message is the anchor: without it the
+     * text is an ordinary message (which may itself contain commas) and is left alone.
+     */
+    private val bubbleLabel = Regex(
+        """^([^,\n]{1,80}), (.+?),\s*(?:double tap|double-tap|nhấn đúp|chạm hai lần|nhấn hai lần)\b.*$""",
+        setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+    )
+
+    /**
+     * App-generated lines that are never something a person typed: the unread divider and "deleted/unsent a
+     * message" placeholders. Messenger exposes them as full-width rows, so the centered-line check misses them.
+     */
+    private val systemLine = Regex(
+        "^(?:" +
+            """unread messages?|new messages?|tin nhắn chưa đọc|tin nhắn mới""" +
+            """|(?:you|bạn|.{1,64}) (?:deleted|unsent|removed) a message""" +
+            """|(?:bạn|.{1,64}) đã (?:thu hồi|gỡ|xoá|xóa) (?:một )?tin nhắn""" +
+            """|this message (?:was|has been) (?:deleted|unsent|removed)|tin nhắn đã (?:bị )?(?:thu hồi|xoá|xóa)""" +
+            ")$",
+    )
+
+    /**
+     * Labels of on-screen controls rather than messages, e.g. the mute toggle on a video bubble ("Mute volume, not
+     * pressed"): Android appends the toggle state, which no typed message ends with.
+     */
+    private val controlLabel = Regex(
+        """^(?:.{1,60},\s*(?:not pressed|pressed|not checked|checked|đã nhấn|chưa nhấn)""" +
+            """|(?:mute|unmute) (?:volume|video|audio)|(?:bật|tắt) (?:âm thanh|tiếng))$""",
+    )
+
+    /** A Messenger bubble label split into the sender's display name and the message. */
+    data class BubbleLabel(val senderName: String, val content: String)
+
+    /** Splits a Messenger bubble label ([bubbleLabel]); null for plain message text. */
+    fun parseBubbleLabel(text: String): BubbleLabel? {
+        val match = bubbleLabel.matchEntire(text.trim()) ?: return null
+        val name = match.groupValues[1].trim()
+        val content = match.groupValues[2].trim()
+        if (name.isEmpty() || content.isEmpty()) return null
+        return BubbleLabel(name, content)
+    }
+
+    /** The unread divider or a deleted/unsent placeholder. */
+    fun isSystemLine(text: String): Boolean = systemLine.matches(normalize(text))
+
+    /** Whose message a reply quote shows, from the header above it. */
+    enum class QuotedAuthor { ME, THEM }
+
+    private val replyHeaderEn = Regex("""^(you|.{1,64}?) replied to (you|yourself|themselves|himself|herself|.{1,64})$""")
+    private val replyHeaderVi = Regex("""^(bạn|.{1,64}?) đã trả lời (bạn|chính mình|.{1,64})$""")
+
+    /**
+     * The header Messenger puts above a reply ("Thư replied to you", "You replied to Thư", "Bạn đã trả lời Thư"):
+     * whose message the quote under it is. Null when [text] is not a reply header.
+     */
+    fun replyHeader(text: String): QuotedAuthor? {
+        val normalized = normalize(text)
+        replyHeaderEn.matchEntire(normalized)?.let { m ->
+            val (replier, target) = m.destructured
+            val quotesMe = target == "you" || (replier == "you" && target == "yourself")
+            return if (quotesMe) QuotedAuthor.ME else QuotedAuthor.THEM
+        }
+        replyHeaderVi.matchEntire(normalized)?.let { m ->
+            val (replier, target) = m.destructured
+            val quotesMe = target == "bạn" || (replier == "bạn" && target == "chính mình")
+            return if (quotesMe) QuotedAuthor.ME else QuotedAuthor.THEM
+        }
+        return null
+    }
+
+    /** The label of a control (toggle state suffix, mute buttons), not a message. */
+    fun isControlLabel(text: String): Boolean = controlLabel.matches(normalize(text))
+
     fun isTimestampOrDate(text: String): Boolean {
         val normalized = normalize(text)
         return timestampOrDate.matches(normalized) && !dayAbbreviationAlone.matches(normalized)
