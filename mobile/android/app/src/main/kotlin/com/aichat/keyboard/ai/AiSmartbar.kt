@@ -4,10 +4,7 @@
 
 package com.aichat.keyboard.ai
 
-import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
-import android.provider.Settings
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aichat.keyboard.capture.ChatCaptureLauncher
 import com.aichat.keyboard.core.network.model.Tone
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.R
@@ -107,7 +105,6 @@ fun AiButton(
 @Composable
 fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
     val state by controller.state.collectAsState()
-    val context = LocalContext.current
     Row(
         modifier = Modifier
             .weight(1f)
@@ -136,7 +133,8 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
                 if (s.reason == AiFailure.NO_CONVERSATION && s.captureDisabled) {
                     Chip(R.string.aichat__ai__enable_reading, active = true) {
                         controller.reset()
-                        openAccessibilitySettings(context)
+                        // Disclosure and consent first (Play policy); that screen opens the system settings.
+                        ChatCaptureLauncher.openConsent()
                     }
                 }
                 if (s.reason == AiFailure.NOT_SIGNED_IN) {
@@ -227,12 +225,6 @@ private fun RowScope.SuggestionPanel(controller: AiAssistController, replies: Li
 
 /** Cards narrower than the bar, so the next one peeks in and the row reads as scrollable. */
 private const val CARD_WIDTH_FRACTION = 0.8f
-
-/** Opens the system accessibility settings, where the user can turn on AIChat's chat reader. */
-private fun openAccessibilitySettings(context: Context) {
-    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
-}
 
 /** A one-line chip at [AiSmartbarLayout.TEXT_SIZE_SP] (the smartbar's ~17sp made the chips overflow). */
 @Composable

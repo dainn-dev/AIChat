@@ -126,6 +126,9 @@ The full delta from upstream is:
       com.aichat.keyboard.voice.VoiceInputActivity (mic key speech recognition).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
       Defaults: number-row and symbol hint mode ACCENT_PRIORITY (long-press selects the accented letter first).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt (also)
+      Navigates to the chat-reader consent screen when the keyboard asks (in-process request,
+      com.aichat.keyboard.capture.ChatCaptureLauncher); external intents are still ignored.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt,
   app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also),
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/clipboard/FlorisCopyToClipboardActivity.kt
