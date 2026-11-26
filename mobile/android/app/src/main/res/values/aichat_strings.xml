@@ -152,7 +152,6 @@
 
     <!-- Keyboard: bottom bar under the keys -->
     <string name="aichat__bottom_bar__switch_language">Switch language</string>
-    <string name="aichat__bottom_bar__voice_input">Voice input</string>
 
     <!-- Keyboard: smartbar AI button (rewrite / translate the field text) -->
     <string name="aichat__ai__button">AI writing tools</string>
@@ -190,16 +189,6 @@
     <string name="aichat__ai__error_server">AI is unavailable, try again later</string>
     <string name="aichat__ai__error_text_changed">The text changed, try again</string>
 
-    <!-- Mic key (com.aichat.keyboard.voice) -->
-    <string name="aichat__voice__unavailable">Voice input is not available on this phone. Install or enable Google voice typing</string>
-    <string name="aichat__voice__permission_denied">Allow the microphone to use voice input</string>
-    <string name="aichat__voice__prompt">Speak now</string>
-    <string name="aichat__voice__listening">Listening…</string>
-    <string name="aichat__voice__tap_to_finish">Tap here when you\'re done, outside to cancel</string>
-    <string name="aichat__voice__no_match">Didn\'t catch that, try again</string>
-    <string name="aichat__voice__error_network">Voice input needs an internet connection</string>
-    <string name="aichat__voice__error">Voice input failed, try again</string>
-    <string name="aichat__voice__blocked_private">Voice input is off in password fields and incognito mode</string>
     <!-- Screenshot share target (com.aichat.keyboard.share) -->
     <string name="aichat__share__target_label">AIChat reply suggestions</string>
     <string name="aichat__share__title">Reply suggestions</string>

@@ -98,7 +98,7 @@ The full delta from upstream is:
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/text/keyboard/TextKeyboardLayout.kt
       Renders the LANGUAGE_CODE space bar label (the subtype's language name in its own language).
   app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt
-      Adds the AIChat globe / mic strip (com.aichat.keyboard.ui.AiChatImeBottomBar) under every input mode.
+      Adds the AIChat globe / AI strip (com.aichat.keyboard.ui.AiChatImeBottomBar) under every input mode.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
       Defaults: space bar LANGUAGE_CODE, smartbar SUGGESTIONS_ONLY, suggestions CLASSIC (three fixed).
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/FlorisImeSizing.kt
@@ -117,14 +117,6 @@ The full delta from upstream is:
       suggestions are shown).
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/Smartbar.kt (also)
       Main row height = smartbarHeight * com.aichat.keyboard.ui.smartbarMainRowCount(), same as smartbarUiHeight().
-  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also)
-      switchToVoiceInputMethod() delegates to com.aichat.keyboard.voice.VoiceInput (voice IME, else Android speech
-      recognition, else a localized message; upstream showed an English toast; refused in password / TYPE_NULL
-      fields and incognito mode); onStartInput() lets VoiceInput commit recognized text into the exact field
-      it was spoken for (never a password field).
-  app/src/main/AndroidManifest.xml (also)
-      RECORD_AUDIO permission, <queries> for RECOGNIZE_SPEECH / RecognitionService, non-exported
-      com.aichat.keyboard.voice.VoiceInputActivity (mic key speech recognition).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
       Defaults: number-row and symbol hint mode ACCENT_PRIORITY (long-press selects the accented letter first).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt (also)
