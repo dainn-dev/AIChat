@@ -114,6 +114,15 @@
             android:configChanges="orientation|screenSize"
             android:theme="@style/CrashDialogTheme"/>
 
+        <!-- AIChat MODIFIED: invisible photo-picker activity that turns gallery images into stickers.
+             Opened only by the keyboard itself, so it is not exported. -->
+        <activity
+            android:name="com.aichat.keyboard.sticker.StickerImportActivity"
+            android:theme="@style/FlorisAppTheme.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="false"/>
+
         <!-- Copy to Clipboard Activity -->
         <activity
             android:name="dev.patrickgold.florisboard.ime.clipboard.FlorisCopyToClipboardActivity"

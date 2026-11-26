@@ -17,6 +17,11 @@
 package dev.patrickgold.florisboard.ime.media
 
 import android.annotation.SuppressLint
+// AIChat MODIFIED: sticker panel.
+import com.aichat.keyboard.sticker.ui.AiChatMediaTab
+import com.aichat.keyboard.sticker.ui.AiChatMediaTabButtons
+import com.aichat.keyboard.sticker.ui.StickerPaletteView
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -73,6 +78,7 @@ fun MediaInputLayout(
     LaunchedEffect(Unit) {
         emojiLayoutDataMap = EmojiData.get(context, "ime/media/emoji/root.txt")
     }
+    var activeTab by rememberSaveable { mutableStateOf(AiChatMediaTab.EMOJI) } // AIChat MODIFIED
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         SnyggColumn(
@@ -81,10 +87,14 @@ fun MediaInputLayout(
                 .fillMaxWidth()
                 .height(FlorisImeSizing.imeUiHeight()),
         ) {
-            EmojiPaletteView(
-                modifier = Modifier.weight(1f),
-                fullEmojiMappings = emojiLayoutDataMap,
-            )
+            // AIChat MODIFIED: the media input has an emoji and a sticker panel, switched from the bottom row.
+            when (activeTab) {
+                AiChatMediaTab.EMOJI -> EmojiPaletteView(
+                    modifier = Modifier.weight(1f),
+                    fullEmojiMappings = emojiLayoutDataMap,
+                )
+                AiChatMediaTab.STICKERS -> StickerPaletteView(modifier = Modifier.weight(1f))
+            }
             SnyggRow(
                 elementName = FlorisImeUi.MediaBottomRow.elementName,
                 modifier = Modifier
@@ -102,6 +112,7 @@ fun MediaInputLayout(
                         fontWeight = FontWeight.Bold,
                     )
                 }
+                AiChatMediaTabButtons(selected = activeTab, onSelect = { activeTab = it }) // AIChat MODIFIED
                 Spacer(modifier = Modifier.weight(1f))
                 KeyboardLikeButton(
                     elementName = FlorisImeUi.MediaBottomRowButton.elementName,

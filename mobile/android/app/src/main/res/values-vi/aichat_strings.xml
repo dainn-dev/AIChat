@@ -97,4 +97,47 @@
     <string name="aichat__error__validation">Máy chủ không chấp nhận yêu cầu này. Hãy kiểm tra lại thông tin và thử lại.</string>
     <string name="aichat__error__not_found">Mục này không còn tồn tại.</string>
     <string name="aichat__error__unknown">Đã xảy ra lỗi. Vui lòng thử lại.</string>
+
+    <!-- Bàn phím: emoji và sticker -->
+    <string name="aichat__media__tab_emoji">Emoji</string>
+    <string name="aichat__media__tab_stickers">Sticker</string>
+    <string name="aichat__stickers__my_pack">Sticker của tôi</string>
+    <string name="aichat__stickers__add">Thêm sticker từ thư viện ảnh</string>
+    <string name="aichat__stickers__empty_user">Thêm ảnh từ thư viện để làm sticker của riêng bạn. Nhấn giữ một sticker để xoá.</string>
+    <string name="aichat__stickers__delete">Xoá sticker</string>
+    <string name="aichat__stickers__unsupported">Ứng dụng này không nhận sticker.</string>
+    <string name="aichat__stickers__send_failed">Không gửi được sticker.</string>
+    <string name="aichat__stickers__import_added">Đã thêm {count} sticker.</string>
+    <string name="aichat__stickers__import_full">Bộ sticker của bạn đã đầy (tối đa {max}). Hãy xoá bớt để thêm mới.</string>
+    <string name="aichat__stickers__import_invalid">Không đọc được {count} ảnh.</string>
+
+    <!-- Cài đặt bàn phím: phím tiện ích -->
+    <string name="aichat__enum__utility_key_action__language_and_emojis">Phím đổi ngôn ngữ và phím emoji</string>
+    <string name="aichat__enum__space_bar_mode__language_code">Tên ngôn ngữ (kiểu iOS)</string>
+
+    <!-- Bàn phím: thanh dưới cùng -->
+    <string name="aichat__bottom_bar__switch_language">Đổi ngôn ngữ</string>
+    <string name="aichat__bottom_bar__voice_input">Nhập bằng giọng nói</string>
+
+    <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
+    <string name="aichat__ai__button">Công cụ viết AI</string>
+    <string name="aichat__ai__rewrite_friendly">Thân thiện</string>
+    <string name="aichat__ai__rewrite_polite">Lịch sự</string>
+    <string name="aichat__ai__rewrite_funny">Hài hước</string>
+    <string name="aichat__ai__translate_en">Dịch → English</string>
+    <string name="aichat__ai__translate_vi">Dịch → Tiếng Việt</string>
+    <string name="aichat__ai__loading">Đang xử lý…</string>
+    <string name="aichat__ai__done">Đã thay nội dung</string>
+    <string name="aichat__ai__undo">Hoàn tác</string>
+    <string name="aichat__ai__ok">OK</string>
+    <string name="aichat__ai__sign_in">Đăng nhập</string>
+    <string name="aichat__ai__error_unavailable">Không dùng được AI ở ô này</string>
+    <string name="aichat__ai__error_empty">Hãy nhập nội dung trước</string>
+    <string name="aichat__ai__error_too_long">Nội dung quá dài (tối đa 2000 ký tự)</string>
+    <string name="aichat__ai__error_not_signed_in">Đăng nhập AIChat để dùng AI</string>
+    <string name="aichat__ai__error_quota">Đã hết lượt AI hôm nay</string>
+    <string name="aichat__ai__error_network">Không có kết nối mạng</string>
+    <string name="aichat__ai__error_timeout">AI phản hồi quá lâu, hãy thử lại</string>
+    <string name="aichat__ai__error_server">AI đang gặp lỗi, thử lại sau</string>
+    <string name="aichat__ai__error_text_changed">Nội dung đã thay đổi, hãy thử lại</string>
 </resources>

@@ -36,7 +36,8 @@ val projectVersionName: String by project
 // `dev.patrickgold.florisboard` (and `com.aichat.keyboard.*` for AIChat code) to keep the diff against upstream
 // small (see mobile/android/UPSTREAM.md).
 val aichatBaseApplicationId = "online.dainn.aichat.keyboard"
-val aichatAppName = "AIChat Keyboard"
+// Launcher / IME label (renamed from "AIChat Keyboard" on 2026-11-26). The application ID above does not change.
+val aichatAppName = "DBoard"
 val projectVersionNameSuffix = projectVersionName.substringAfter("-", "").let { suffix ->
     if (suffix.isNotEmpty()) {
         "-$suffix"

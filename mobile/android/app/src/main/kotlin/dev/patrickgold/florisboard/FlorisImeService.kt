@@ -675,10 +675,14 @@ class FlorisImeService : LifecycleInputMethodService() {
                                 .weight(keyboardWeight)
                                 .wrapContentHeight(),
                         ) {
-                            when (state.imeUiMode) {
-                                ImeUiMode.TEXT -> TextInputLayout()
-                                ImeUiMode.MEDIA -> MediaInputLayout()
-                                ImeUiMode.CLIPBOARD -> ClipboardInputLayout()
+                            // AIChat MODIFIED: iOS-like globe / mic strip under every input mode.
+                            Column {
+                                when (state.imeUiMode) {
+                                    ImeUiMode.TEXT -> TextInputLayout()
+                                    ImeUiMode.MEDIA -> MediaInputLayout()
+                                    ImeUiMode.CLIPBOARD -> ClipboardInputLayout()
+                                }
+                                com.aichat.keyboard.ui.AiChatImeBottomBar()
                             }
                         }
                     }

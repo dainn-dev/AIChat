@@ -3,4 +3,12 @@
     <cache-path
         name="backup"
         path="backup-and-restore/"/>
+    <!-- AIChat MODIFIED: stickers sent from the keyboard (com.aichat.keyboard.sticker.StickerSender).
+         The rendered/copied built-in stickers, and the user's own stickers. -->
+    <cache-path
+        name="aichat_stickers"
+        path="aichat_stickers_share/"/>
+    <files-path
+        name="aichat_user_stickers"
+        path="aichat_stickers/user/"/>
 </paths>

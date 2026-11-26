@@ -158,13 +158,16 @@ class TextKey(override val data: AbstractKeyData) : Key(data) {
                     KeyCode.VIEW_SYMBOLS, 61 -> 1.26f
                     else -> 1.56f
                 }
+                // AIChat MODIFIED: iOS proportions (measured: a letter key is 1.0; shift/delete 1.35, 123 and emoji 1.3,
+                // return 2.57 of a letter key's pitch). Upstream: 1.56 for shift, delete, view switches and enter.
                 else -> when (computed.code) {
                     KeyCode.SHIFT,
-                    KeyCode.DELETE -> 1.56f
+                    KeyCode.DELETE -> 1.35f
                     KeyCode.VIEW_CHARACTERS,
                     KeyCode.VIEW_SYMBOLS,
                     KeyCode.VIEW_SYMBOLS2,
-                    KeyCode.ENTER -> 1.56f
+                    KeyCode.IME_UI_MODE_MEDIA -> 1.30f
+                    KeyCode.ENTER -> 2.57f
                     else -> 1.00f
                 }
             }

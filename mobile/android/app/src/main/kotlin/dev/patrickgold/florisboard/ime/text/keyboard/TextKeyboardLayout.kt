@@ -345,6 +345,12 @@ private fun TextKeyButton(
                     SpaceBarMode.NOTHING -> return@let
                     SpaceBarMode.CURRENT_LANGUAGE -> {}
                     SpaceBarMode.SPACE_BAR_KEY -> customLabel = "␣"
+                    // AIChat MODIFIED: iOS-like centred language name in its own language ("Tiếng Việt",
+                    // "English"); the muted colour comes from the theme's `key[code=32]` rule.
+                    SpaceBarMode.LANGUAGE_CODE -> {
+                        val locale = evaluator.subtype.primaryLocale
+                        customLabel = locale.displayLanguage(locale)
+                    }
                 }
             }
             SnyggText(

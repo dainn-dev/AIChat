@@ -19,5 +19,7 @@ package dev.patrickgold.florisboard.ime.keyboard
 enum class SpaceBarMode {
     NOTHING,
     CURRENT_LANGUAGE,
-    SPACE_BAR_KEY;
+    SPACE_BAR_KEY,
+    // AIChat MODIFIED: iOS-like muted language name ("Tiếng Việt", "English") centred on the space bar.
+    LANGUAGE_CODE;
 }

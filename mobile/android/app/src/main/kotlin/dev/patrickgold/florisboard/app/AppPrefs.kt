@@ -483,7 +483,7 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val hintedNumberRowMode = enum(
             key = "keyboard__hinted_number_row_mode",
-            default = KeyHintMode.SMART_PRIORITY,
+            default = KeyHintMode.ACCENT_PRIORITY, // AIChat MODIFIED: accented letter first on long-press (upstream: SMART_PRIORITY).
         )
         val hintedSymbolsEnabled = boolean(
             key = "keyboard__hinted_symbols_enabled",
@@ -491,7 +491,7 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val hintedSymbolsMode = enum(
             key = "keyboard__hinted_symbols_mode",
-            default = KeyHintMode.SMART_PRIORITY,
+            default = KeyHintMode.ACCENT_PRIORITY, // AIChat MODIFIED: accented letter first on long-press (upstream: SMART_PRIORITY).
         )
         val utilityKeyEnabled = boolean(
             key = "keyboard__utility_key_enabled",
@@ -499,11 +499,12 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val utilityKeyAction = enum(
             key = "keyboard__utility_key_action",
-            default = UtilityKeyAction.DYNAMIC_SWITCH_LANGUAGE_EMOJIS,
+            // AIChat MODIFIED: show both the language and the emoji key, like iOS.
+            default = UtilityKeyAction.LANGUAGE_AND_EMOJIS,
         )
         val spaceBarMode = enum(
             key = "keyboard__space_bar_display_mode",
-            default = SpaceBarMode.CURRENT_LANGUAGE,
+            default = SpaceBarMode.LANGUAGE_CODE, // AIChat MODIFIED: iOS-like (upstream: CURRENT_LANGUAGE).
         )
         val capitalizationBehavior = enum(
             key = "keyboard__capitalization_behavior",
@@ -543,11 +544,11 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val keySpacingVertical = float(
             key = "keyboard__key_spacing_vertical",
-            default = 5.0f,
+            default = 3.0f, // AIChat MODIFIED: tighter rows (upstream: 5.0f).
         )
         val keySpacingHorizontal = float(
             key = "keyboard__key_spacing_horizontal",
-            default = 2.0f,
+            default = 1.6f, // AIChat MODIFIED: the key gap of iOS, 0.022 of the screen width (upstream: 2.0f).
         )
         val bottomOffsetPortrait = int(
             key = "keyboard__bottom_offset_portrait",
@@ -690,7 +691,8 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val layout = enum(
             key = "smartbar__layout",
-            default = SmartbarLayout.SUGGESTIONS_ACTIONS_SHARED,
+            // AIChat MODIFIED: iOS-like bar with suggestions only (upstream: SUGGESTIONS_ACTIONS_SHARED).
+            default = SmartbarLayout.SUGGESTIONS_ONLY,
         )
         val actionArrangement = custom(
             key = "smartbar__action_arrangement",
@@ -752,7 +754,8 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val displayMode = enum(
             key = "suggestion__display_mode",
-            default = CandidatesDisplayMode.DYNAMIC_SCROLLABLE,
+            // AIChat MODIFIED: three fixed, centered suggestions like iOS (upstream: DYNAMIC_SCROLLABLE).
+            default = CandidatesDisplayMode.CLASSIC,
         )
         val blockPossiblyOffensive = boolean(
             key = "suggestion__block_possibly_offensive",
@@ -777,12 +780,12 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val dayThemeId = custom(
             key = "theme__day_theme_id",
-            default = extCoreTheme("floris_day"),
+            default = com.aichat.keyboard.theme.AiChatThemes.DAY, // AIChat MODIFIED: iOS-style default theme.
             serializer = ExtensionComponentName.Serializer,
         )
         val nightThemeId = custom(
             key = "theme__night_theme_id",
-            default = extCoreTheme("floris_night"),
+            default = com.aichat.keyboard.theme.AiChatThemes.NIGHT, // AIChat MODIFIED: iOS-style default theme.
             serializer = ExtensionComponentName.Serializer,
         )
         val accentColor = custom(

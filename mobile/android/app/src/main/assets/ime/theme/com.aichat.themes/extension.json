@@ -1,0 +1,25 @@
+{
+  "$": "ime.extension.theme",
+  "meta": {
+    "id": "com.aichat.themes",
+    "version": "1.0.0",
+    "title": "AIChat themes",
+    "description": "iOS-style light and dark keyboard themes, the AIChat defaults",
+    "maintainers": [ "AIChat" ],
+    "license": "LicenseRef-AIChat-Proprietary"
+  },
+  "themes": [
+    {
+      "id": "aichat_ios_light",
+      "label": "AIChat Light",
+      "authors": [ "AIChat" ],
+      "isNight": false
+    },
+    {
+      "id": "aichat_ios_dark",
+      "label": "AIChat Dark",
+      "authors": [ "AIChat" ],
+      "isNight": true
+    }
+  ]
+}

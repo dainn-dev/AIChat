@@ -33,7 +33,7 @@ HeliBoard/OpenBoard, and AnySoftKeyboard) would not allow it.
 | What | Upstream | AIChat | Notes |
 |------|----------|--------|-------|
 | `applicationId` | `dev.patrickgold.florisboard` | `online.dainn.aichat.keyboard` (final, confirmed 2026-11-20) | Debug builds keep upstream's `.debug` suffix, so they install as `online.dainn.aichat.keyboard.debug`. Beta builds use `.beta`. |
-| Launcher / IME label (`floris_app_name`) | `FlorisBoard` | `AIChat Keyboard` (Debug/Beta suffix per build type) | Set through `resValue` in `app/build.gradle.kts`. |
+| Launcher / IME label (`floris_app_name`) | `FlorisBoard` | `DBoard` (Debug/Beta suffix per build type; renamed from `AIChat Keyboard` on 2026-11-26, the application ID stays) | Set through `resValue` in `app/build.gradle.kts`. |
 | Android `namespace` (R / BuildConfig package) | `dev.patrickgold.florisboard` | **unchanged** | See below. |
 | Kotlin packages (`dev.patrickgold.florisboard.*`, `org.florisboard.lib.*`) | — | **unchanged** | See below. |
 | Backup/restore package check | hard-coded `dev.patrickgold.florisboard` | `BuildConfig.BASE_APPLICATION_ID` | Without this, restore would reject backups made by this fork. |

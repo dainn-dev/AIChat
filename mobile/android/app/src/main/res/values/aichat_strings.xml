@@ -103,4 +103,47 @@
     <string name="aichat__error__validation">The server could not accept this request. Check the details and try again.</string>
     <string name="aichat__error__not_found">It no longer exists.</string>
     <string name="aichat__error__unknown">Something went wrong. Please try again.</string>
+
+    <!-- Keyboard: emoji and sticker panel -->
+    <string name="aichat__media__tab_emoji">Emoji</string>
+    <string name="aichat__media__tab_stickers">Stickers</string>
+    <string name="aichat__stickers__my_pack">My stickers</string>
+    <string name="aichat__stickers__add">Add stickers from your gallery</string>
+    <string name="aichat__stickers__empty_user">Add images from your gallery to make your own stickers. Long-press a sticker to delete it.</string>
+    <string name="aichat__stickers__delete">Delete sticker</string>
+    <string name="aichat__stickers__unsupported">This app does not accept stickers.</string>
+    <string name="aichat__stickers__send_failed">Could not send the sticker.</string>
+    <string name="aichat__stickers__import_added">Stickers added: {count}</string>
+    <string name="aichat__stickers__import_full">Your sticker collection is full (at most {max}). Delete some to add more.</string>
+    <string name="aichat__stickers__import_invalid">Images that could not be read: {count}</string>
+
+    <!-- Keyboard settings: utility key -->
+    <string name="aichat__enum__utility_key_action__language_and_emojis">Language key and emoji key</string>
+    <string name="aichat__enum__space_bar_mode__language_code">Language name (iOS style)</string>
+
+    <!-- Keyboard: bottom bar under the keys -->
+    <string name="aichat__bottom_bar__switch_language">Switch language</string>
+    <string name="aichat__bottom_bar__voice_input">Voice input</string>
+
+    <!-- Keyboard: smartbar AI button (rewrite / translate the field text) -->
+    <string name="aichat__ai__button">AI writing tools</string>
+    <string name="aichat__ai__rewrite_friendly">Friendly</string>
+    <string name="aichat__ai__rewrite_polite">Polite</string>
+    <string name="aichat__ai__rewrite_funny">Funny</string>
+    <string name="aichat__ai__translate_en">To English</string>
+    <string name="aichat__ai__translate_vi">To Vietnamese</string>
+    <string name="aichat__ai__loading">Working…</string>
+    <string name="aichat__ai__done">Text replaced</string>
+    <string name="aichat__ai__undo">Undo</string>
+    <string name="aichat__ai__ok">OK</string>
+    <string name="aichat__ai__sign_in">Sign in</string>
+    <string name="aichat__ai__error_unavailable">AI is not available in this field</string>
+    <string name="aichat__ai__error_empty">Type something first</string>
+    <string name="aichat__ai__error_too_long">Text is too long (at most 2000 characters)</string>
+    <string name="aichat__ai__error_not_signed_in">Sign in to AIChat to use AI</string>
+    <string name="aichat__ai__error_quota">You have used today\'s AI limit</string>
+    <string name="aichat__ai__error_network">No internet connection</string>
+    <string name="aichat__ai__error_timeout">AI took too long, try again</string>
+    <string name="aichat__ai__error_server">AI is unavailable, try again later</string>
+    <string name="aichat__ai__error_text_changed">The text changed, try again</string>
 </resources>

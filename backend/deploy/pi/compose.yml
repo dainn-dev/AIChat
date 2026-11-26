@@ -1,0 +1,88 @@
+# AIChat backend on the Raspberry Pi (arm64). See README.md in this folder.
+#
+# Layout on the Pi (~/aichat):
+#   compose.yml   this file
+#   .env          created by init-env.sh (secrets, chmod 600, never committed)
+#   backend/      the backend source, built here natively for arm64
+#
+# Postgres and Redis are reachable only on the compose network: the Pi already has other services on host
+# ports 5432/6379. The API listens on 127.0.0.1:3010 (3000 is taken on the Pi) and is published to the internet
+# only through the existing Cloudflare Tunnel (chat-api.dainn.online).
+name: aichat
+
+services:
+  db:
+    # PostgreSQL 16 with the `vector` extension prebuilt (multi-arch, includes arm64).
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:?run init-env.sh first}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?run init-env.sh first}
+      POSTGRES_DB: ${DATABASE_NAME:?run init-env.sh first}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    # Backs the BullMQ memory-extraction queue. Internal network only; jobs are re-enqueued by later captures,
+    # so no persistence is configured.
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: applies pending TypeORM migrations, then exits. `api` starts only after it succeeds.
+  migrate:
+    build: ./backend
+    image: aichat-api:latest
+    env_file: .env
+    command: ['node', 'node_modules/typeorm/cli.js', 'migration:run', '-d', 'dist/database/data-source.js']
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    image: aichat-api:latest
+    pull_policy: never
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '127.0.0.1:3010:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Publishes the API as https://chat-api.dainn.online through the dedicated "aichat" tunnel.
+  tunnel:
+    image: cloudflare/cloudflared:2026.11.1
+    restart: unless-stopped
+    # Reads tunnel.json (chmod 400, owned by the deploying user) without root.
+    user: '${AICHAT_UID:-1000}:${AICHAT_GID:-1000}'
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared.yml:/etc/cloudflared/config.yml:ro
+      - ./tunnel.json:/etc/cloudflared/tunnel.json:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

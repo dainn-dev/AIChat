@@ -17,6 +17,10 @@
 package dev.patrickgold.florisboard.ime.smartbar
 
 import androidx.compose.animation.AnimatedVisibility
+import com.aichat.keyboard.ai.AiAssist // AIChat MODIFIED: smartbar AI button.
+import com.aichat.keyboard.ai.AiAssistState // AIChat MODIFIED: smartbar AI button.
+import com.aichat.keyboard.ai.AiSmartbarPanel // AIChat MODIFIED: smartbar AI button.
+import com.aichat.keyboard.ui.isSmartbarVisible // AIChat MODIFIED: smartbar AI button.
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloat
@@ -42,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember // AIChat MODIFIED: smartbar AI button.
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,11 +97,11 @@ private val NoAnimationTween = tween<Float>(0)
 @Composable
 fun Smartbar() {
     val prefs by FlorisPreferenceStore
-    val smartbarEnabled by prefs.smartbar.enabled.observeAsState()
     val extendedActionsPlacement by prefs.smartbar.extendedActionsPlacement.observeAsState()
 
     AnimatedVisibility(
-        visible = smartbarEnabled,
+        // AIChat MODIFIED: suggestions-only collapses when empty; opens for suggestions or the AI chips.
+        visible = isSmartbarVisible(),
         enter = VerticalEnterTransition,
         exit = VerticalExitTransition,
     ) {
@@ -324,7 +329,12 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
     ) {
         when (smartbarLayout) {
             SmartbarLayout.SUGGESTIONS_ONLY -> {
-                if (shouldShowInlineSuggestionsUi) {
+                // AIChat MODIFIED: while the AI button (bottom strip) is open, its chips replace the suggestions.
+                val aiController = remember { AiAssist.controller(context) }
+                val aiState by aiController.state.collectAsState()
+                if (aiState != AiAssistState.Closed) {
+                    AiSmartbarPanel(aiController)
+                } else if (shouldShowInlineSuggestionsUi) {
                     InlineSuggestionsUi(inlineSuggestions)
                 } else {
                     CandidatesRow()
