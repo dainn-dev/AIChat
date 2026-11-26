@@ -178,4 +178,10 @@ Files added by AIChat (not part of upstream):
   app/src/main/assets/ime/theme/com.aichat.themes/ (iOS-style themes generated from floris_day.json by
   tools/gen_aichat_themes.py), tools/gen_aichat_themes.py,
   app/src/debug/res/xml/network_security_config.xml,
-  app/src/main/res/xml/aichat_accessibility_service.xml
+  app/src/main/res/xml/aichat_accessibility_service.xml,
+  app/src/main/assets/ime/media/sticker/noto-animated/ (sticker pack "Emoji động": 25 emoji from Animated Noto
+  Emoji by Google, https://googlefonts.github.io/noto-emoji-animation/, licensed under CC BY 4.0,
+  https://creativecommons.org/licenses/by/4.0/ . Changed by AIChat: resized from 512 to 192 px, every second
+  frame merged, re-encoded as lossy animated WebP. Notice shown in the app via
+  app/src/main/config/libraries/noto-emoji-animation.json and
+  app/src/main/config/licenses/noto-emoji-animation-cc-by-4.0.json)
