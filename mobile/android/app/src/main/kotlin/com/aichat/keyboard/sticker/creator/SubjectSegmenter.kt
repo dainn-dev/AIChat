@@ -78,5 +78,5 @@ interface SubjectSegmenter {
 
 /** Creates the app's [SubjectSegmenter] (ML Kit Subject Segmentation through Google Play services). */
 object SubjectSegmenters {
-    fun create(context: Context): SubjectSegmenter = TODO("Implemented by the segmentation workstream")
+    fun create(context: Context): SubjectSegmenter = MlKitSubjectSegmenter(context)
 }
