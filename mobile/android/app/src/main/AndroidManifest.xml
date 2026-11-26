@@ -12,6 +12,10 @@
     <!-- Permission needed to create notifications on devices running Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- AIChat MODIFIED: the mic key's fallback speech recognition (com.aichat.keyboard.voice.VoiceInputActivity)
+         when no voice-typing IME is enabled. Asked for at runtime, only when the user taps the mic key. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
     <!-- Android 11+ only: Define that FlorisBoard requests to see all apps that
           ship with an IME or Spell Check service. This is used to guide the user
           in the Settings Ui why FlorisBoard may not be working.
@@ -22,6 +26,13 @@
         </intent>
         <intent>
             <action android:name="android.service.textservice.SpellCheckerService"/>
+        </intent>
+        <!-- AIChat MODIFIED: let the mic key find a speech recognizer (screen or service) on Android 11+. -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 
@@ -70,6 +81,22 @@
             <meta-data android:name="android.view.textservice.scs" android:resource="@xml/spellchecker"/>
         </service>
 
+        <!-- AIChat MODIFIED: chat reader for reply suggestions. Reads the visible Messenger/Zalo chat only when the
+             user taps "Gợi ý trả lời"; disclosed on the consent screen (com.aichat.keyboard.capture). Exported only to
+             the system: BIND_ACCESSIBILITY_SERVICE is held by the system alone. -->
+        <service
+            android:name="com.aichat.keyboard.capture.ChatCaptureService"
+            android:label="@string/aichat__capture__service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/aichat_accessibility_service"/>
+        </service>
+
         <!-- Main App Activity -->
         <activity
             android:name="dev.patrickgold.florisboard.app.FlorisAppActivity"
@@ -113,6 +140,42 @@
             android:label="@string/crash_dialog__title"
             android:configChanges="orientation|screenSize"
             android:theme="@style/CrashDialogTheme"/>
+
+        <!-- AIChat MODIFIED: invisible photo-picker activity that turns gallery images into stickers.
+             Opened only by the keyboard itself, so it is not exported. -->
+        <activity
+            android:name="com.aichat.keyboard.sticker.StickerImportActivity"
+            android:theme="@style/FlorisAppTheme.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="false"/>
+
+        <!-- AIChat MODIFIED: invisible speech-recognition activity behind the mic key (no voice IME enabled).
+             Opened only by the keyboard itself, so it is not exported. -->
+        <activity
+            android:name="com.aichat.keyboard.voice.VoiceInputActivity"
+            android:theme="@style/FlorisAppTheme.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:exported="false"/>
+        <!-- AIChat MODIFIED: share target for chat screenshots ("Gợi ý trả lời AIChat"). The image is read on-device
+             (ML Kit OCR) and never uploaded; only the parsed messages go to /v1/keyboard/reply. Exported only for
+             this SEND image/* filter; the activity also rejects non-content: URIs and this app's own providers. -->
+        <activity
+            android:name="com.aichat.keyboard.share.ShareReplyActivity"
+            android:label="@string/aichat__share__target_label"
+            android:icon="@mipmap/floris_app_icon"
+            android:roundIcon="@mipmap/floris_app_icon_round"
+            android:theme="@style/FlorisAppTheme"
+            android:windowSoftInputMode="adjustResize"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+        </activity>
 
         <!-- Copy to Clipboard Activity -->
         <activity

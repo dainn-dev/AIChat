@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect // AIChat MODIFIED: chat-reader consent request.
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -118,7 +119,7 @@ class FlorisAppActivity : ComponentActivity() {
             setContent {
                 ProvideLocalizedResources(
                     resourcesContext,
-                    appName = R.string.app_name,
+                    appName = R.string.aichat_app_name, // AIChat MODIFIED: {app_name} is DBoard.
                 ) {
                     FlorisAppTheme(theme = appTheme) {
                         Surface(color = MaterialTheme.colorScheme.background) {
@@ -191,5 +192,18 @@ class FlorisAppActivity : ComponentActivity() {
 
         // AIChat MODIFIED: removed the LaunchedEffect that turned external intents into navigation (deep links and
         // extension import), see onNewIntent.
+
+        // AIChat MODIFIED: the keyboard's "Turn on" chip asks for the chat-reader consent screen. In-process only
+        // (com.aichat.keyboard.capture.ChatCaptureLauncher), so external apps still cannot navigate settings. The
+        // request is a timestamp; consumePendingConsent() ignores a stale one (older than ~10 s).
+        LaunchedEffect(navController, isImeSetUp) {
+            com.aichat.keyboard.capture.ChatCaptureLauncher.pendingConsent.collect { pending ->
+                if (pending != null && isImeSetUp &&
+                    com.aichat.keyboard.capture.ChatCaptureLauncher.consumePendingConsent()
+                ) {
+                    navController.navigate(com.aichat.keyboard.capture.ChatCaptureRoutes.Consent)
+                }
+            }
+        }
     }
 }

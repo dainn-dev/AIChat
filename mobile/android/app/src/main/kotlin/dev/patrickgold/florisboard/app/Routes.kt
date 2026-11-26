@@ -36,6 +36,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.aichat.keyboard.app.account.aichatAccountGraph
+import com.aichat.keyboard.capture.aichatCaptureGraph
 import dev.patrickgold.florisboard.app.devtools.AndroidLocalesScreen
 import dev.patrickgold.florisboard.app.devtools.AndroidSettingsScreen
 import dev.patrickgold.florisboard.app.devtools.DevtoolsScreen
@@ -367,6 +368,8 @@ object Routes {
 
             // AIChat MODIFIED: AIChat account, saved conversations and memories screens (no deep links on purpose).
             aichatAccountGraph()
+            // AIChat MODIFIED: consent screen for the chat reader (reply suggestions), no deep link on purpose.
+            aichatCaptureGraph()
         }
     }
 }

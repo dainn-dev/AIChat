@@ -36,7 +36,8 @@ val projectVersionName: String by project
 // `dev.patrickgold.florisboard` (and `com.aichat.keyboard.*` for AIChat code) to keep the diff against upstream
 // small (see mobile/android/UPSTREAM.md).
 val aichatBaseApplicationId = "online.dainn.aichat.keyboard"
-val aichatAppName = "AIChat Keyboard"
+// Launcher / IME label (renamed from "AIChat Keyboard" on 2026-11-26). The application ID above does not change.
+val aichatAppName = "DBoard"
 val projectVersionNameSuffix = projectVersionName.substringAfter("-", "").let { suffix ->
     if (suffix.isNotEmpty()) {
         "-$suffix"
@@ -81,6 +82,12 @@ android {
         versionName = projectVersionName.substringBefore("-")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // AIChat MODIFIED: phones only (arm64 + armv7). ML Kit OCR ships native code per ABI, so x86/x86_64 would add
+        // ~22 MB that no real device uses. Emulator testing needs an arm64 system image.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
 
         buildConfigField("String", "BUILD_COMMIT_HASH", "\"${getGitCommitHash().get()}\"")
         buildConfigField("String", "BASE_APPLICATION_ID", "\"$aichatBaseApplicationId\"")
@@ -231,6 +238,8 @@ dependencies {
     implementation("com.aichat:vi-input")
     // AIChat MODIFIED: AIChat backend client and session store.
     implementation(projects.core.network)
+    // AIChat MODIFIED: on-device OCR (bundled Latin model) for the screenshot share target.
+    implementation(libs.google.mlkit.text.recognition)
 
     testImplementation(libs.kotlin.test.junit5)
     // AIChat MODIFIED: AIChat ViewModel tests (Main dispatcher + MockWebServer-backed AiChatClient).

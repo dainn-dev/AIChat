@@ -1,0 +1,10 @@
+# Cloudflare Tunnel "aichat" (dedicated to this stack; independent of the Pi's system cloudflared).
+# The tunnel id is not a secret; the credentials are in tunnel.json next to compose.yml (chmod 400, not committed).
+# DNS: chat-api.dainn.online is a CNAME to this tunnel (cloudflared tunnel route dns).
+tunnel: 0479c0cd-0fe5-4d04-8804-be0adde8a423
+credentials-file: /etc/cloudflared/tunnel.json
+
+ingress:
+  - hostname: chat-api.dainn.online
+    service: http://api:3000
+  - service: http_status:404

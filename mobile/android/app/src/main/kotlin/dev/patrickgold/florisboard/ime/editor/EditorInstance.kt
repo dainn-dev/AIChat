@@ -19,6 +19,7 @@ package dev.patrickgold.florisboard.ime.editor
 import android.content.ClipDescription
 import android.content.ContentUris
 import android.content.Context
+import android.net.Uri // AIChat MODIFIED: commitImageContent.
 import android.view.KeyEvent
 import com.aichat.keyboard.vi.ViInputBridge // AIChat MODIFIED: vi-input integration.
 import androidx.core.view.inputmethod.InputConnectionCompat
@@ -346,6 +347,22 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
         }
     }
 
+    // AIChat MODIFIED: new method, used by com.aichat.keyboard.sticker.StickerSender.
+    /**
+     * Commits an image (a sticker) at [uri] as rich content, granting the editor app read access to that URI only.
+     * The composed vi-input word is committed first so it is not lost.
+     *
+     * @return True if the editor accepted the content.
+     */
+    fun commitImageContent(uri: Uri, mimeType: String, description: String): Boolean {
+        viInput.finishWord()
+        val ic = currentInputConnection() ?: return false
+        ic.finishComposingText()
+        val inputContentInfo = InputContentInfoCompat(uri, ClipDescription(description, arrayOf(mimeType)), null)
+        val flags = InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION
+        return InputConnectionCompat.commitContent(ic, activeInfo.base, inputContentInfo, flags, null)
+    }
+
     /**
      * Executes a backward delete on this editor's text. If a text selection is active, all
      * characters inside this selection will be removed, else only the left-most character from
@@ -569,6 +586,7 @@ class EditorInstance(context: Context) : AbstractEditorInstance(context) {
     override fun reset() {
         super.reset()
         viInput.close() // AIChat MODIFIED: field finished or input restarted: drop the word, stop the watchers.
+        com.aichat.keyboard.ai.AiAssist.onFieldChanged() // AIChat MODIFIED: an AI result never lands in another field.
         autoSpace.setInactive()
         phantomSpace.setInactive()
         massSelection.reset()

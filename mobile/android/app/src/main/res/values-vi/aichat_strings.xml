@@ -1,6 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- AIChat: Vietnamese strings for the AIChat account, memory and privacy screens (English fallback in values/). -->
 <resources>
+    <!-- Màn hình đồng ý đọc tin nhắn (trợ năng), workstream A -->
+    <string name="aichat__capture__title">Đọc tin nhắn để gợi ý trả lời</string>
+    <string name="aichat__capture__summary_on">Đang bật: đọc cuộc trò chuyện Messenger hoặc Zalo đang mở khi bạn bấm Gợi ý trả lời</string>
+    <string name="aichat__capture__summary_off">Đang tắt: bật để Gợi ý trả lời đọc được tin nhắn</string>
+    <string name="aichat__capture__intro">Để gợi ý câu trả lời hợp với cuộc trò chuyện, AIChat có thể đọc đoạn chat bạn đang trả lời. Tính năng này dùng dịch vụ trợ năng của Android. Vui lòng đọc kỹ trước khi bật.</string>
+    <string name="aichat__capture__what_heading">Đọc những gì</string>
+    <string name="aichat__capture__what_body">Chỉ các tin nhắn đang hiện trên màn hình trong Messenger hoặc Zalo, và tên người bạn đang chat. Kể cả các cuộc trò chuyện mã hoá đầu cuối: nội dung trên màn hình được đọc đúng như bạn thấy. Không bao giờ đọc ứng dụng khác. Không bao giờ đọc ô mật khẩu hay nội dung bạn đang gõ.</string>
+    <string name="aichat__capture__when_heading">Đọc khi nào</string>
+    <string name="aichat__capture__when_body">Chỉ đúng lúc bạn bấm Gợi ý trả lời trên bàn phím AIChat. Không đọc ngầm, và không lưu gì trên điện thoại.</string>
+    <string name="aichat__capture__where_heading">Gửi đi đâu</string>
+    <string name="aichat__capture__where_body">Tin nhắn được gửi qua kết nối mã hoá tới máy chủ AIChat để viết gợi ý trả lời, kể cả tin nhắn trong cuộc trò chuyện mã hoá đầu cuối. Nếu bạn đã bật ghi nhớ trong tài khoản, máy chủ có thể lưu cuộc trò chuyện để gợi ý lần sau tốt hơn; bạn có thể xoá bất cứ lúc nào. Ở chế độ ẩn danh thì không lưu gì.</string>
+    <string name="aichat__capture__off_heading">Bạn luôn kiểm soát</string>
+    <string name="aichat__capture__off_body">Bạn có thể tắt bất cứ lúc nào trong phần Hỗ trợ tiếp cận (Trợ năng) của điện thoại. Khi tắt, bạn vẫn có thể copy tin nhắn rồi bấm Gợi ý trả lời.</string>
+    <string name="aichat__capture__how_body">Bấm nút bên dưới, mở AIChat đọc tin nhắn trong mục Ứng dụng đã tải xuống (hoặc Dịch vụ đã cài đặt) rồi bật lên.</string>
+    <string name="aichat__capture__agree_button">Đồng ý và mở cài đặt Trợ năng</string>
+    <string name="aichat__capture__manage_button">Mở cài đặt Trợ năng</string>
+    <string name="aichat__capture__status_on">Trạng thái: đang bật</string>
+    <string name="aichat__capture__status_off">Trạng thái: đang tắt</string>
+    <string name="aichat__capture__clipboard_heading">Khi không đọc được đoạn chat</string>
+    <string name="aichat__capture__clipboard_body">Nếu đang tắt đọc tin nhắn, hoặc bạn ở ứng dụng khác ngoài Messenger và Zalo, Gợi ý trả lời sẽ dùng nội dung bạn vừa copy trong 2 phút gần nhất: nội dung đó được gửi tới máy chủ AIChat như tin nhắn của người kia. Mã xác nhận, mật khẩu và đường link chứa khoá không bao giờ được gửi.</string>
+    <string name="aichat__capture__decline_button">Không, cảm ơn</string>
+    <string name="aichat__capture__service_label">AIChat đọc tin nhắn</string>
+    <string name="aichat__capture__service_description">Chỉ đọc các tin nhắn đang hiện trong Messenger hoặc Zalo khi bạn bấm Gợi ý trả lời trên bàn phím AIChat, rồi gửi tới máy chủ AIChat để viết gợi ý trả lời. Không đọc ứng dụng khác, ô mật khẩu hay nội dung bạn gõ, và không chạy ngầm.</string>
+
     <!-- Settings home entry -->
     <string name="aichat__account__title">Tài khoản AIChat</string>
     <string name="aichat__account__summary_signed_out">Đăng nhập để nhận gợi ý trả lời bằng AI</string>
@@ -97,4 +121,105 @@
     <string name="aichat__error__validation">Máy chủ không chấp nhận yêu cầu này. Hãy kiểm tra lại thông tin và thử lại.</string>
     <string name="aichat__error__not_found">Mục này không còn tồn tại.</string>
     <string name="aichat__error__unknown">Đã xảy ra lỗi. Vui lòng thử lại.</string>
+
+    <!-- Bàn phím: emoji và sticker -->
+    <string name="aichat__media__tab_emoji">Emoji</string>
+    <string name="aichat__media__tab_stickers">Sticker</string>
+    <string name="aichat__stickers__my_pack">Sticker của tôi</string>
+    <string name="aichat__stickers__add">Thêm sticker từ thư viện ảnh</string>
+    <string name="aichat__stickers__empty_user">Thêm ảnh từ thư viện để làm sticker của riêng bạn. Nhấn giữ một sticker để xoá.</string>
+    <string name="aichat__stickers__delete">Xoá sticker</string>
+    <string name="aichat__stickers__unsupported">Ứng dụng này không nhận sticker.</string>
+    <string name="aichat__stickers__send_failed">Không gửi được sticker.</string>
+    <string name="aichat__stickers__import_added">Đã thêm {count} sticker.</string>
+    <string name="aichat__stickers__import_full">Bộ sticker của bạn đã đầy (tối đa {max}). Hãy xoá bớt để thêm mới.</string>
+    <string name="aichat__stickers__import_invalid">Không đọc được {count} ảnh.</string>
+
+    <!-- Cài đặt bàn phím: phím tiện ích -->
+    <string name="aichat__enum__utility_key_action__language_and_emojis">Phím đổi ngôn ngữ và phím emoji</string>
+    <string name="aichat__enum__space_bar_mode__language_code">Tên ngôn ngữ (kiểu iOS)</string>
+
+    <!-- Bàn phím: thanh dưới cùng -->
+    <string name="aichat__bottom_bar__switch_language">Đổi ngôn ngữ</string>
+    <string name="aichat__bottom_bar__voice_input">Nhập bằng giọng nói</string>
+
+    <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
+    <string name="aichat__ai__button">Công cụ viết AI</string>
+    <string name="aichat__ai__suggest_replies">💬 Gợi ý trả lời</string>
+    <string name="aichat__ai__rewrite_flirty">Tán tỉnh</string>
+    <string name="aichat__ai__tone_flirty">😏 Tán tỉnh</string>
+    <string name="aichat__ai__tone_funny">😄 Vui vẻ</string>
+    <string name="aichat__ai__tone_friendly">🙂 Thân thiện</string>
+    <string name="aichat__ai__tone_polite">Lịch sự</string>
+    <string name="aichat__ai__tone_mature">Chín chắn</string>
+    <string name="aichat__ai__back">‹ Quay lại</string>
+    <string name="aichat__ai__enable_reading">Bật</string>
+    <string name="aichat__ai__error_no_conversation">Chưa đọc được tin nhắn. Bật đọc tin nhắn hoặc copy tin nhắn cuối</string>
+    <string name="aichat__ai__open_reading">Cài đặt</string>
+    <string name="aichat__ai__error_chat_unreadable">Không đọc được đoạn chat này. Cuộn tới tin nhắn cuối rồi thử lại</string>
+    <string name="aichat__ai__error_reader_not_connected">Hãy tắt rồi bật lại dịch vụ đọc tin nhắn</string>
+    <string name="aichat__ai__error_unsupported_app">Chỉ đọc được Messenger và Zalo. Hãy copy tin nhắn cuối để gợi ý</string>
+    <string name="aichat__ai__rewrite_friendly">Thân thiện</string>
+    <string name="aichat__ai__rewrite_polite">Lịch sự</string>
+    <string name="aichat__ai__rewrite_funny">Hài hước</string>
+    <string name="aichat__ai__translate_en">Dịch → English</string>
+    <string name="aichat__ai__translate_vi">Dịch → Tiếng Việt</string>
+    <string name="aichat__ai__loading">Đang xử lý…</string>
+    <string name="aichat__ai__done">Đã thay nội dung</string>
+    <string name="aichat__ai__undo">Hoàn tác</string>
+    <string name="aichat__ai__ok">OK</string>
+    <string name="aichat__ai__sign_in">Đăng nhập</string>
+    <string name="aichat__ai__error_unavailable">Không dùng được AI ở ô này</string>
+    <string name="aichat__ai__error_empty">Hãy nhập nội dung trước</string>
+    <string name="aichat__ai__error_too_long">Nội dung quá dài (tối đa 2000 ký tự)</string>
+    <string name="aichat__ai__error_not_signed_in">Đăng nhập AIChat để dùng AI</string>
+    <string name="aichat__ai__error_quota">Đã hết lượt AI hôm nay</string>
+    <string name="aichat__ai__error_network">Không có kết nối mạng</string>
+    <string name="aichat__ai__error_timeout">AI phản hồi quá lâu, hãy thử lại</string>
+    <string name="aichat__ai__error_server">AI đang gặp lỗi, thử lại sau</string>
+    <string name="aichat__ai__error_text_changed">Nội dung đã thay đổi, hãy thử lại</string>
+
+    <!-- Màn hình chính (bản dịch tiếng Việt cho chuỗi của FlorisBoard) -->
+    <string name="settings__home__title">Chào mừng đến với {app_name}</string>
+    <string name="settings__home__ime_not_enabled">{app_name} chưa được bật trong hệ thống nên chưa hiện trong danh sách bàn phím. Bấm vào đây để bật.</string>
+    <string name="settings__home__ime_not_selected">{app_name} chưa được chọn làm bàn phím mặc định. Bấm vào đây để chọn {app_name}.</string>
+    <!-- Mic key (com.aichat.keyboard.voice) -->
+    <string name="aichat__voice__unavailable">Máy này chưa có nhập bằng giọng nói. Hãy cài hoặc bật Google nhập bằng giọng nói</string>
+    <string name="aichat__voice__permission_denied">Hãy cho phép dùng micrô để nhập bằng giọng nói</string>
+    <string name="aichat__voice__prompt">Mời bạn nói</string>
+    <string name="aichat__voice__listening">Đang nghe…</string>
+    <string name="aichat__voice__tap_to_finish">Chạm vào đây khi nói xong, chạm ra ngoài để hủy</string>
+    <string name="aichat__voice__no_match">Chưa nghe rõ, hãy thử lại</string>
+    <string name="aichat__voice__error_network">Nhập bằng giọng nói cần kết nối mạng</string>
+    <string name="aichat__voice__error">Nhập bằng giọng nói bị lỗi, hãy thử lại</string>
+    <string name="aichat__voice__blocked_private">Không dùng nhập bằng giọng nói trong ô mật khẩu và chế độ ẩn danh</string>
+    <!-- Chia sẻ ảnh chụp màn hình (com.aichat.keyboard.share) -->
+    <string name="aichat__share__target_label">Gợi ý trả lời AIChat</string>
+    <string name="aichat__share__title">Gợi ý trả lời</string>
+    <string name="aichat__share__close">Đóng</string>
+    <string name="aichat__share__reading">Đang đọc ảnh chụp ngay trên điện thoại…</string>
+    <string name="aichat__share__unreadable">Không tìm thấy tin nhắn nào trong ảnh này. Hãy chia sẻ ảnh chụp một cuộc trò chuyện.</string>
+    <string name="aichat__share__privacy_note">Ảnh không rời khỏi điện thoại. Chỉ các tin nhắn bên dưới được gửi tới AIChat và không được lưu lại.</string>
+    <string name="aichat__share__conversation_title">Cuộc trò chuyện</string>
+    <string name="aichat__share__contact">Với {name}</string>
+    <string name="aichat__share__flip_hint">Chạm vào tin nhắn để đổi người gửi.</string>
+    <string name="aichat__share__sender_me">Tôi</string>
+    <string name="aichat__share__sender_them">Họ</string>
+    <string name="aichat__share__tone_title">Chọn giọng điệu</string>
+    <string name="aichat__share__tone_flirty">😏 Tán tỉnh</string>
+    <string name="aichat__share__tone_funny">😄 Vui vẻ</string>
+    <string name="aichat__share__tone_friendly">🙂 Thân thiện</string>
+    <string name="aichat__share__tone_polite">Lịch sự</string>
+    <string name="aichat__share__tone_mature">Chín chắn</string>
+    <string name="aichat__share__loading">Đang viết gợi ý…</string>
+    <string name="aichat__share__suggestions_title">Gợi ý</string>
+    <string name="aichat__share__copy">Sao chép</string>
+    <string name="aichat__share__copied">Đã sao chép</string>
+    <string name="aichat__share__error_not_signed_in">Đăng nhập AIChat để nhận gợi ý trả lời.</string>
+    <string name="aichat__share__sign_in">Đăng nhập</string>
+    <string name="aichat__share__error_quota">Đã hết lượt AI hôm nay. Hãy thử lại vào ngày mai.</string>
+    <string name="aichat__share__error_network">Không có kết nối mạng.</string>
+    <string name="aichat__share__error_timeout">AI phản hồi quá lâu. Hãy thử lại.</string>
+    <string name="aichat__share__error_server">AI đang gặp lỗi. Hãy thử lại sau.</string>
+    <string name="aichat__share__retry">Thử lại</string>
 </resources>

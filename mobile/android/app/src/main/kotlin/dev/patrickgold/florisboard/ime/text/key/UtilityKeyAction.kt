@@ -24,5 +24,7 @@ enum class UtilityKeyAction {
     SWITCH_LANGUAGE,
     SWITCH_KEYBOARD_APP,
     DYNAMIC_SWITCH_LANGUAGE_EMOJIS,
+    // AIChat MODIFIED: iOS-like bottom row that shows the emoji key AND (with 2+ subtypes) the language key.
+    LANGUAGE_AND_EMOJIS,
     DISABLED;
 }

@@ -531,6 +531,11 @@ private val ENUM_DISPLAY_ENTRIES = mapOf<Pair<KClass<*>, String>, @Composable ()
                 key = SpaceBarMode.SPACE_BAR_KEY,
                 label = stringRes(R.string.enum__space_bar_mode__space_bar_key),
             )
+            // AIChat MODIFIED: iOS-like language code in the corner (the AIChat default).
+            entry(
+                key = SpaceBarMode.LANGUAGE_CODE,
+                label = stringRes(R.string.aichat__enum__space_bar_mode__language_code),
+            )
         }
     },
     SpellingLanguageMode::class to DEFAULT to {
@@ -726,6 +731,11 @@ private val ENUM_DISPLAY_ENTRIES = mapOf<Pair<KClass<*>, String>, @Composable ()
             entry(
                 key = UtilityKeyAction.DYNAMIC_SWITCH_LANGUAGE_EMOJIS,
                 label = stringRes(R.string.enum__utility_key_action__dynamic_switch_language_emojis),
+            )
+            // AIChat MODIFIED: iOS-like bottom row with both keys (the AIChat default).
+            entry(
+                key = UtilityKeyAction.LANGUAGE_AND_EMOJIS,
+                label = stringRes(R.string.aichat__enum__utility_key_action__language_and_emojis),
             )
         }
     },

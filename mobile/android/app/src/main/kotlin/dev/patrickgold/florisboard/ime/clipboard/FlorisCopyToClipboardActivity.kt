@@ -138,7 +138,7 @@ class FlorisCopyToClipboardActivity : ComponentActivity() {
         val prefs by FlorisPreferenceStore
         ProvideLocalizedResources(
             resourcesContext = this,
-            appName = R.string.app_name,
+            appName = R.string.aichat_app_name, // AIChat MODIFIED: {app_name} is DBoard.
             forceLayoutDirection = LayoutDirection.Ltr,
         ) {
             val theme by prefs.other.settingsTheme.observeAsState()

@@ -82,6 +82,8 @@ object FlorisImeSizing {
         val prefs by FlorisPreferenceStore
         val smartbarEnabled by prefs.smartbar.enabled.observeAsState()
         val smartbarLayout by prefs.smartbar.layout.observeAsState()
+        // AIChat MODIFIED: reserve no height while the smartbar is collapsed (com.aichat.keyboard.ui).
+        if (!com.aichat.keyboard.ui.isSmartbarVisible()) return 0.dp
         val extendedActionsExpanded by prefs.smartbar.extendedActionsExpanded.observeAsState()
         val extendedActionsPlacement by prefs.smartbar.extendedActionsPlacement.observeAsState()
         val height =
@@ -90,7 +92,8 @@ object FlorisImeSizing {
                     extendedActionsPlacement != ExtendedActionsPlacement.OVERLAY_APP_UI) {
                     smartbarHeight * 2
                 } else {
-                    smartbarHeight
+                    // AIChat MODIFIED: the main row grows while AI reply suggestions are shown.
+                    smartbarHeight * com.aichat.keyboard.ui.smartbarMainRowCount()
                 }
             } else {
                 0.dp
@@ -131,9 +134,15 @@ fun ProvideKeyboardRowBaseHeight(content: @Composable () -> Unit) {
         configuration, resources, heightFactorPortrait, heightFactorLandscape,
         oneHandedMode, oneHandedModeScaleFactor, systemBarHeights,
     ) {
-        calcInputViewHeight(resources, systemBarHeights) * when {
-            configuration.isOrientationLandscape() -> heightFactorLandscape
-            else -> heightFactorPortrait * (if (oneHandedMode) oneHandedModeScaleFactor else 1f)
+        // AIChat MODIFIED: in portrait the row height is an iOS-like share of the screen width
+        // (com.aichat.keyboard.ui.AiChatSizing) instead of being derived from the screen height.
+        when {
+            configuration.isOrientationLandscape() ->
+                calcInputViewHeight(resources, systemBarHeights) * heightFactorLandscape
+            else -> com.aichat.keyboard.ui.AiChatSizing.portraitRowHeightPx(
+                widthPx = resources.displayMetrics.widthPixels,
+                density = resources.displayMetrics.density,
+            ) * heightFactorPortrait * (if (oneHandedMode) oneHandedModeScaleFactor else 1f)
         }
     }
     val smartbarHeight = baseRowHeight * 0.753f

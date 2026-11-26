@@ -27,7 +27,7 @@ The full delta from upstream is:
   git diff <import commit> -- mobile/android
 
   app/build.gradle.kts
-      applicationId -> online.dainn.aichat.keyboard, app label -> "AIChat Keyboard",
+      applicationId -> online.dainn.aichat.keyboard, app label -> "DBoard",
       new BuildConfig.BASE_APPLICATION_ID field, dependency on :core:network.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/advanced/RestoreScreen.kt
       Backup package check uses BuildConfig.BASE_APPLICATION_ID and accepts exactly the base ID
@@ -75,6 +75,98 @@ The full delta from upstream is:
       Marked with an "aichatModified" key (JSON has no comments).
   app/src/main/assets/ime/keyboard/org.florisboard.localization/extension.json
       vi-VN subtype preset composer telex -> vi-input. Marked with an "aichatModified" key.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/text/key/UtilityKeyAction.kt
+      New LANGUAGE_AND_EMOJIS value (language key and emoji key both shown, like iOS).
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/KeyboardManager.kt
+      Visibility and language-switch handling for LANGUAGE_AND_EMOJIS.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/EnumDisplayEntries.kt
+      Settings label for LANGUAGE_AND_EMOJIS.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
+      Defaults: AIChat iOS-style day/night themes, utility key LANGUAGE_AND_EMOJIS, horizontal key spacing 1.6dp.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/text/keyboard/TextKey.kt
+      iOS-like key width factors (shift, delete, 123, emoji, return).
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/editor/EditorInstance.kt (also)
+      New commitImageContent() used to send stickers as rich content.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/media/MediaInputLayout.kt
+      Emoji / sticker tab buttons in the bottom row; shows the AIChat sticker panel.
+  app/src/main/res/xml/file_paths.xml
+      FileProvider paths for sent stickers.
+  app/src/main/AndroidManifest.xml (also)
+      Non-exported com.aichat.keyboard.sticker.StickerImportActivity.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/SpaceBarMode.kt
+      New LANGUAGE_CODE value (muted language name centred on the space bar, like iOS).
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/text/keyboard/TextKeyboardLayout.kt
+      Renders the LANGUAGE_CODE space bar label (the subtype's language name in its own language).
+  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt
+      Adds the AIChat globe / mic strip (com.aichat.keyboard.ui.AiChatImeBottomBar) under every input mode.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
+      Defaults: space bar LANGUAGE_CODE, smartbar SUGGESTIONS_ONLY, suggestions CLASSIC (three fixed).
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/FlorisImeSizing.kt
+      Portrait row height is a share of the screen width (com.aichat.keyboard.ui.AiChatSizing), like iOS.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/FlorisImeSizing.kt (also)
+      smartbarUiHeight() reserves no height while the smartbar is collapsed (com.aichat.keyboard.ui.isSmartbarVisible).
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/Smartbar.kt
+      Visibility from com.aichat.keyboard.ui.isSmartbarVisible (suggestions-only collapses when empty); while the
+      AI button is open, the AI chips (com.aichat.keyboard.ai.AiSmartbarPanel) replace the suggestions.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/editor/EditorInstance.kt (also)
+      reset() calls com.aichat.keyboard.ai.AiAssist.onFieldChanged() so an AI result never lands in another field.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/ComputingEvaluator.kt
+      iOS-style shift glyphs (com.aichat.keyboard.ui.AiChatKeyIcons) instead of KeyboardArrowUp / KeyboardCapslock.
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/FlorisImeSizing.kt (also)
+      smartbarUiHeight() multiplies by com.aichat.keyboard.ui.smartbarMainRowCount() (taller while AI reply
+      suggestions are shown).
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/Smartbar.kt (also)
+      Main row height = smartbarHeight * com.aichat.keyboard.ui.smartbarMainRowCount(), same as smartbarUiHeight().
+  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also)
+      switchToVoiceInputMethod() delegates to com.aichat.keyboard.voice.VoiceInput (voice IME, else Android speech
+      recognition, else a localized message; upstream showed an English toast; refused in password / TYPE_NULL
+      fields and incognito mode); onStartInput() lets VoiceInput commit recognized text into the exact field
+      it was spoken for (never a password field).
+  app/src/main/AndroidManifest.xml (also)
+      RECORD_AUDIO permission, <queries> for RECOGNIZE_SPEECH / RecognitionService, non-exported
+      com.aichat.keyboard.voice.VoiceInputActivity (mic key speech recognition).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
+      Defaults: number-row and symbol hint mode ACCENT_PRIORITY (long-press selects the accented letter first).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt (also)
+      Navigates to the chat-reader consent screen when the keyboard asks (in-process request,
+      com.aichat.keyboard.capture.ChatCaptureLauncher); external intents are still ignored. The request is a
+      timestamp and a stale one (older than ~10 s) is ignored.
+  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also)
+      launchSettings() returns whether settings was launched (false when the service is not running), so the
+      chat-reader consent request is only left pending when settings actually opens.
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt,
+  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also),
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/clipboard/FlorisCopyToClipboardActivity.kt
+      {app_name} comes from aichat_app_name ("DBoard") instead of app_name ("FlorisBoard").
+  app/src/main/res/values/strings.xml
+      User-facing product name "FlorisBoard" -> "DBoard" in the home-screen warnings, the app icon description and
+      the crash dialog / notifications. The license summary and the Addons Store name keep "FlorisBoard".
+  app/src/main/res/values/strings_dont_translate.xml
+      key__view_symbols label "123" (was "?123").
+  app/src/main/res/values/colors.xml
+      ic_app_icon_background #000000 (DBoard icon).
+  app/src/main/res/drawable/ic_app_icon_{debug,beta,stable}_{foreground,monochrome}.xml
+      Replaced by the DBoard icon (yellow D with a keyboard), generated by tools/gen_dboard_icon.py.
+  app/src/main/res/mipmap-{m,h,xh,xxh,xxxh}dpi/ic_app_icon_*.png
+      Removed: upstream's legacy PNG icons, unused because minSdk is 26 (the adaptive icons in mipmap-anydpi-v26 win).
+  app/src/main/assets/ime/keyboard/org.florisboard.layouts/layouts/charactersMod/default.json
+      iOS-like bottom row: 123, emoji, space, return; "@" or "/" and "." only in email / URL fields; the language
+      key moved to the bottom strip. (JSON array root, so no "aichatModified" key can mark it.)
+  app/src/main/AndroidManifest.xml (also)
+      com.aichat.keyboard.capture.ChatCaptureService (chat reader for reply suggestions; accessibility service
+      bound only by the system through BIND_ACCESSIBILITY_SERVICE, config in res/xml/aichat_accessibility_service.xml).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/Routes.kt (also)
+      Registers the chat reader consent screen (aichatCaptureGraph()).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/HomeScreen.kt (also)
+      "Read messages to suggest replies" (Đọc tin nhắn để gợi ý trả lời) entry below the AIChat account.
+  gradle/libs.versions.toml (also)
+      ML Kit text recognition 16.0.1 (bundled Latin model) for the screenshot share target.
+  app/build.gradle.kts (also)
+      Dependency on ML Kit text recognition (bundled Latin model).
+  app/build.gradle.kts (also)
+      ndk.abiFilters arm64-v8a + armeabi-v7a only.
+  app/src/main/AndroidManifest.xml (also)
+      Exported com.aichat.keyboard.share.ShareReplyActivity (ACTION_SEND image/* share target).
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
@@ -87,4 +179,7 @@ Files added by AIChat (not part of upstream):
   app/src/test/kotlin/com/aichat/keyboard/ (whole package),
   app/src/main/res/values/aichat_strings.xml, app/src/main/res/values-vi/aichat_strings.xml,
   app/src/main/res/xml/network_security_config.xml,
-  app/src/debug/res/xml/network_security_config.xml
+  app/src/main/assets/ime/theme/com.aichat.themes/ (iOS-style themes generated from floris_day.json by
+  tools/gen_aichat_themes.py), tools/gen_aichat_themes.py,
+  app/src/debug/res/xml/network_security_config.xml,
+  app/src/main/res/xml/aichat_accessibility_service.xml
