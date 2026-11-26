@@ -169,6 +169,7 @@
     <!-- Keyboard: bottom bar under the keys -->
     <string name="aichat__bottom_bar__switch_language">Switch language</string>
     <string name="aichat__bottom_bar__settings">Open keyboard settings</string>
+    <string name="aichat__bottom_bar__clipboard">Clipboard</string>
 
     <!-- Keyboard: smartbar AI button (rewrite / translate the field text) -->
     <string name="aichat__ai__button">AI writing tools</string>
