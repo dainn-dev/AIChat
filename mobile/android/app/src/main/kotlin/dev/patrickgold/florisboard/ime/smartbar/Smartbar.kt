@@ -20,6 +20,7 @@ import androidx.compose.animation.AnimatedVisibility
 import com.aichat.keyboard.ai.AiAssist // AIChat MODIFIED: smartbar AI button.
 import com.aichat.keyboard.ai.AiAssistState // AIChat MODIFIED: smartbar AI button.
 import com.aichat.keyboard.ai.AiSmartbarPanel // AIChat MODIFIED: smartbar AI button.
+import com.aichat.keyboard.sticker.suggest.CandidatesWithStickerSuggestions // AIChat MODIFIED: sticker suggestions.
 import com.aichat.keyboard.ui.isSmartbarVisible // AIChat MODIFIED: smartbar AI button.
 import com.aichat.keyboard.ui.smartbarMainRowCount // AIChat MODIFIED: taller smartbar for AI reply suggestions.
 import androidx.compose.animation.EnterTransition
@@ -340,7 +341,8 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
                 } else if (shouldShowInlineSuggestionsUi) {
                     InlineSuggestionsUi(inlineSuggestions)
                 } else {
-                    CandidatesRow()
+                    // AIChat MODIFIED: sticker thumbnails at the trailing end while a keyword is before the cursor.
+                    CandidatesWithStickerSuggestions()
                 }
             }
 

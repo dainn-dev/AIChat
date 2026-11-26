@@ -67,6 +67,8 @@ describe('Keyboard contract P4-1 (e2e)', () => {
     expect(Array.isArray(res.body.suggestions)).toBe(true);
     expect(res.body.suggestions.length).toBeGreaterThanOrEqual(1);
     expect(res.body.suggestions[0].tone).toBe('Flirty');
+    // Stub provider's deterministic sticker suggestions.
+    expect(res.body.sticker_tags).toEqual(['great', 'yes']);
     // Not opted into memory (default) → nothing persisted (Android Phase 0).
     expect(res.body.conversation_id).toBeNull();
     // Metered against the shared per-user reply counter.

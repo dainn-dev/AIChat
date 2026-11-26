@@ -4,6 +4,7 @@ import { RetrievedMemory } from '../memory/memory-retriever.interface';
 import { NormalizedMessage } from './normalizer';
 import { Tone } from '../enums/tone.enum';
 import { OUTPUT_LANG_NAMES, OutputLang } from '../enums/output-lang.enum';
+import { MAX_STICKER_TAGS, STICKER_TAGS } from '../enums/sticker-tag';
 
 export interface ReplyContext {
   messages: NormalizedMessage[];
@@ -14,6 +15,11 @@ export interface ReplyContext {
   relationshipStage?: string;
   /** Explicit output language; omitted → match the conversation's language. */
   lang?: OutputLang;
+  /**
+   * Also ask for `sticker_tags` in the same call (keyboard reply only). Off by
+   * default so `/ai/reply` and other surfaces keep their prompt unchanged.
+   */
+  stickerTags?: boolean;
 }
 
 export interface AnalyzeContext {
@@ -75,8 +81,17 @@ export class ContextBuilder {
       `If a message is unclear, prefer a safe reply that acknowledges it or asks back over a guess. Never invent facts, and never be crude or offensive.`,
       ContextBuilder.VIETNAMESE_CHAT_GUIDE,
       this.replyLanguageInstruction(ctx.lang),
-      `Respond with ONLY valid JSON of the form:`,
-      `{"replies":[{"text":"..."}]}`,
+      ...(ctx.stickerTags
+        ? [
+            `Also pick 0-${MAX_STICKER_TAGS} sticker tags that fit the mood/intent of your replies, most fitting first, ONLY from this list: ${STICKER_TAGS.join(', ')}.`,
+            `Use an empty list if none fit.`,
+            `Respond with ONLY valid JSON of the form:`,
+            `{"replies":[{"text":"..."}],"sticker_tags":["..."]}`,
+          ]
+        : [
+            `Respond with ONLY valid JSON of the form:`,
+            `{"replies":[{"text":"..."}]}`,
+          ]),
     ].join(' ');
 
     return { system, user: this.renderContext(ctx) };

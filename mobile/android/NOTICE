@@ -98,7 +98,7 @@ The full delta from upstream is:
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/text/keyboard/TextKeyboardLayout.kt
       Renders the LANGUAGE_CODE space bar label (the subtype's language name in its own language).
   app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt
-      Adds the AIChat globe / mic strip (com.aichat.keyboard.ui.AiChatImeBottomBar) under every input mode.
+      Adds the AIChat globe / AI strip (com.aichat.keyboard.ui.AiChatImeBottomBar) under every input mode.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
       Defaults: space bar LANGUAGE_CODE, smartbar SUGGESTIONS_ONLY, suggestions CLASSIC (three fixed).
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard/FlorisImeSizing.kt
@@ -117,14 +117,6 @@ The full delta from upstream is:
       suggestions are shown).
   app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/Smartbar.kt (also)
       Main row height = smartbarHeight * com.aichat.keyboard.ui.smartbarMainRowCount(), same as smartbarUiHeight().
-  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also)
-      switchToVoiceInputMethod() delegates to com.aichat.keyboard.voice.VoiceInput (voice IME, else Android speech
-      recognition, else a localized message; upstream showed an English toast; refused in password / TYPE_NULL
-      fields and incognito mode); onStartInput() lets VoiceInput commit recognized text into the exact field
-      it was spoken for (never a password field).
-  app/src/main/AndroidManifest.xml (also)
-      RECORD_AUDIO permission, <queries> for RECOGNIZE_SPEECH / RecognitionService, non-exported
-      com.aichat.keyboard.voice.VoiceInputActivity (mic key speech recognition).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
       Defaults: number-row and symbol hint mode ACCENT_PRIORITY (long-press selects the accented letter first).
   app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt (also)
@@ -167,6 +159,18 @@ The full delta from upstream is:
       ndk.abiFilters arm64-v8a + armeabi-v7a only.
   app/src/main/AndroidManifest.xml (also)
       Exported com.aichat.keyboard.share.ShareReplyActivity (ACTION_SEND image/* share target).
+  app/src/main/AndroidManifest.xml (also)
+      <queries> entry for ACTION_SEND image/*, so StickerSender can share a sticker into chat apps whose chat field
+      does not accept images.
+  app/src/main/AndroidManifest.xml (also)
+      Non-exported com.aichat.keyboard.sticker.TextStickerMakerActivity ("Tạo sticker chữ").
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/Smartbar.kt (also)
+      Suggestions-only layout shows sticker suggestion thumbnails after the word suggestions
+      (com.aichat.keyboard.sticker.suggest.CandidatesWithStickerSuggestions).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
+      New aichatStickerSuggest preference group (sticker suggestions while typing, on by default).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/settings/smartbar/SmartbarScreen.kt
+      "Suggest stickers while typing" switch.
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,
@@ -182,4 +186,10 @@ Files added by AIChat (not part of upstream):
   app/src/main/assets/ime/theme/com.aichat.themes/ (iOS-style themes generated from floris_day.json by
   tools/gen_aichat_themes.py), tools/gen_aichat_themes.py,
   app/src/debug/res/xml/network_security_config.xml,
-  app/src/main/res/xml/aichat_accessibility_service.xml
+  app/src/main/res/xml/aichat_accessibility_service.xml,
+  app/src/main/assets/ime/media/sticker/noto-animated/ (sticker pack "Emoji động": 25 emoji from Animated Noto
+  Emoji by Google, https://googlefonts.github.io/noto-emoji-animation/, licensed under CC BY 4.0,
+  https://creativecommons.org/licenses/by/4.0/ . Changed by AIChat: resized from 512 to 192 px, every second
+  frame merged, re-encoded as lossy animated WebP. Notice shown in the app via
+  app/src/main/config/libraries/noto-emoji-animation.json and
+  app/src/main/config/licenses/noto-emoji-animation-cc-by-4.0.json)

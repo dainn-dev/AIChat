@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Tone } from '../enums/tone.enum';
 import { ReplyCandidate } from '../dto/reply.dto';
 import { AnalyzeResponse, RedFlag } from '../dto/analyze.dto';
+import {
+  MAX_STICKER_TAGS,
+  StickerTag,
+  isStickerTag,
+} from '../enums/sticker-tag';
 
 /**
  * Server-side validation/repair of LLM output (DAI-124 §1.4 FR-N3, edge case
@@ -120,6 +125,30 @@ export class OutputValidator {
     }
 
     return texts.map((text) => ({ tone, text }));
+  }
+
+  /**
+   * Extract keyboard sticker tags from parsed reply output (`sticker_tags`).
+   * Lowercases/trims, drops anything outside {@link STICKER_TAGS}, dedupes and
+   * caps at {@link MAX_STICKER_TAGS}. Missing or malformed → `[]`. Never
+   * throws and never signals a retry: sticker tags are a best-effort extra.
+   */
+  toStickerTags(parsed: unknown): StickerTag[] {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return [];
+    }
+    const raw = (parsed as Record<string, unknown>).sticker_tags;
+    if (!Array.isArray(raw)) return [];
+
+    const out: StickerTag[] = [];
+    for (const item of raw) {
+      if (typeof item !== 'string') continue;
+      const tag = item.trim().toLowerCase();
+      if (!isStickerTag(tag) || out.includes(tag)) continue;
+      out.push(tag);
+      if (out.length >= MAX_STICKER_TAGS) break;
+    }
+    return out;
   }
 
   private degradedAnalysis(): Omit<AnalyzeResponse, 'usage'> {

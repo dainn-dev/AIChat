@@ -138,13 +138,28 @@
     <string name="aichat__stickers__import_full">Bộ sticker của bạn đã đầy (tối đa {max}). Hãy xoá bớt để thêm mới.</string>
     <string name="aichat__stickers__import_invalid">Không đọc được {count} ảnh.</string>
 
+    <!-- Bàn phím: gửi sticker qua màn hình chia sẻ của ứng dụng chat -->
+    <string name="aichat__stickers__pick_chat">Chọn cuộc trò chuyện để gửi sticker</string>
+
+    <!-- Bàn phím: sticker gần đây và tự tạo sticker -->
+    <string name="aichat__stickers__recent">Gần đây</string>
+    <string name="aichat__stickers__add_menu">Thêm sticker</string>
+    <string name="aichat__stickers__add_from_gallery">Thêm từ thư viện ảnh</string>
+    <string name="aichat__stickers__add_text">Tạo sticker chữ</string>
+    <string name="aichat__stickers__cancel">Huỷ</string>
+    <string name="aichat__stickers__text_hint">Nhập một câu ngắn</string>
+    <string name="aichat__stickers__text_preview">Xem trước sticker</string>
+    <string name="aichat__stickers__text_color">Màu {number}</string>
+    <string name="aichat__stickers__text_save">Lưu</string>
+    <string name="aichat__stickers__text_saved">Đã tạo sticker. Xem trong Sticker của tôi.</string>
+    <string name="aichat__stickers__text_failed">Không tạo được sticker.</string>
+
     <!-- Cài đặt bàn phím: phím tiện ích -->
     <string name="aichat__enum__utility_key_action__language_and_emojis">Phím đổi ngôn ngữ và phím emoji</string>
     <string name="aichat__enum__space_bar_mode__language_code">Tên ngôn ngữ (kiểu iOS)</string>
 
     <!-- Bàn phím: thanh dưới cùng -->
     <string name="aichat__bottom_bar__switch_language">Đổi ngôn ngữ</string>
-    <string name="aichat__bottom_bar__voice_input">Nhập bằng giọng nói</string>
 
     <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
     <string name="aichat__ai__button">Công cụ viết AI</string>
@@ -186,16 +201,6 @@
     <string name="settings__home__title">Chào mừng đến với {app_name}</string>
     <string name="settings__home__ime_not_enabled">{app_name} chưa được bật trong hệ thống nên chưa hiện trong danh sách bàn phím. Bấm vào đây để bật.</string>
     <string name="settings__home__ime_not_selected">{app_name} chưa được chọn làm bàn phím mặc định. Bấm vào đây để chọn {app_name}.</string>
-    <!-- Mic key (com.aichat.keyboard.voice) -->
-    <string name="aichat__voice__unavailable">Máy này chưa có nhập bằng giọng nói. Hãy cài hoặc bật Google nhập bằng giọng nói</string>
-    <string name="aichat__voice__permission_denied">Hãy cho phép dùng micrô để nhập bằng giọng nói</string>
-    <string name="aichat__voice__prompt">Mời bạn nói</string>
-    <string name="aichat__voice__listening">Đang nghe…</string>
-    <string name="aichat__voice__tap_to_finish">Chạm vào đây khi nói xong, chạm ra ngoài để hủy</string>
-    <string name="aichat__voice__no_match">Chưa nghe rõ, hãy thử lại</string>
-    <string name="aichat__voice__error_network">Nhập bằng giọng nói cần kết nối mạng</string>
-    <string name="aichat__voice__error">Nhập bằng giọng nói bị lỗi, hãy thử lại</string>
-    <string name="aichat__voice__blocked_private">Không dùng nhập bằng giọng nói trong ô mật khẩu và chế độ ẩn danh</string>
     <!-- Chia sẻ ảnh chụp màn hình (com.aichat.keyboard.share) -->
     <string name="aichat__share__target_label">Gợi ý trả lời AIChat</string>
     <string name="aichat__share__title">Gợi ý trả lời</string>
@@ -225,4 +230,9 @@
     <string name="aichat__share__error_timeout">AI phản hồi quá lâu. Hãy thử lại.</string>
     <string name="aichat__share__error_server">AI đang gặp lỗi. Hãy thử lại sau.</string>
     <string name="aichat__share__retry">Thử lại</string>
+
+    <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
+    <string name="aichat__sticker_suggest__pref_label">Gợi ý sticker khi gõ</string>
+    <string name="aichat__sticker_suggest__pref_summary">Hiện sticker phù hợp trên thanh gợi ý khi gõ các từ như “cảm ơn” hay “haha”. Hoạt động không cần mạng.</string>
+    <string name="aichat__sticker_suggest__send">Gửi sticker %1$s</string>
 </resources>

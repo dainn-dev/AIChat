@@ -1,6 +1,5 @@
 package com.aichat.keyboard.sticker.ui
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,8 +26,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,24 +52,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aichat.keyboard.sticker.BuiltInStickers
 import com.aichat.keyboard.sticker.Sticker
-import com.aichat.keyboard.sticker.StickerImportActivity
 import com.aichat.keyboard.sticker.StickerPack
 import com.aichat.keyboard.sticker.StickerRepository
-import com.aichat.keyboard.sticker.StickerSender
+import com.aichat.keyboard.sticker.StickerSendFlow
 import com.aichat.keyboard.sticker.StickerSource
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.ime.input.LocalInputFeedbackController
 import dev.patrickgold.florisboard.ime.text.keyboard.TextKeyData
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import org.florisboard.lib.android.showShortToast
 import org.florisboard.lib.compose.stringRes
 import org.florisboard.lib.snygg.SnyggSelector
 import org.florisboard.lib.snygg.ui.SnyggBox
 import org.florisboard.lib.snygg.ui.rememberSnyggThemeQuery
 
-private const val TAG = "StickerPaletteView"
 private val TileMinSize = 80.dp
 private val TabHeight = 40.dp
 private val TextStickerShape = RoundedCornerShape(18.dp)
@@ -77,8 +73,9 @@ private const val EMOJI_STICKER_FONT_SIZE = 40
 private const val DELETE_BADGE_COLOR = 0xFFFF3B30
 
 /**
- * The sticker panel of the media input: pack tabs on top, a grid of stickers below. Tap sends a sticker; in the
- * "Của tôi" pack the first tile adds images from the gallery and a long press shows delete badges.
+ * The sticker panel of the media input: pack tabs on top, a grid of stickers below. Tap sends a sticker. The first
+ * tab, "Gần đây", lists the last sent stickers and is hidden until one was sent. In the "Của tôi" pack the first
+ * tile offers the [StickerAddOptions] (gallery import, text sticker, ...) and a long press shows delete badges.
  */
 @Composable
 fun StickerPaletteView(modifier: Modifier = Modifier) {
@@ -87,36 +84,36 @@ fun StickerPaletteView(modifier: Modifier = Modifier) {
     val inputFeedbackController = LocalInputFeedbackController.current
     val repository = remember { StickerRepository.get(context) }
     val userStickers by repository.userStickers.collectAsState()
+    val recentIds by repository.recentIds.collectAsState()
     LaunchedEffect(Unit) { repository.refresh() }
 
     val userPackTitle = stringRes(R.string.aichat__stickers__my_pack)
-    val packs = remember(userStickers, userPackTitle) { repository.packs(userStickers, userPackTitle) }
-    var selectedPackId by rememberSaveable { mutableStateOf(BuiltInStickers.packs.first().id) }
+    val recentPackTitle = stringRes(R.string.aichat__stickers__recent)
+    var selectedPackId by rememberSaveable {
+        mutableStateOf(if (recentIds.isNotEmpty()) StickerRepository.RECENT_PACK_ID else BuiltInStickers.packs.first().id)
+    }
+    // While "Gần đây" is open its order stays put, so a sticker does not jump away under the next tap.
+    var shownRecentIds by remember { mutableStateOf(recentIds) }
+    LaunchedEffect(recentIds, selectedPackId) {
+        if (selectedPackId != StickerRepository.RECENT_PACK_ID) shownRecentIds = recentIds
+    }
+    val packs = remember(userStickers, userPackTitle, shownRecentIds, recentPackTitle) {
+        val packs = repository.packs(userStickers, userPackTitle)
+        listOfNotNull(repository.recentPack(shownRecentIds, packs, recentPackTitle)) + packs
+    }
     val selectedPack = packs.firstOrNull { it.id == selectedPackId } ?: packs.first()
     var editing by remember(selectedPack.id) { mutableStateOf(false) }
+    var showAddOptions by remember(selectedPack.id) { mutableStateOf(false) }
     var sending by remember { mutableStateOf(false) }
 
     fun send(sticker: Sticker) {
         if (sending) return
         sending = true
         scope.launch {
-            // An uncaught exception here would take down the whole keyboard process.
-            val result = try {
-                StickerSender.send(context, sticker)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Sending sticker ${sticker.id} failed", e)
-                StickerSender.Result.FAILED
+            try {
+                StickerSendFlow.sendAndReport(context, sticker)
             } finally {
                 sending = false
-            }
-            when (result) {
-                StickerSender.Result.UNSUPPORTED -> context.showShortToast(R.string.aichat__stickers__unsupported)
-                StickerSender.Result.FAILED -> context.showShortToast(R.string.aichat__stickers__send_failed)
-                StickerSender.Result.SENT,
-                StickerSender.Result.SENT_AS_TEXT,
-                StickerSender.Result.TARGET_CHANGED -> Unit
             }
         }
     }
@@ -130,40 +127,96 @@ fun StickerPaletteView(modifier: Modifier = Modifier) {
                 selectedPackId = it
             },
         )
-        LazyVerticalGrid(
-            modifier = Modifier.weight(1f),
-            columns = GridCells.Adaptive(TileMinSize),
-            contentPadding = PaddingValues(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (selectedPack.isUserPack) {
-                item(key = "add") {
-                    AddStickerTile(onClick = {
-                        inputFeedbackController.keyPress(TextKeyData.UNSPECIFIED)
-                        StickerImportActivity.launch(context)
-                    })
+        Box(modifier = Modifier.weight(1f)) {
+            LazyVerticalGrid(
+                modifier = Modifier.fillMaxSize(),
+                columns = GridCells.Adaptive(TileMinSize),
+                contentPadding = PaddingValues(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (selectedPack.isUserPack) {
+                    item(key = "add") {
+                        AddStickerTile(onClick = {
+                            inputFeedbackController.keyPress(TextKeyData.UNSPECIFIED)
+                            editing = false
+                            showAddOptions = true
+                        })
+                    }
+                    if (selectedPack.stickers.isEmpty()) {
+                        item(key = "hint", span = { GridItemSpan(maxLineSpan) }) { UserPackHint() }
+                    }
                 }
-                if (selectedPack.stickers.isEmpty()) {
-                    item(key = "hint", span = { GridItemSpan(maxLineSpan) }) { UserPackHint() }
+                items(selectedPack.stickers, key = { it.id }) { sticker ->
+                    StickerTile(
+                        sticker = sticker,
+                        showDelete = editing && selectedPack.isUserPack,
+                        onTap = {
+                            inputFeedbackController.keyPress(TextKeyData.UNSPECIFIED)
+                            if (editing) editing = false else send(sticker)
+                        },
+                        onLongPress = {
+                            if (selectedPack.isUserPack) {
+                                inputFeedbackController.keyLongPress(TextKeyData.UNSPECIFIED)
+                                editing = true
+                            }
+                        },
+                        onDelete = { scope.launch { repository.delete(sticker) } },
+                    )
                 }
             }
-            items(selectedPack.stickers, key = { it.id }) { sticker ->
-                StickerTile(
-                    sticker = sticker,
-                    showDelete = editing && selectedPack.isUserPack,
-                    onTap = {
+            if (showAddOptions) {
+                AddStickerMenu(
+                    options = StickerAddOptions,
+                    onPick = { option ->
                         inputFeedbackController.keyPress(TextKeyData.UNSPECIFIED)
-                        if (editing) editing = false else send(sticker)
+                        showAddOptions = false
+                        option.launch(context)
                     },
-                    onLongPress = {
-                        if (selectedPack.isUserPack) {
-                            inputFeedbackController.keyLongPress(TextKeyData.UNSPECIFIED)
-                            editing = true
-                        }
-                    },
-                    onDelete = { scope.launch { repository.delete(sticker) } },
+                    onDismiss = { showAddOptions = false },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The ways to add a sticker, over the sticker grid. Drawn inside the keyboard window: a popup or dialog window
+ * from an input method service is unreliable. Tapping outside the menu closes it.
+ */
+@Composable
+private fun AddStickerMenu(
+    options: List<StickerAddOption>,
+    onPick: (StickerAddOption) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val foreground = rememberSnyggThemeQuery(FlorisImeUi.MediaEmojiKeyPopupBox.elementName).foreground()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.25f))
+            .pointerInput(Unit) { detectTapGestures(onTap = { onDismiss() }) },
+        contentAlignment = Alignment.Center,
+    ) {
+        SnyggBox(
+            elementName = FlorisImeUi.MediaEmojiKeyPopupBox.elementName,
+            modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
+        ) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                for (option in options) {
+                    val label = stringRes(option.label)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(option) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(option.icon, contentDescription = null, tint = foreground)
+                        Text(text = label, color = foreground, fontSize = 15.sp)
+                    }
+                }
             }
         }
     }
@@ -259,7 +312,7 @@ private fun StickerThumbnail(sticker: Sticker, modifier: Modifier = Modifier) {
 @Composable
 private fun AddStickerTile(onClick: () -> Unit) {
     val foreground = rememberSnyggThemeQuery(FlorisImeUi.MediaEmojiKey.elementName).foreground()
-    val description = stringRes(R.string.aichat__stickers__add)
+    val description = stringRes(R.string.aichat__stickers__add_menu)
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -270,7 +323,7 @@ private fun AddStickerTile(onClick: () -> Unit) {
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = null, tint = foreground)
+        Icon(Icons.Filled.Add, contentDescription = null, tint = foreground)
     }
 }
 

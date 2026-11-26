@@ -146,13 +146,28 @@
     <string name="aichat__stickers__import_full">Your sticker collection is full (at most {max}). Delete some to add more.</string>
     <string name="aichat__stickers__import_invalid">Images that could not be read: {count}</string>
 
+    <!-- Keyboard: sticker delivery through the chat app's share screen -->
+    <string name="aichat__stickers__pick_chat">Pick the chat to send the sticker to</string>
+
+    <!-- Keyboard: sticker panel, recent tab and making stickers -->
+    <string name="aichat__stickers__recent">Recent</string>
+    <string name="aichat__stickers__add_menu">Add a sticker</string>
+    <string name="aichat__stickers__add_from_gallery">Add from photo gallery</string>
+    <string name="aichat__stickers__add_text">Create a text sticker</string>
+    <string name="aichat__stickers__cancel">Cancel</string>
+    <string name="aichat__stickers__text_hint">Type a short phrase</string>
+    <string name="aichat__stickers__text_preview">Sticker preview</string>
+    <string name="aichat__stickers__text_color">Color {number}</string>
+    <string name="aichat__stickers__text_save">Save</string>
+    <string name="aichat__stickers__text_saved">Sticker created. Find it in My stickers.</string>
+    <string name="aichat__stickers__text_failed">Could not create the sticker.</string>
+
     <!-- Keyboard settings: utility key -->
     <string name="aichat__enum__utility_key_action__language_and_emojis">Language key and emoji key</string>
     <string name="aichat__enum__space_bar_mode__language_code">Language name (iOS style)</string>
 
     <!-- Keyboard: bottom bar under the keys -->
     <string name="aichat__bottom_bar__switch_language">Switch language</string>
-    <string name="aichat__bottom_bar__voice_input">Voice input</string>
 
     <!-- Keyboard: smartbar AI button (rewrite / translate the field text) -->
     <string name="aichat__ai__button">AI writing tools</string>
@@ -190,16 +205,6 @@
     <string name="aichat__ai__error_server">AI is unavailable, try again later</string>
     <string name="aichat__ai__error_text_changed">The text changed, try again</string>
 
-    <!-- Mic key (com.aichat.keyboard.voice) -->
-    <string name="aichat__voice__unavailable">Voice input is not available on this phone. Install or enable Google voice typing</string>
-    <string name="aichat__voice__permission_denied">Allow the microphone to use voice input</string>
-    <string name="aichat__voice__prompt">Speak now</string>
-    <string name="aichat__voice__listening">Listening…</string>
-    <string name="aichat__voice__tap_to_finish">Tap here when you\'re done, outside to cancel</string>
-    <string name="aichat__voice__no_match">Didn\'t catch that, try again</string>
-    <string name="aichat__voice__error_network">Voice input needs an internet connection</string>
-    <string name="aichat__voice__error">Voice input failed, try again</string>
-    <string name="aichat__voice__blocked_private">Voice input is off in password fields and incognito mode</string>
     <!-- Screenshot share target (com.aichat.keyboard.share) -->
     <string name="aichat__share__target_label">AIChat reply suggestions</string>
     <string name="aichat__share__title">Reply suggestions</string>
@@ -229,4 +234,9 @@
     <string name="aichat__share__error_timeout">AI took too long. Try again.</string>
     <string name="aichat__share__error_server">AI is unavailable right now. Try again later.</string>
     <string name="aichat__share__retry">Try again</string>
+
+    <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
+    <string name="aichat__sticker_suggest__pref_label">Suggest stickers while typing</string>
+    <string name="aichat__sticker_suggest__pref_summary">Shows matching stickers in the suggestion bar for words like “thanks” or “haha”. Works offline.</string>
+    <string name="aichat__sticker_suggest__send">Send sticker %1$s</string>
 </resources>

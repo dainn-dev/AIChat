@@ -55,6 +55,8 @@ describe('AI endpoints (e2e)', () => {
     expect(res.body.replies.length).toBeGreaterThanOrEqual(1);
     expect(res.body.replies[0].tone).toBe('Flirty');
     expect(res.body).toHaveProperty('usage');
+    // Sticker suggestions are keyboard-only.
+    expect(res.body).not.toHaveProperty('sticker_tags');
   });
 
   it('POST /ai/rewrite returns a rewritten draft (AC-R3)', async () => {

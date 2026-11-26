@@ -12,10 +12,6 @@
     <!-- Permission needed to create notifications on devices running Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- AIChat MODIFIED: the mic key's fallback speech recognition (com.aichat.keyboard.voice.VoiceInputActivity)
-         when no voice-typing IME is enabled. Asked for at runtime, only when the user taps the mic key. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-
     <!-- Android 11+ only: Define that FlorisBoard requests to see all apps that
           ship with an IME or Spell Check service. This is used to guide the user
           in the Settings Ui why FlorisBoard may not be working.
@@ -27,12 +23,11 @@
         <intent>
             <action android:name="android.service.textservice.SpellCheckerService"/>
         </intent>
-        <!-- AIChat MODIFIED: let the mic key find a speech recognizer (screen or service) on Android 11+. -->
+        <!-- AIChat MODIFIED: lets the keyboard see which chat apps take a shared image, to send a sticker through
+             the app's share screen when its chat field does not accept images (com.aichat.keyboard.sticker.StickerSender). -->
         <intent>
-            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
-        </intent>
-        <intent>
-            <action android:name="android.speech.RecognitionService"/>
+            <action android:name="android.intent.action.SEND"/>
+            <data android:mimeType="image/*"/>
         </intent>
     </queries>
 
@@ -150,14 +145,16 @@
             android:taskAffinity=""
             android:exported="false"/>
 
-        <!-- AIChat MODIFIED: invisible speech-recognition activity behind the mic key (no voice IME enabled).
-             Opened only by the keyboard itself, so it is not exported. -->
+        <!-- AIChat MODIFIED: "Tạo sticker chữ", the text sticker maker opened from the sticker panel's add menu (the
+             keyboard cannot host a text field itself). Opened only by the keyboard, so it is not exported. -->
         <activity
-            android:name="com.aichat.keyboard.voice.VoiceInputActivity"
+            android:name="com.aichat.keyboard.sticker.TextStickerMakerActivity"
             android:theme="@style/FlorisAppTheme.Transparent"
+            android:windowSoftInputMode="stateVisible|adjustResize"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:exported="false"/>
+
         <!-- AIChat MODIFIED: share target for chat screenshots ("Gợi ý trả lời AIChat"). The image is read on-device
              (ML Kit OCR) and never uploaded; only the parsed messages go to /v1/keyboard/reply. Exported only for
              this SEND image/* filter; the activity also rejects non-content: URIs and this app's own providers. -->

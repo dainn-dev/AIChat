@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.withContext
 
 /**
@@ -28,6 +29,27 @@ class StickerRepository private constructor(private val appContext: Context) {
     val assetPacks: List<StickerPack> by lazy { AssetStickerPacks.load(appContext) }
 
     private val importScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val recentPrefs = appContext.getSharedPreferences(RECENT_PREFS, Context.MODE_PRIVATE)
+    private val _recentIds = MutableStateFlow(RecentStickers.parse(recentPrefs.getString(RECENT_KEY, null)))
+
+    /**
+     * Ids of the last sent stickers, most recent first ([RecentStickers]), persisted across restarts. Resolve them
+     * against [packs] with [RecentStickers.resolve]; ids of stickers that no longer exist are simply skipped.
+     */
+    val recentIds: StateFlow<List<String>> = _recentIds.asStateFlow()
+
+    /**
+     * Records [sticker] as recently sent if [result] means it reached the chat. Call it after every
+     * [StickerSendFlow.sendAndReport]. The result is matched by name so a newly added success result
+     * (e.g. `SHARED`) only needs adding to [SENT_RESULTS].
+     */
+    fun recordSent(sticker: Sticker, result: StickerSender.Result) {
+        if (result.name !in SENT_RESULTS) return
+        val ids = _recentIds.updateAndGet { RecentStickers.add(it, sticker.id) }
+        // apply() writes on a background thread.
+        recentPrefs.edit().putString(RECENT_KEY, RecentStickers.serialize(ids)).apply()
+    }
 
     suspend fun refresh() {
         val stickers = withContext(Dispatchers.IO) {
@@ -70,8 +92,20 @@ class StickerRepository private constructor(private val appContext: Context) {
         }
     }
 
+    /** The "Gần đây" pack for [packs] (the result of [packs]), or null when nothing was sent yet. */
+    fun recentPack(recentIds: List<String>, packs: List<StickerPack>, title: String): StickerPack? {
+        val stickers = RecentStickers.resolve(recentIds, packs)
+        if (stickers.isEmpty()) return null
+        return StickerPack(id = RECENT_PACK_ID, title = title, icon = RECENT_PACK_ICON, stickers = stickers)
+    }
+
     companion object {
         const val USER_PACK_ID = "user"
+        const val RECENT_PACK_ID = "recent"
+        private const val RECENT_PACK_ICON = "🕘"
+        private const val RECENT_PREFS = "aichat_stickers"
+        private const val RECENT_KEY = "recent_ids"
+        private val SENT_RESULTS = setOf("SENT", "SENT_AS_TEXT", "SHARED")
         private const val USER_PACK_ICON = "★"
         private const val USER_STICKER_DESCRIPTION = "Sticker"
         private const val USER_DIR = "aichat_stickers/user"
