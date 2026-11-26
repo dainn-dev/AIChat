@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   AIChat chat reader (com.aichat.keyboard.capture.ChatCaptureService).
-  Kept as narrow as possible: only Messenger, Zalo, WhatsApp, Gmail and Google Chat, one event type that the service ignores, no key filtering,
-  no gestures. Window content is read only when the user taps "Gợi ý trả lời" in the keyboard.
+  Any app may be read (no packageNames filter): suggestions work wherever a conversation is on screen. Still kept narrow:
+  one event type that the service ignores, no key filtering, no gestures. Window content is read only when the user taps "Gợi ý trả lời" in the keyboard.
   flagRetrieveInteractiveWindows: lets the service find the chat window behind the keyboard window.
   flagReportViewIds: lets the parser recognise the toolbar title.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/aichat__capture__service_description"
-    android:packageNames="com.facebook.orca,com.zing.zalo,com.whatsapp,com.whatsapp.w4b,com.google.android.gm,com.google.android.apps.dynamite"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"

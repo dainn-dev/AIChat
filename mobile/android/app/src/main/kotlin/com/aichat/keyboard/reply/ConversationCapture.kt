@@ -38,7 +38,7 @@ enum class UnavailableReason {
     /** The user has not enabled this source (e.g. the accessibility service is off). */
     NOT_ENABLED,
 
-    /** The foreground app is not one this source can read. */
+    /** This source cannot read the foreground app, or recognises no conversation in it. */
     UNSUPPORTED_APP,
 
     /** The source is enabled but found no messages. */

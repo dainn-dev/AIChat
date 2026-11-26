@@ -133,8 +133,27 @@ class ChatTranscriptParserTest {
     }
 
     @Test
-    fun `an unsupported package yields no conversation`() {
-        assertNull(parse("com.example.other", messengerHeader + listOf(them("hi", top = 400))))
+    fun `any other chat app is read and sends its package name as platform`() {
+        val nodes = zaloHeader + listOf(them("Mai gặp nhé", top = 400), me("Ok", top = 520)) + zaloComposer
+
+        val conversation = assertNotNull(parse("org.telegram.messenger", nodes))
+
+        assertEquals("org.telegram.messenger", conversation.platform)
+        assertEquals("Bạn Test", conversation.contactLabel)
+        assertEquals(listOf(msg(THEM, "Mai gặp nhé"), msg(ME, "Ok")), conversation.messages)
+    }
+
+    @Test
+    fun `another app without an input field in its lower half is not a conversation`() {
+        assertNull(parse("com.example.reader", messengerHeader + listOf(them("hi", top = 400))))
+        // A search box at the top does not count as a composer.
+        val topSearch = node("Search", left = 20, top = 300, right = 1060, bottom = 380, editable = true)
+        assertNull(parse("com.example.reader", messengerHeader + listOf(topSearch, them("hi", top = 400))))
+    }
+
+    @Test
+    fun `a known messenger without a visible composer is still read`() {
+        assertNotNull(parse(messenger, messengerHeader + listOf(them("hi", top = 400))))
     }
 
     @Test

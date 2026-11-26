@@ -30,19 +30,31 @@ class CaptureSupportTest {
     }
 
     @Test
-    fun `the accessibility service is limited to exactly the supported packages`() {
+    fun `the accessibility service is not limited to a package list`() {
         // Gradle runs unit tests from the module directory.
         val xml = java.io.File("src/main/res/xml/aichat_accessibility_service.xml").readText()
-        val declared = assertNotNull(Regex("""android:packageNames="([^"]*)"""").find(xml)).groupValues[1]
-            .split(',').map { it.trim() }.toSet()
 
-        assertEquals(SupportedMessenger.entries.map { it.packageName }.toSet(), declared)
+        assertFalse("android:packageNames" in xml)
     }
 
     @Test
     fun `platform ids match the backend pattern`() {
         val pattern = Regex("[a-z0-9._-]{1,64}")
         SupportedMessenger.entries.forEach { assertTrue(pattern.matches(it.platform), it.platform) }
+        listOf("org.telegram.messenger", "jp.naver.line.android", "Com.Example_App", "a".repeat(200)).forEach {
+            val platform = assertNotNull(CapturePlatform.of(it))
+            assertTrue(pattern.matches(platform), platform)
+        }
+    }
+
+    @Test
+    fun `known messengers keep their platform id, other apps use the package name`() {
+        assertEquals("zalo", CapturePlatform.of("com.zing.zalo"))
+        assertEquals("whatsapp", CapturePlatform.of("com.whatsapp.w4b"))
+        assertEquals("org.telegram.messenger", CapturePlatform.of("org.telegram.messenger"))
+        assertEquals("com.example_app", CapturePlatform.of("Com.Example_App"))
+        assertNull(CapturePlatform.of(null))
+        assertNull(CapturePlatform.of(""))
     }
 
     @Test

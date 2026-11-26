@@ -24,8 +24,8 @@ class AccessibilityConversationProviderTest {
         isPassword = false,
     )
 
-    private fun snapshot(nodes: List<CapturedNode>) = ChatWindowSnapshot(
-        packageName = "com.zing.zalo",
+    private fun snapshot(nodes: List<CapturedNode>, packageName: String = "com.zing.zalo") = ChatWindowSnapshot(
+        packageName = packageName,
         windowLeft = 0,
         windowTop = 0,
         windowRight = 1080,
@@ -55,6 +55,13 @@ class AccessibilityConversationProviderTest {
     @Test
     fun `another foreground app is UNSUPPORTED_APP`() = runTest {
         val result = provider { SnapshotOutcome.UnsupportedApp }.capture()
+
+        assertEquals(CaptureResult.Unavailable(UnavailableReason.UNSUPPORTED_APP), result)
+    }
+
+    @Test
+    fun `another app with no recognisable chat is UNSUPPORTED_APP, so the clipboard may stand in`() = runTest {
+        val result = provider { SnapshotOutcome.Snapshot(snapshot(emptyList(), "com.example.reader")) }.capture()
 
         assertEquals(CaptureResult.Unavailable(UnavailableReason.UNSUPPORTED_APP), result)
     }

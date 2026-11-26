@@ -10,7 +10,8 @@ import com.aichat.keyboard.reply.CapturedConversation
 import kotlin.math.abs
 
 /**
- * Turns the visible views of a supported chat app ([SupportedMessenger]) into an ordered conversation.
+ * Turns the visible views of a chat app into an ordered conversation. Tuned on the [SupportedMessenger] apps; any
+ * other app is read with the same heuristics, but only when it looks like a chat (an input field in the lower half).
  *
  * Layout heuristics, not view ids, do the work (both apps obfuscate and change their ids between versions):
  * - the top [HEADER_FRACTION] of the window is the toolbar; its first plain text line is the contact name;
@@ -25,7 +26,8 @@ import kotlin.math.abs
  *   day word, time or status word ([ChatNoise.isPositionalNoise]) only when centered or attached under a bubble;
  * - editable and password views are never read.
  *
- * Returns null when nothing message-like is visible or the package is not a [SupportedMessenger].
+ * Returns null when nothing message-like is visible, or when an app that is not a [SupportedMessenger] shows no
+ * input field in its lower half (a feed, a web page or a document is not a conversation).
  */
 object ChatTranscriptParser {
     /** Matches the backend's message `content` limit. */
@@ -70,14 +72,17 @@ object ChatTranscriptParser {
     )
 
     fun parse(snapshot: ChatWindowSnapshot): CapturedConversation? {
-        val messenger = SupportedMessenger.fromPackage(snapshot.packageName) ?: return null
+        val platform = CapturePlatform.of(snapshot.packageName) ?: return null
         val window = Window(snapshot)
         val readable = snapshot.nodes.filter { it.isReadable() && window.contains(it) }
         val composerTop = composerTop(snapshot.nodes, window)
+        val knownMessenger = SupportedMessenger.fromPackage(snapshot.packageName) != null
+        if (!knownMessenger && composerTop == null) return null
+        val bodyBottom = composerTop ?: window.bottom
 
         val header = readable.filter { it.boundsBottom <= window.headerBottom }
         // A bubble scrolled partly under the toolbar still counts: only its bottom has to be below the header band.
-        val body = readable.filter { it.boundsBottom > window.headerBottom && it.boundsTop < composerTop }
+        val body = readable.filter { it.boundsBottom > window.headerBottom && it.boundsTop < bodyBottom }
 
         val lines = splitQuotes(messageLines(body, window))
         val senders = senders(lines, window)
@@ -87,7 +92,7 @@ object ChatTranscriptParser {
         if (messages.isEmpty()) return null
         return CapturedConversation(
             messages = messages.takeLast(CapturedConversation.MAX_MESSAGES),
-            platform = messenger.platform,
+            platform = platform,
             contactLabel = contactLabel(header),
         )
     }
@@ -243,11 +248,10 @@ object ChatTranscriptParser {
         (isNoise(text) && !ChatNoise.isPositionalNoise(text)) || ChatNoise.isSystemLine(text) ||
             ChatNoise.isControlLabel(text)
 
-    /** The top of the input field (the lowest editable view in the lower half), or the window bottom. */
-    private fun composerTop(nodes: List<CapturedNode>, window: Window): Int =
+    /** The top of the input field (the highest editable view in the lower half), or null when there is none. */
+    private fun composerTop(nodes: List<CapturedNode>, window: Window): Int? =
         nodes.filter { it.isEditable && it.boundsTop >= window.middleY }
             .minOfOrNull { it.boundsTop }
-            ?: window.bottom
 
     private fun CapturedNode.isReadable() = !isPassword && !isEditable
 

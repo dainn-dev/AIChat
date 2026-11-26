@@ -36,7 +36,7 @@ sealed interface SnapshotOutcome {
     /** The service is enabled in settings but not connected (yet), so nothing can be read. */
     data object NotRunning : SnapshotOutcome
 
-    /** The app in front is not a supported messenger: nothing was read. */
+    /** The app in front cannot be read (AIChat itself): nothing was read. */
     data object UnsupportedApp : SnapshotOutcome
 
     /** Reading the window failed or returned no tree. */
@@ -46,9 +46,8 @@ sealed interface SnapshotOutcome {
 }
 
 /**
- * The chat apps the service may read, their `platform` id for `/v1/keyboard/reply` (WhatsApp Business shares
- * `whatsapp`, so per-contact memories stay together). Keep the package list in sync with
- * `res/xml/aichat_accessibility_service.xml`.
+ * Chat apps with a well-known `platform` id for `/v1/keyboard/reply` (WhatsApp Business shares `whatsapp`, so
+ * per-contact memories stay together). Any other app can be read too; it gets [CapturePlatform.of] instead.
  */
 enum class SupportedMessenger(val packageName: String, val platform: String) {
     MESSENGER("com.facebook.orca", "messenger"),
@@ -61,6 +60,22 @@ enum class SupportedMessenger(val packageName: String, val platform: String) {
 
     companion object {
         fun fromPackage(packageName: String?): SupportedMessenger? = entries.firstOrNull { it.packageName == packageName }
+    }
+}
+
+/** The `platform` id sent for a captured chat. */
+object CapturePlatform {
+    /** Matches the backend's `platform` pattern `[a-z0-9._-]{1,64}`. */
+    private const val MAX_LENGTH = 64
+    private val disallowed = Regex("[^a-z0-9._-]")
+
+    /**
+     * A known messenger's id, else the package name itself (lower-cased, limited to the backend pattern), so memories
+     * of another chat app stay per app. Null when nothing usable is left.
+     */
+    fun of(packageName: String?): String? {
+        SupportedMessenger.fromPackage(packageName)?.let { return it.platform }
+        return packageName?.lowercase()?.replace(disallowed, "")?.take(MAX_LENGTH)?.ifEmpty { null }
     }
 }
 
