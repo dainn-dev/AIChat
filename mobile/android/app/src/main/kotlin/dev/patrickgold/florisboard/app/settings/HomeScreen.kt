@@ -161,6 +161,8 @@ fun HomeScreen() = FlorisScreen {
             title = stringRes(R.string.settings__other__title),
             onClick = { navController.navigate(Routes.Settings.Other) },
         )
+        // AIChat MODIFIED: "Cập nhật ứng dụng" (in-app updates from GitHub Releases) above About.
+        com.aichat.keyboard.update.AiChatUpdatePreference()
         Preference(
             icon = Icons.Outlined.Info,
             title = stringRes(R.string.about__title),

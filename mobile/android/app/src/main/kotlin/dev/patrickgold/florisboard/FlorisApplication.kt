@@ -86,6 +86,8 @@ class FlorisApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         FlorisApplicationReference = WeakReference(this)
+        // AIChat MODIFIED: in-app updates (tracks open screens, clears installed update files).
+        com.aichat.keyboard.update.AppUpdater.install(this)
         try {
             Flog.install(
                 context = this,

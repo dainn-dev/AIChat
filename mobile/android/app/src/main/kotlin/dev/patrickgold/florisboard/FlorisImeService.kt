@@ -421,6 +421,8 @@ class FlorisImeService : LifecycleInputMethodService() {
         }
         isWindowShown = true
         inputFeedbackController.updateSystemPrefsState()
+        // AIChat MODIFIED: an update is never installed while the keyboard is on screen.
+        com.aichat.keyboard.update.AppUpdater.onKeyboardShown()
     }
 
     override fun onWindowHidden() {
@@ -437,6 +439,8 @@ class FlorisImeService : LifecycleInputMethodService() {
             activeState.isActionsOverflowVisible = false
             activeState.isActionsEditorVisible = false
         }
+        // AIChat MODIFIED: check for, download and install app updates while the keyboard is hidden.
+        com.aichat.keyboard.update.AppUpdater.onKeyboardHidden(this)
     }
 
     override fun onEvaluateFullscreenMode(): Boolean {
