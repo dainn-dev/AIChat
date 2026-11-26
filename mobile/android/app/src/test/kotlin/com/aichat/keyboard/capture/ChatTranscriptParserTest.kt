@@ -325,4 +325,114 @@ class ChatTranscriptParserTest {
 
         assertEquals(THEM, conversation.messages.single().sender)
     }
+
+    private val hint = ", double tap to see sent/receive date and time, double tap and hold to react on message"
+
+    private fun label(name: String, text: String, left: Int, top: Int, right: Int, height: Int = 90) =
+        node("$name, $text$hint", left = left, top = top, right = right, bottom = top + height, className = "android.view.ViewGroup")
+
+    @Test
+    fun `Messenger bubble labels keep only the message and the side`() {
+        val nodes = messengerHeader + listOf(
+            label("Minh Anh", "tối nay rảnh không, đi ăn nhé", left = 150, top = 400, right = 700),
+            label("Tú", "ok luôn", left = 700, top = 520, right = 1040),
+        ) + messengerComposer
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf(msg(THEM, "tối nay rảnh không, đi ăn nhé"), msg(ME, "ok luôn")), conversation.messages)
+    }
+
+    @Test
+    fun `a bubble whose bounds look like the partner's follows its sender name`() {
+        val nodes = messengerHeader + listOf(
+            label("Tú", "câu 1", left = 700, top = 400, right = 1040),
+            label("Tú", "câu 2", left = 600, top = 520, right = 1040),
+            // Cut off by the screen edge: its bounds no longer hug the right edge.
+            label("Tú", "câu 3", left = 150, top = 640, right = 900),
+            label("Minh Anh", "ừ", left = 150, top = 760, right = 400),
+        )
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf(ME, ME, ME, THEM), conversation.messages.map { it.sender })
+    }
+
+    @Test
+    fun `the unread divider, deleted placeholders and control labels are not messages`() {
+        val nodes = messengerHeader + listOf(
+            label("Minh Anh", "alo", left = 150, top = 400, right = 500),
+            node("Unread messages", left = 0, top = 520, right = 1080, bottom = 570, className = "android.view.ViewGroup"),
+            node("You deleted a message", left = 560, top = 600, right = 1040, bottom = 690, className = "android.view.ViewGroup"),
+            node(left = 600, top = 720, right = 700, bottom = 820, desc = "Mute volume, not pressed", className = "android.view.ViewGroup"),
+            label("Minh Anh", "đâu rồi", left = 150, top = 860, right = 500),
+        )
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf(msg(THEM, "alo"), msg(THEM, "đâu rồi")), conversation.messages)
+    }
+
+    @Test
+    fun `a reply quote counts as the message of the name it starts with`() {
+        val nodes = messengerHeader + listOf(
+            label("Tú", "mai đi Đà Lạt không", left = 600, top = 400, right = 1040),
+            // Quote of Tú's message above Minh Anh's reply: no bubble hint.
+            node(left = 150, top = 520, right = 900, bottom = 560, desc = "Tú, mai đi Đà Lạt không", className = "android.view.ViewGroup"),
+            label("Minh Anh", "đi chứ", left = 150, top = 570, right = 450),
+        )
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(
+            listOf(msg(ME, "mai đi Đà Lạt không"), msg(ME, "mai đi Đà Lạt không"), msg(THEM, "đi chứ")),
+            conversation.messages,
+        )
+    }
+
+    @Test
+    fun `the reply header says whose message the quote is, even for a name not on screen`() {
+        val nodes = messengerHeader + listOf(
+            label("Minh Anh", "alo", left = 150, top = 400, right = 450),
+            node("Minh Anh replied to you", left = 260, top = 520, right = 600, bottom = 560, className = "android.view.ViewGroup"),
+            // The user's own name appears on no bubble here.
+            node("Tú, mai đi Đà Lạt không", left = 150, top = 570, right = 900, bottom = 760, className = "android.view.ViewGroup"),
+            label("Minh Anh", "đi chứ", left = 150, top = 720, right = 450),
+            node("You replied to Minh Anh", left = 500, top = 860, right = 1040, bottom = 900, className = "android.view.ViewGroup"),
+            node("Minh Anh, alo", left = 400, top = 910, right = 1040, bottom = 990, className = "android.view.ViewGroup"),
+            label("Tú", "ok", left = 800, top = 1000, right = 1040),
+        )
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(
+            listOf(
+                msg(THEM, "alo"),
+                msg(ME, "mai đi Đà Lạt không"),
+                msg(THEM, "đi chứ"),
+                msg(THEM, "alo"),
+                msg(ME, "ok"),
+            ),
+            conversation.messages,
+        )
+    }
+
+    @Test
+    fun `without bubble labels a message starting with a name is kept whole`() {
+        val nodes = messengerHeader + listOf(them("Tú, nhớ mang áo ấm", top = 400), me("ok", top = 520))
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf(msg(THEM, "Tú, nhớ mang áo ấm"), msg(ME, "ok")), conversation.messages)
+    }
+
+    @Test
+    fun `a bubble scrolled partly under the toolbar is still read`() {
+        // messengerHeader ends at 220; the 12% header band ends at 288.
+        val nodes = messengerHeader + listOf(them("tin bị che một nửa", top = 230, height = 100))
+
+        val conversation = assertNotNull(parse(messenger, nodes))
+
+        assertEquals(listOf(msg(THEM, "tin bị che một nửa")), conversation.messages)
+    }
 }

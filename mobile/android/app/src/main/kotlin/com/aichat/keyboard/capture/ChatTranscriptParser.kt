@@ -17,6 +17,10 @@ import kotlin.math.abs
  * - everything from the input field down is the composer and is ignored;
  * - a bubble that hugs the right edge (right margin under [ME_MAX_RIGHT_MARGIN] of the width, and smaller than its
  *   left margin) is the user's (`me`); anything else, including wide partner bubbles after an avatar, is the partner's;
+ * - Messenger labels each bubble "<sender name>, <message>, double tap to …" ([ChatNoise.parseBubbleLabel]): only the
+ *   message is kept, and every bubble with the same sender name gets the side most of that name's bubbles are on, so a
+ *   bubble cut off at the screen edge cannot flip sides;
+ * - the unread divider, deleted/unsent placeholders and control labels ("Mute volume, not pressed") are dropped;
  * - times, date separators, delivery/presence lines, reaction badges and centered system lines are dropped; a lone
  *   day word, time or status word ([ChatNoise.isPositionalNoise]) only when centered or attached under a bubble;
  * - editable and password views are never read.
@@ -46,10 +50,24 @@ object ChatTranscriptParser {
     /** Largest vertical gap, as a share of the window height, between a bubble and a label attached under it. */
     private const val LABEL_MAX_GAP = 0.03
 
+    /** "<name>, " at the start of a reply quote. */
+    private val quoteName = Regex("""^([^,\n]{1,80}), \S""")
+
     private val nonTextClassHints = listOf("Button", "Image", "CheckBox", "Switch", "ProgressBar")
     private val titleIdHints = listOf("title", "name", "header")
 
-    private class Line(val content: String, val node: CapturedNode)
+    /**
+     * [senderName] is set when the text was a Messenger bubble label or a reply quote ([isQuote]); a quote sits on
+     * the replier's side, so it takes its side from the name (or [quotedAuthor], read from the reply header) but never
+     * votes for it.
+     */
+    private class Line(
+        val content: String,
+        val node: CapturedNode,
+        val senderName: String? = null,
+        val isQuote: Boolean = false,
+        val quotedAuthor: MessageSender? = null,
+    )
 
     fun parse(snapshot: ChatWindowSnapshot): CapturedConversation? {
         val messenger = SupportedMessenger.fromPackage(snapshot.packageName) ?: return null
@@ -58,10 +76,13 @@ object ChatTranscriptParser {
         val composerTop = composerTop(snapshot.nodes, window)
 
         val header = readable.filter { it.boundsBottom <= window.headerBottom }
-        val body = readable.filter { it.boundsTop >= window.headerBottom - 1 && it.boundsTop < composerTop }
+        // A bubble scrolled partly under the toolbar still counts: only its bottom has to be below the header band.
+        val body = readable.filter { it.boundsBottom > window.headerBottom && it.boundsTop < composerTop }
 
-        val messages = messageLines(body, window).map { line ->
-            ChatMessage(sender = window.senderOf(line.node), content = line.content.take(MAX_MESSAGE_CHARS))
+        val lines = splitQuotes(messageLines(body, window))
+        val senders = senders(lines, window)
+        val messages = lines.mapIndexed { i, line ->
+            ChatMessage(sender = senders[i], content = line.content.take(MAX_MESSAGE_CHARS))
         }
         if (messages.isEmpty()) return null
         return CapturedConversation(
@@ -71,9 +92,69 @@ object ChatTranscriptParser {
         )
     }
 
+    /**
+     * A reply quote next to a Messenger bubble reads "<sender name>, <quoted message>" without the bubble hint. Once
+     * bubble labels are on screen every real bubble carries that hint, so a hint-less line starting with a name
+     * already seen on a label is a quote: it counts as that person's earlier message. A reply header right above
+     * ("Thư replied to you", [ChatNoise.replyHeader]) says whose message the quote is, so then any name is accepted
+     * (the user's own name is often on no bubble on screen). Headers are dropped. Without labels (Zalo, or an older
+     * Messenger) nothing is split.
+     */
+    private fun splitQuotes(lines: List<Line>): List<Line> {
+        val names = lines.mapNotNull { it.senderName }.toSet()
+        if (names.isEmpty()) return lines.filter { ChatNoise.replyHeader(it.content) == null }
+        val result = ArrayList<Line>(lines.size)
+        var pendingAuthor: MessageSender? = null
+        for (line in lines) {
+            val header = ChatNoise.replyHeader(line.content)
+            if (header != null) {
+                pendingAuthor = if (header == ChatNoise.QuotedAuthor.ME) MessageSender.ME else MessageSender.THEM
+                continue
+            }
+            val author = pendingAuthor
+            pendingAuthor = null
+            if (line.senderName != null) {
+                result += line
+                continue
+            }
+            val name = names.firstOrNull { line.content.startsWith("$it, ") }
+                ?: if (author != null) quoteName.find(line.content)?.groupValues?.get(1) else null
+            val quoted = name?.let { line.content.substring(it.length + 2).trim() }
+            result += if (name == null || quoted.isNullOrEmpty()) {
+                line
+            } else {
+                Line(quoted, line.node, name, isQuote = true, quotedAuthor = author)
+            }
+        }
+        return result
+    }
+
+    /**
+     * Side by position, then made consistent per sender name: a name whose bubbles are mostly on one side gets that
+     * side for all of them. A tie (or no name) keeps the position-based side.
+     */
+    private fun senders(lines: List<Line>, window: Window): List<MessageSender> {
+        val byPosition = lines.map { window.senderOf(it.node) }
+        val byName = lines.indices
+            .filter { lines[it].senderName != null && !lines[it].isQuote }
+            .groupBy { lines[it].senderName!!.lowercase() }
+            .mapValues { (_, indices) ->
+                val me = indices.count { byPosition[it] == MessageSender.ME }
+                val them = indices.size - me
+                when {
+                    me > them -> MessageSender.ME
+                    them > me -> MessageSender.THEM
+                    else -> null
+                }
+            }
+        return lines.mapIndexed { i, line ->
+            line.quotedAuthor ?: line.senderName?.let { byName[it.lowercase()] } ?: byPosition[i]
+        }
+    }
+
     private fun messageLines(body: List<CapturedNode>, window: Window): List<Line> {
         val candidates = body
-            .mapNotNull { node -> messageText(node)?.let { Line(it, node) } }
+            .mapNotNull { node -> messageText(node)?.let { toLine(it, node) } }
             .filterNot { isAlwaysNoise(it.content) || window.isCenteredSystemLine(it.node) }
         val leaves = candidates.filterNot { line -> candidates.any { it !== line && line.node.strictlyContains(it.node) } }
         val unique = leaves.filterNot { line ->
@@ -142,6 +223,11 @@ object ChatTranscriptParser {
         return (byId ?: lines.firstOrNull())?.content?.take(MAX_CONTACT_LABEL_CHARS)?.trim()?.ifEmpty { null }
     }
 
+    private fun toLine(text: String, node: CapturedNode): Line {
+        val label = ChatNoise.parseBubbleLabel(text) ?: return Line(text, node)
+        return Line(label.content, node, label.senderName)
+    }
+
     /** Text first; a content description only on views that are not buttons or images. */
     private fun messageText(node: CapturedNode): String? {
         node.text?.clean()?.let { return it }
@@ -153,7 +239,9 @@ object ChatTranscriptParser {
         ChatNoise.isTimestampOrDate(text) || ChatNoise.isStatus(text) || ChatNoise.isReactionCount(text)
 
     /** Noise wherever it is; positional noise is decided by [dropAttachedLabels] and the centered-line check. */
-    private fun isAlwaysNoise(text: String): Boolean = isNoise(text) && !ChatNoise.isPositionalNoise(text)
+    private fun isAlwaysNoise(text: String): Boolean =
+        (isNoise(text) && !ChatNoise.isPositionalNoise(text)) || ChatNoise.isSystemLine(text) ||
+            ChatNoise.isControlLabel(text)
 
     /** The top of the input field (the lowest editable view in the lower half), or the window bottom. */
     private fun composerTop(nodes: List<CapturedNode>, window: Window): Int =

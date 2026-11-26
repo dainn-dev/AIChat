@@ -1,7 +1,10 @@
 package com.aichat.keyboard.capture
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ChatNoiseTest {
@@ -90,6 +93,56 @@ class ChatNoiseTest {
         }
         listOf("stop typing", "i hate typing", "đừng soạn tin nữa", "retyping").forEach {
             assertFalse(ChatNoise.isStatus(it), it)
+        }
+    }
+
+    @Test
+    fun `a Messenger bubble label splits into sender name and message`() {
+        val label = assertNotNull(
+            ChatNoise.parseBubbleLabel(
+                "Minh Anh, ok, mai 9h nhé, double tap to see sent/receive date and time, double tap and hold to react on message",
+            ),
+        )
+        assertEquals("Minh Anh", label.senderName)
+        assertEquals("ok, mai 9h nhé", label.content)
+    }
+
+    @Test
+    fun `plain text with commas is not a bubble label`() {
+        listOf("Minh Anh, ok mai gặp", "hi, double", "ok, tap to see").forEach {
+            assertNull(ChatNoise.parseBubbleLabel(it), it)
+        }
+    }
+
+    @Test
+    fun `the unread divider and deleted placeholders are system lines`() {
+        listOf(
+            "Unread messages", "Tin nhắn chưa đọc", "You deleted a message", "Minh Anh unsent a message",
+            "Bạn đã thu hồi một tin nhắn", "This message was deleted",
+        ).forEach { assertTrue(ChatNoise.isSystemLine(it), it) }
+        listOf("đọc tin nhắn chưa", "unread", "tin nhắn này hay ghê").forEach {
+            assertFalse(ChatNoise.isSystemLine(it), it)
+        }
+    }
+
+    @Test
+    fun `reply headers say whose message is quoted`() {
+        assertEquals(ChatNoise.QuotedAuthor.ME, ChatNoise.replyHeader("Thư replied to you"))
+        assertEquals(ChatNoise.QuotedAuthor.ME, ChatNoise.replyHeader("You replied to yourself"))
+        assertEquals(ChatNoise.QuotedAuthor.THEM, ChatNoise.replyHeader("You replied to Thư"))
+        assertEquals(ChatNoise.QuotedAuthor.THEM, ChatNoise.replyHeader("Thư replied to themselves"))
+        assertEquals(ChatNoise.QuotedAuthor.ME, ChatNoise.replyHeader("Thư đã trả lời bạn"))
+        assertEquals(ChatNoise.QuotedAuthor.THEM, ChatNoise.replyHeader("Bạn đã trả lời Thư"))
+        assertNull(ChatNoise.replyHeader("ok mai gặp"))
+    }
+
+    @Test
+    fun `control labels are recognised but messages with commas are not`() {
+        listOf("Mute volume, not pressed", "Unmute volume", "Play, pressed").forEach {
+            assertTrue(ChatNoise.isControlLabel(it), it)
+        }
+        listOf("ok, off nha", "mute volume đi", "đi chơi, nhấn like nhé").forEach {
+            assertFalse(ChatNoise.isControlLabel(it), it)
         }
     }
 }

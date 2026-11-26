@@ -44,6 +44,26 @@ export interface TranslateContext {
  */
 @Injectable()
 export class ContextBuilder {
+  /**
+   * Vietnamese chats are full of teen code, abbreviations and missing diacritics;
+   * without a glossary the model misreads them ("ms" → "Ms.", "kg" → kilograms)
+   * and drafts off-topic replies. Ambiguous forms are left to context.
+   */
+  static readonly VIETNAMESE_CHAT_GUIDE = [
+    `Vietnamese chats are often informal: teen code, abbreviations, missing diacritics and stretched letters ("ngonnn", "lănggg").`,
+    `Read them as a native speaker would. Common forms: ko/k/kh/hok/hong/hông/khum = không; đc/dc = được; ms = mới; r/rùi/ròi = rồi;`,
+    `z/v/zậy = vậy; vs = với; j/gì = gì; cx = cũng; chx = chưa; ns = nói; nt = nhắn tin; ib = inbox (nhắn riêng); lm = làm; s = sao;`,
+    `trc = trước; hnay = hôm nay; hum = hôm; bít = biết; kb = không biết; iu = yêu; thui = thôi; nma/nhma = nhưng mà; mn = mọi người;`,
+    `ny = người yêu; ck/vk = chồng/vợ; a/e = anh/em; c = chị; t/m = tao/mày; tks = cảm ơn; oke/oki = ok.`,
+    `Some forms depend on context: bn = bạn or bao nhiêu; kg = không or kilogram; dz = vậy or đẹp trai; bt = biết or bình thường.`,
+    `Vietnamese pronouns depend on age, gender and closeness, so "me" uses a different pair with each contact (anh with one person, em with another;`,
+    `also chị/em, cô/con, chú/cháu, mình/bạn, t/m). For Vietnamese replies, work out the pair for THIS conversation, in this order:`,
+    `(1) how "me" refers to self and to "them" in this conversation; (2) otherwise how "them" addresses "me" ("them" calls "me" anh → "me" says anh`,
+    `and calls "them" em; "them" calls "me" chị → "me" says chị; "them" says con → "me" is cô/chú/bác as fits); (3) otherwise the style reference for`,
+    `this contact. Never carry pronouns over from other contacts, never guess age or gender from a name, and if the pair is still unclear use`,
+    `neutral wording or avoid pronouns. Match how "me" writes (length, casing, emoji, diacritics); use teen code only if "me" does.`,
+  ].join(' ');
+
   buildReplyPrompt(ctx: ReplyContext): LlmPrompt {
     const system = [
       `You are a messaging assistant that drafts replies on behalf of "me".`,
@@ -51,6 +71,9 @@ export class ContextBuilder {
       `Each reply must be natural, concise, and ready to send.`,
       `You are writing as "me" to "them". Never speak as the contact or attribute the contact's words, feelings, or first-person perspective to "me".`,
       `Use the labeled conversation and any communication-style memory as reference; style memories describe only how "me" writes to this contact.`,
+      `Reply to the most recent message(s) from "them"; if the last message is from "me", write a natural follow-up.`,
+      `If a message is unclear, prefer a safe reply that acknowledges it or asks back over a guess. Never invent facts, and never be crude or offensive.`,
+      ContextBuilder.VIETNAMESE_CHAT_GUIDE,
       this.replyLanguageInstruction(ctx.lang),
       `Respond with ONLY valid JSON of the form:`,
       `{"replies":[{"text":"..."}]}`,
@@ -68,6 +91,7 @@ export class ContextBuilder {
       `"red_flags":[{"code":string,"message":string}]}.`,
       `interest_score is how interested "them" appears to be (0-100).`,
       `If there is not enough context, say so in summary and use a low score.`,
+      ContextBuilder.VIETNAMESE_CHAT_GUIDE,
     ].join(' ');
 
     return { system, user: this.renderContext(ctx) };
