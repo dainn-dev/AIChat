@@ -4,6 +4,7 @@
 
 package com.aichat.keyboard.voice
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -11,6 +12,7 @@ import android.content.pm.PackageManager
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.provider.Settings
+import android.speech.RecognitionService
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
@@ -161,6 +163,27 @@ object VoiceInput {
         }
         val defaultService = Settings.Secure.getString(context.contentResolver, VOICE_RECOGNITION_SERVICE_SETTING)
         RecognizerTrust.pickTrusted(candidates, RecognizerTrust.packageOfComponent(defaultService))
+    }.getOrNull()
+
+    /** The selected default recognition service (`pkg/cls`), or null when the system has none (some vivo phones). */
+    internal fun defaultRecognitionService(context: Context): String? = runCatching {
+        Settings.Secure.getString(context.contentResolver, VOICE_RECOGNITION_SERVICE_SETTING)?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    /** A trusted recognition service to bind explicitly when there is no default one ([RecognizerTrust.pickService]). */
+    internal fun trustedRecognitionService(context: Context): ComponentName? = runCatching {
+        val systemFlags = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+        @Suppress("DEPRECATION")
+        val candidates = context.packageManager.queryIntentServices(Intent(RecognitionService.SERVICE_INTERFACE), 0)
+            .mapNotNull { info ->
+                val service = info.serviceInfo ?: return@mapNotNull null
+                ServiceCandidate(
+                    packageName = service.packageName,
+                    component = ComponentName(service.packageName, service.name).flattenToString(),
+                    isSystemApp = service.applicationInfo.flags and systemFlags != 0,
+                )
+            }
+        RecognizerTrust.pickService(candidates)?.let(ComponentName::unflattenFromString)
     }.getOrNull()
 
     internal fun hasSpeechRecognizer(context: Context): Boolean = runCatching {

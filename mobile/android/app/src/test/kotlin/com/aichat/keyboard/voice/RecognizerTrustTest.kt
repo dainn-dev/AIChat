@@ -57,4 +57,43 @@ class RecognizerTrustTest {
         assertNull(RecognizerTrust.packageOfComponent("/x"))
         assertNull(RecognizerTrust.packageOfComponent("nopackage"))
     }
+
+    // Recognition services, used when no default service is selected (seen on a vivo phone: the setting is empty).
+
+    @Test
+    fun `no default service picks the system service first`() {
+        val picked = RecognizerTrust.pickService(
+            listOf(
+                ServiceCandidate("com.thirdparty.app", "com.thirdparty.app/.Svc", isSystemApp = false),
+                ServiceCandidate("com.vendor.speech", "com.vendor.speech/.Svc", isSystemApp = true),
+            ),
+        )
+        assertEquals("com.vendor.speech/.Svc", picked)
+    }
+
+    @Test
+    fun `an updated Google speech service is trusted even without the system flag`() {
+        val picked = RecognizerTrust.pickService(
+            listOf(
+                ServiceCandidate("com.anthropic.claude", "com.anthropic.claude/.ClaudeRecognitionService", false),
+                ServiceCandidate(
+                    "com.google.android.tts",
+                    "com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService",
+                    false,
+                ),
+            ),
+        )
+        assertEquals(
+            "com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService",
+            picked,
+        )
+    }
+
+    @Test
+    fun `third-party recognition services are never picked`() {
+        val picked = RecognizerTrust.pickService(
+            listOf(ServiceCandidate("com.anthropic.claude", "com.anthropic.claude/.ClaudeRecognitionService", false)),
+        )
+        assertNull(picked)
+    }
 }

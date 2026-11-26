@@ -142,11 +142,19 @@ class VoiceInputActivity : ComponentActivity() {
         speech.startListening(recognitionIntent().putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true))
     }
 
+    /**
+     * The system default service when one is selected; otherwise (some vivo phones select none, and the default
+     * recognizer then fails with "no selected voice recognition service") the on-device recognizer, then a trusted
+     * service bound explicitly ([VoiceInput.trustedRecognitionService]).
+     */
     private fun createRecognizer(): SpeechRecognizer? = runCatching {
+        val trustedService = VoiceInput.trustedRecognitionService(this)
         when {
-            SpeechRecognizer.isRecognitionAvailable(this) -> SpeechRecognizer.createSpeechRecognizer(this)
+            VoiceInput.defaultRecognitionService(this) != null && SpeechRecognizer.isRecognitionAvailable(this) ->
+                SpeechRecognizer.createSpeechRecognizer(this)
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && VoiceInput.hasOnDeviceRecognizer(this) ->
                 SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+            trustedService != null -> SpeechRecognizer.createSpeechRecognizer(this, trustedService)
             else -> null
         }
     }.getOrNull()
