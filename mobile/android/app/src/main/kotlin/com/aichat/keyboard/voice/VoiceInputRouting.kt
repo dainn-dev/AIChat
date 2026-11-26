@@ -9,7 +9,10 @@ enum class VoiceInputRoute {
     /** Switch to an enabled voice-typing IME (e.g. Google voice typing). */
     VOICE_IME,
 
-    /** The system speech screen (`RecognizerIntent.ACTION_RECOGNIZE_SPEECH`); it holds the mic permission itself. */
+    /**
+     * A trusted speech screen (`RecognizerIntent.ACTION_RECOGNIZE_SPEECH` pinned to a system app or the default
+     * recognition service's app, see [RecognizerTrust]); it holds the mic permission itself.
+     */
     RECOGNIZER_ACTIVITY,
 
     /** A bare `SpeechRecognizer` service, driven from our trampoline activity (needs RECORD_AUDIO). */
@@ -43,6 +46,14 @@ object VoiceInputRouting {
     fun bestResult(results: List<String>?): String? =
         results?.firstNotNullOfOrNull { it.trim().takeIf(String::isNotEmpty) }
 
+    /**
+     * True when the mic key must not start: no field, a private field (password, `TYPE_NULL`), a password
+     * keyboard layout, or incognito mode. Speech goes through a recognizer (often a cloud service), so text that
+     * must stay private never takes that path.
+     */
+    fun isBlocked(field: VoiceField?, keyboardPassword: Boolean, incognito: Boolean): Boolean =
+        field == null || field.isPrivate || keyboardPassword || incognito
+
     /** [spoken] as committed after [textBeforeCursor]: a space keeps it from gluing onto the previous word. */
     fun textToCommit(textBeforeCursor: CharSequence?, spoken: String): String =
         if (!textBeforeCursor.isNullOrEmpty() && !textBeforeCursor.last().isWhitespace()) " $spoken" else spoken
@@ -54,42 +65,46 @@ object VoiceInputRouting {
 /**
  * Recognized text waiting for its field. The trampoline activity takes the focus from the chat app, so the text
  * can only be committed when the keyboard is bound to that app's field again (next `onStartInput`). It is
- * committed at most once, only into [targetPackage], and only within [TTL_MS].
+ * committed at most once, only into the exact field it was spoken for ([VoiceField.matches]), never into a private
+ * field, and only within [TTL_MS]. Any other field bound in the meantime drops it, except fields of the keyboard's
+ * own app (the speech screen itself).
  */
 class PendingVoiceText {
     private var text: String? = null
-    private var targetPackage: String? = null
+    private var target: VoiceField? = null
     private var offeredAtMs = 0L
 
     @Synchronized
-    fun offer(text: String, targetPackage: String?, nowMs: Long) {
+    fun offer(text: String, target: VoiceField?, nowMs: Long) {
         val trimmed = text.trim()
-        if (trimmed.isEmpty() || targetPackage.isNullOrEmpty()) {
+        if (trimmed.isEmpty() || target == null || target.packageName.isNullOrEmpty() || target.isPrivate) {
             clear()
             return
         }
         this.text = trimmed
-        this.targetPackage = targetPackage
+        this.target = target
         offeredAtMs = nowMs
     }
 
-    /** The text to commit into a field of [packageName], or null. */
+    /** The text to commit into [field], or null. */
     @Synchronized
-    fun consume(packageName: String?, nowMs: Long): String? {
+    fun consume(field: VoiceField?, nowMs: Long, ownPackage: String? = null): String? {
         val pending = text ?: return null
+        val expected = target ?: return null
         if (nowMs - offeredAtMs > TTL_MS) {
             clear()
             return null
         }
-        if (packageName == null || packageName != targetPackage) return null
+        if (field == null) return null
+        if (ownPackage != null && field.packageName == ownPackage) return null
         clear()
-        return pending
+        return pending.takeIf { !field.isPrivate && field.matches(expected) }
     }
 
     @Synchronized
     fun clear() {
         text = null
-        targetPackage = null
+        target = null
     }
 
     companion object {

@@ -231,7 +231,8 @@ class FlorisImeService : LifecycleInputMethodService() {
             val ims = FlorisImeServiceReference.get() ?: return false
             // AIChat MODIFIED: upstream only switched to an enabled voice IME and otherwise showed an English toast,
             // so the mic key looked dead on phones without Google voice typing. VoiceInput switches to a voice IME
-            // when there is one, else runs Android speech recognition, else shows a localized message.
+            // when there is one, else runs Android speech recognition, else shows a localized message. It refuses
+            // in password / TYPE_NULL fields and in incognito mode.
             return com.aichat.keyboard.voice.VoiceInput.start(ims)
         }
     }
@@ -335,7 +336,8 @@ class FlorisImeService : LifecycleInputMethodService() {
         if (info == null) return
         val editorInfo = FlorisEditorInfo.wrap(info)
         editorInstance.handleStartInput(editorInfo)
-        // AIChat MODIFIED: commit text recognized by the mic key's speech screen once its app has the focus again.
+        // AIChat MODIFIED: commit text recognized by the mic key's speech screen once the exact field it was spoken
+        // for has the focus again (VoiceInput drops it for any other field).
         com.aichat.keyboard.voice.VoiceInput.onStartInput(this, info)
     }
 
