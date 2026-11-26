@@ -76,8 +76,8 @@
             <meta-data android:name="android.view.textservice.scs" android:resource="@xml/spellchecker"/>
         </service>
 
-        <!-- AIChat MODIFIED: chat reader for reply suggestions. Reads the visible chat of a supported app (Messenger, Zalo, WhatsApp, Gmail, Google Chat) only when the
-             user taps "Gợi ý trả lời"; disclosed on the consent screen (com.aichat.keyboard.capture). Exported only to
+        <!-- AIChat MODIFIED: chat reader for reply suggestions. Reads the visible chat of a supported app
+             (Messenger, Zalo, WhatsApp, Gmail, Google Chat) only when the user taps "Gợi ý trả lời"; disclosed on the consent screen (com.aichat.keyboard.capture). Exported only to
              the system: BIND_ACCESSIBILITY_SERVICE is held by the system alone. -->
         <service
             android:name="com.aichat.keyboard.capture.ChatCaptureService"
@@ -149,17 +149,6 @@
              keyboard cannot host a text field itself). Opened only by the keyboard, so it is not exported. -->
         <activity
             android:name="com.aichat.keyboard.sticker.TextStickerMakerActivity"
-            android:theme="@style/FlorisAppTheme.Transparent"
-            android:windowSoftInputMode="stateVisible|adjustResize"
-            android:excludeFromRecents="true"
-            android:taskAffinity=""
-            android:exported="false"/>
-
-        <!-- AIChat MODIFIED: "Hẹn giờ gửi tin", the popup opened from the keyboard's schedule key where the user writes the
-             message and picks the time (com.aichat.keyboard.schedule). The keyboard cannot host a text field itself.
-             Opened only by the keyboard, so it is not exported. -->
-        <activity
-            android:name="com.aichat.keyboard.schedule.ui.ScheduleMessageActivity"
             android:theme="@style/FlorisAppTheme.Transparent"
             android:windowSoftInputMode="stateVisible|adjustResize"
             android:excludeFromRecents="true"
