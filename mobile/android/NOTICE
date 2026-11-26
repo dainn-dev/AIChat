@@ -158,6 +158,8 @@ The full delta from upstream is:
       ML Kit text recognition 16.0.1 (bundled Latin model) for the screenshot share target.
   app/build.gradle.kts (also)
       Dependency on ML Kit text recognition (bundled Latin model).
+  app/build.gradle.kts (also)
+      ndk.abiFilters arm64-v8a + armeabi-v7a only.
   app/src/main/AndroidManifest.xml (also)
       Exported com.aichat.keyboard.share.ShareReplyActivity (ACTION_SEND image/* share target).
 

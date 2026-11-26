@@ -83,6 +83,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // AIChat MODIFIED: phones only (arm64 + armv7). ML Kit OCR ships native code per ABI, so x86/x86_64 would add
+        // ~22 MB that no real device uses. Emulator testing needs an arm64 system image.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+
         buildConfigField("String", "BUILD_COMMIT_HASH", "\"${getGitCommitHash().get()}\"")
         buildConfigField("String", "BASE_APPLICATION_ID", "\"$aichatBaseApplicationId\"")
         buildConfigField("String", "FLADDONS_API_VERSION", "\"v~draft2\"")
