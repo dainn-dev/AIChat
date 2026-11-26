@@ -118,7 +118,7 @@ class FlorisAppActivity : ComponentActivity() {
             setContent {
                 ProvideLocalizedResources(
                     resourcesContext,
-                    appName = R.string.app_name,
+                    appName = R.string.aichat_app_name, // AIChat MODIFIED: {app_name} is DBoard.
                 ) {
                     FlorisAppTheme(theme = appTheme) {
                         Surface(color = MaterialTheme.colorScheme.background) {

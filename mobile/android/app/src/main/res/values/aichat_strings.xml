@@ -5,6 +5,8 @@
     Placeholders use FlorisBoard's {name} syntax (org.florisboard.lib.compose.stringRes).
 -->
 <resources>
+    <!-- Product name shown as {app_name} in every screen (FlorisBoard's app_name stays for attribution). -->
+    <string name="aichat_app_name" translatable="false">DBoard</string>
     <!-- Settings home entry -->
     <string name="aichat__account__title">AIChat account</string>
     <string name="aichat__account__summary_signed_out">Sign in to get AI reply suggestions</string>

@@ -114,6 +114,13 @@ The full delta from upstream is:
       iOS-style shift glyphs (com.aichat.keyboard.ui.AiChatKeyIcons) instead of KeyboardArrowUp / KeyboardCapslock.
   app/src/main/kotlin/dev/patrickgold/florisboard/app/AppPrefs.kt (also)
       Defaults: number-row and symbol hint mode ACCENT_PRIORITY (long-press selects the accented letter first).
+  app/src/main/kotlin/dev/patrickgold/florisboard/app/FlorisAppActivity.kt,
+  app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt (also),
+  app/src/main/kotlin/dev/patrickgold/florisboard/ime/clipboard/FlorisCopyToClipboardActivity.kt
+      {app_name} comes from aichat_app_name ("DBoard") instead of app_name ("FlorisBoard").
+  app/src/main/res/values/strings.xml
+      User-facing product name "FlorisBoard" -> "DBoard" in the home-screen warnings, the app icon description and
+      the crash dialog / notifications. The license summary and the Addons Store name keep "FlorisBoard".
   app/src/main/res/values/strings_dont_translate.xml
       key__view_symbols label "123" (was "?123").
   app/src/main/res/values/colors.xml

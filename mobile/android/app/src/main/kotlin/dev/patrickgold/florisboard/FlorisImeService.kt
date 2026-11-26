@@ -583,7 +583,7 @@ class FlorisImeService : LifecycleInputMethodService() {
     private fun ImeUiWrapper() {
         ProvideLocalizedResources(
             resourcesContext,
-            appName = R.string.app_name,
+            appName = R.string.aichat_app_name, // AIChat MODIFIED: {app_name} is DBoard.
         ) {
             ProvideKeyboardRowBaseHeight {
                 CompositionLocalProvider(LocalInputFeedbackController provides inputFeedbackController) {
@@ -740,7 +740,7 @@ class FlorisImeService : LifecycleInputMethodService() {
 
             ProvideLocalizedResources(
                 resourcesContext,
-                appName = R.string.app_name,
+                appName = R.string.aichat_app_name, // AIChat MODIFIED: {app_name} is DBoard.
                 forceLayoutDirection = LayoutDirection.Ltr,
             ) {
                 FlorisImeTheme {
@@ -796,7 +796,7 @@ class FlorisImeService : LifecycleInputMethodService() {
         fun Content() {
             ProvideLocalizedResources(
                 resourcesContext,
-                appName = R.string.app_name,
+                appName = R.string.aichat_app_name, // AIChat MODIFIED: {app_name} is DBoard.
                 forceLayoutDirection = LayoutDirection.Ltr,
             ) {
                 FlorisImeTheme {

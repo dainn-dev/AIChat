@@ -150,4 +150,9 @@
     <string name="aichat__ai__error_timeout">AI phản hồi quá lâu, hãy thử lại</string>
     <string name="aichat__ai__error_server">AI đang gặp lỗi, thử lại sau</string>
     <string name="aichat__ai__error_text_changed">Nội dung đã thay đổi, hãy thử lại</string>
+
+    <!-- Màn hình chính (bản dịch tiếng Việt cho chuỗi của FlorisBoard) -->
+    <string name="settings__home__title">Chào mừng đến với {app_name}</string>
+    <string name="settings__home__ime_not_enabled">{app_name} chưa được bật trong hệ thống nên chưa hiện trong danh sách bàn phím. Bấm vào đây để bật.</string>
+    <string name="settings__home__ime_not_selected">{app_name} chưa được chọn làm bàn phím mặc định. Bấm vào đây để chọn {app_name}.</string>
 </resources>
