@@ -22,10 +22,13 @@ const USAGE = {
 };
 const user = { sub: 'user-1', email: 'a@b.com', tier: Tier.Free };
 const suggestions = [{ tone: Tone.Friendly, text: 'ok nhé' }];
+const STICKER_TAGS = ['ok', 'thanks'];
 
 function build() {
   const pipeline = {
-    generateReplies: jest.fn().mockResolvedValue(suggestions),
+    generateRepliesWithStickers: jest
+      .fn()
+      .mockResolvedValue({ replies: suggestions, stickerTags: STICKER_TAGS }),
     rewrite: jest.fn().mockResolvedValue('rewritten'),
   };
   const usage = {
@@ -59,7 +62,7 @@ describe('KeyboardService.reply (Android Phase 0)', () => {
   it('passes lang to the pipeline and contact_label as the memory scope', async () => {
     const { service, pipeline } = build();
     await service.reply(user, dto({ lang: OutputLang.Vi }));
-    expect(pipeline.generateReplies).toHaveBeenCalledWith(
+    expect(pipeline.generateRepliesWithStickers).toHaveBeenCalledWith(
       expect.objectContaining({ lang: OutputLang.Vi, count: 3 }),
       {
         source: AiSource.Keyboard,
@@ -69,11 +72,12 @@ describe('KeyboardService.reply (Android Phase 0)', () => {
     );
   });
 
-  it('returns suggestions, conversation_id and usage', async () => {
+  it('returns suggestions, sticker_tags, conversation_id and usage', async () => {
     const { service, conversations } = build();
     const res = await service.reply(user, dto({ remember: true }));
     expect(res).toEqual({
       suggestions,
+      sticker_tags: STICKER_TAGS,
       conversation_id: 'conv-1',
       usage: USAGE,
     });
@@ -86,6 +90,16 @@ describe('KeyboardService.reply (Android Phase 0)', () => {
     });
   });
 
+  it('returns sticker_tags: [] when the pipeline suggests none', async () => {
+    const { service, pipeline } = build();
+    pipeline.generateRepliesWithStickers.mockResolvedValue({
+      replies: suggestions,
+      stickerTags: [],
+    });
+    const res = await service.reply(user, dto());
+    expect(res.sticker_tags).toEqual([]);
+  });
+
   it('returns conversation_id: null when persistence is gated off', async () => {
     const { service, conversations } = build();
     conversations.persistKeyboardCapture.mockResolvedValue(null);
@@ -96,7 +110,7 @@ describe('KeyboardService.reply (Android Phase 0)', () => {
 
   it('does NOT persist when generation fails', async () => {
     const { service, pipeline, conversations } = build();
-    pipeline.generateReplies.mockRejectedValue(
+    pipeline.generateRepliesWithStickers.mockRejectedValue(
       new BadGatewayException('AI provider is temporarily unavailable.'),
     );
     await expect(service.reply(user, dto())).rejects.toBeInstanceOf(

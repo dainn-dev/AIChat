@@ -121,6 +121,57 @@ describe('AiPipelineService', () => {
     expect(replies[0].tone).toBe(Tone.Mature);
   });
 
+  it('generateRepliesWithStickers returns replies + sticker tags from ONE provider call', async () => {
+    const provider = new StubLlmProvider();
+    const spy = jest.spyOn(provider, 'complete');
+    const { service } = build(provider);
+    const res = await service.generateRepliesWithStickers(
+      { messages: conversation, tone: Tone.Friendly, count: 3 },
+      ctx,
+    );
+    expect(res.replies).toHaveLength(3);
+    expect(res.stickerTags).toEqual(['great', 'yes']);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0].prompt.system).toContain('sticker_tags');
+  });
+
+  it('bad sticker tags neither fail the reply nor trigger a repair retry', async () => {
+    const provider: LlmProvider = {
+      name: 'tags',
+      complete: jest.fn().mockResolvedValue({
+        text: JSON.stringify({
+          replies: [{ text: 'ok' }],
+          sticker_tags: 'not-a-list',
+        }),
+        provider: 'tags',
+        model: 'tags-1',
+        tokensIn: 1,
+        tokensOut: 1,
+      }),
+    };
+    const { service } = build(provider, 2);
+    const res = await service.generateRepliesWithStickers(
+      { messages: conversation, tone: Tone.Friendly, count: 3 },
+      ctx,
+    );
+    expect(res).toEqual({
+      replies: [{ tone: Tone.Friendly, text: 'ok' }],
+      stickerTags: [],
+    });
+    expect(provider.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('generateReplies does not ask for sticker tags', async () => {
+    const provider = new StubLlmProvider();
+    const spy = jest.spyOn(provider, 'complete');
+    const { service } = build(provider);
+    await service.generateReplies(
+      { messages: conversation, tone: Tone.Friendly, count: 1 },
+      ctx,
+    );
+    expect(spy.mock.calls[0][0].prompt.system).not.toContain('sticker_tags');
+  });
+
   it('maps provider transport failures to 502, not 500', async () => {
     const failing: LlmProvider = {
       name: 'boom',

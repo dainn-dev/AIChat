@@ -58,7 +58,10 @@ iOS additionally requires **"Allow Full Access"** before any network call.
 ```json
 { "platform": "zalo", "contact_label": "Linh", "lang": "vi", "conversation": [{ "sender": "them", "content": "…" }], "tone": "Flirty", "count": 3 }
 ```
-→ `{ "suggestions": [{ "tone": "Flirty", "text": "…" }], "conversation_id": "…" | null, "usage": { … } }`
+→ `{ "suggestions": [{ "tone": "Flirty", "text": "…" }], "sticker_tags": ["laugh"], "conversation_id": "…" | null, "usage": { … } }`
+
+`sticker_tags`: 0–3 tags from the fixed sticker vocabulary (always present,
+`[]` when none; ignore unknown tags). See `keyboard-api.md`.
 
 **Rewrite** — `POST /v1/keyboard/rewrite`
 ```json
@@ -129,6 +132,7 @@ iOS additionally requires **"Allow Full Access"** before any network call.
 | DAI-138 / 139 IME + ext | the three `/v1/keyboard` endpoints | ✅ on `main` |
 | DAI-140 analytics/UX/QA | PostHog `ai_request` (server-side) + error/`usage` contract | ✅ on `main` |
 | Android Phase 0 | `lang`, `contact_label`, `remember`, `conversation_id`; `PATCH /me/settings`; `GET /conversations`; `DELETE /conversations/:id` | branch `feat/backend-phase0` |
+| Android stickers | `sticker_tags` on `/v1/keyboard/reply` | branch `feat/stickers-backend` |
 
 All Phase-4 endpoints are exercisable keyless (stub LLM provider) for client
 dev/test. Related contracts: `docs/keyboard-api.md`, `docs/share-api.md`,
