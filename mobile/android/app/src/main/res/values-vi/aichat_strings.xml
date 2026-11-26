@@ -121,6 +121,16 @@
 
     <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
     <string name="aichat__ai__button">Công cụ viết AI</string>
+    <string name="aichat__ai__suggest_replies">💬 Gợi ý trả lời</string>
+    <string name="aichat__ai__rewrite_flirty">Tán tỉnh</string>
+    <string name="aichat__ai__tone_flirty">😏 Tán tỉnh</string>
+    <string name="aichat__ai__tone_funny">😄 Vui vẻ</string>
+    <string name="aichat__ai__tone_friendly">🙂 Thân thiện</string>
+    <string name="aichat__ai__tone_polite">Lịch sự</string>
+    <string name="aichat__ai__tone_mature">Chín chắn</string>
+    <string name="aichat__ai__back">‹ Quay lại</string>
+    <string name="aichat__ai__enable_reading">Bật</string>
+    <string name="aichat__ai__error_no_conversation">Chưa đọc được tin nhắn. Bật đọc tin nhắn hoặc copy tin nhắn cuối</string>
     <string name="aichat__ai__rewrite_friendly">Thân thiện</string>
     <string name="aichat__ai__rewrite_polite">Lịch sự</string>
     <string name="aichat__ai__rewrite_funny">Hài hước</string>

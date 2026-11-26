@@ -7,6 +7,9 @@ package com.aichat.keyboard.ai
 import com.aichat.keyboard.core.network.error.ApiError
 import com.aichat.keyboard.core.network.error.ApiResult
 import com.aichat.keyboard.core.network.model.Tone
+import com.aichat.keyboard.reply.CapturedConversation
+import com.aichat.keyboard.reply.ConversationCapturer
+import com.aichat.keyboard.reply.UnavailableReason
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +24,9 @@ sealed interface AiAction {
 
     /** [targetLang] is a backend language code, e.g. `en` or `vi`. */
     data class Translate(val targetLang: String) : AiAction
+
+    /** Suggest replies to the chat behind the field (see [com.aichat.keyboard.reply.ConversationProvider]). */
+    data class Reply(val tone: Tone) : AiAction
 }
 
 /** Why an AI action did not change the field. Each one maps to a localized message in the smartbar. */
@@ -39,6 +45,9 @@ enum class AiFailure {
 
     /** The user edited the field while the request was running; the stale result is not applied. */
     TEXT_CHANGED,
+
+    /** No provider could read the chat to reply to. */
+    NO_CONVERSATION,
 }
 
 sealed interface AiAssistState {
@@ -53,7 +62,17 @@ sealed interface AiAssistState {
     /** The field was replaced; [original] is kept for undo. */
     data class Done(val original: String) : AiAssistState
 
-    data class Failed(val reason: AiFailure) : AiAssistState
+    /** Reply flow: the tone chips (Flirty, Funny, ...) are shown. */
+    data object ChoosingReplyTone : AiAssistState
+
+    /** Reply flow: suggested replies; picking one fills the field. */
+    data class Suggestions(val replies: List<String>) : AiAssistState
+
+    /**
+     * [captureDisabled] is set with [AiFailure.NO_CONVERSATION] when a chat reader is switched off (e.g. the
+     * accessibility service), so the UI can offer to turn it on.
+     */
+    data class Failed(val reason: AiFailure, val captureDisabled: Boolean = false) : AiAssistState
 }
 
 /** The focused text field, as the AI assistant sees it. */
@@ -67,9 +86,13 @@ interface AiEditorPort {
     fun replaceAllText(text: String): Boolean
 }
 
-/** The backend call behind an [AiAction]; returns the new text. */
-fun interface AiTextBackend {
+/** The backend calls behind the AI button. */
+interface AiTextBackend {
+    /** Rewrite or translate [text]; returns the new text. */
     suspend fun run(action: AiAction, text: String): ApiResult<String>
+
+    /** Suggested replies to [conversation] in [tone], best first. */
+    suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<List<String>>
 }
 
 /**
@@ -80,6 +103,7 @@ class AiAssistController(
     private val backend: AiTextBackend,
     private val editor: AiEditorPort,
     private val scope: CoroutineScope,
+    private val capturer: ConversationCapturer = ConversationCapturer(emptyList()),
 ) {
     private val _state = MutableStateFlow<AiAssistState>(AiAssistState.Closed)
     val state: StateFlow<AiAssistState> = _state.asStateFlow()
@@ -92,12 +116,16 @@ class AiAssistController(
 
     /** Back to the chips after a result or an error. */
     fun dismissMessage() {
-        if (_state.value is AiAssistState.Done || _state.value is AiAssistState.Failed) {
+        val s = _state.value
+        if (s is AiAssistState.Done || s is AiAssistState.Failed || s is AiAssistState.Suggestions ||
+            s == AiAssistState.ChoosingReplyTone
+        ) {
             _state.value = AiAssistState.Ready
         }
     }
 
     fun run(action: AiAction) {
+        if (action is AiAction.Reply) return requestReplies(action.tone)
         if (_state.value is AiAssistState.Loading) return
         val original = if (editor.isAvailable()) editor.readAllText() else null
         if (original == null) return fail(AiFailure.UNAVAILABLE)
@@ -113,6 +141,45 @@ class AiAssistController(
                 is ApiResult.Failure -> AiAssistState.Failed(result.error.toFailure())
                 is ApiResult.Success -> apply(original, result.value)
             }
+        }
+    }
+
+    /** Opens the reply tone chips. */
+    fun startReply() {
+        if (_state.value !is AiAssistState.Loading) _state.value = AiAssistState.ChoosingReplyTone
+    }
+
+    /** Reads the chat through the providers, then asks the backend for replies in [tone]. */
+    fun requestReplies(tone: Tone) {
+        if (_state.value is AiAssistState.Loading) return
+        if (!editor.isAvailable()) return fail(AiFailure.UNAVAILABLE)
+        val action = AiAction.Reply(tone)
+        _state.value = AiAssistState.Loading(action)
+        job = scope.launch {
+            _state.value = when (val outcome = capturer.capture()) {
+                is ConversationCapturer.Outcome.NotFound -> AiAssistState.Failed(
+                    AiFailure.NO_CONVERSATION,
+                    captureDisabled = UnavailableReason.NOT_ENABLED in outcome.reasons.values,
+                )
+                is ConversationCapturer.Outcome.Found -> when (val result = backend.reply(outcome.conversation, tone)) {
+                    is ApiResult.Failure -> AiAssistState.Failed(result.error.toFailure())
+                    is ApiResult.Success -> result.value.filter { it.isNotBlank() }.let { replies ->
+                        if (replies.isEmpty()) AiAssistState.Failed(AiFailure.SERVER) else AiAssistState.Suggestions(replies)
+                    }
+                }
+            }
+        }
+    }
+
+    /** Fills the field with [reply] (replacing any draft, which undo restores). */
+    fun pickSuggestion(reply: String) {
+        if (_state.value !is AiAssistState.Suggestions) return
+        val original = if (editor.isAvailable()) editor.readAllText() else null
+        if (original == null) return fail(AiFailure.UNAVAILABLE)
+        _state.value = if (editor.replaceAllText(reply)) {
+            AiAssistState.Done(original)
+        } else {
+            AiAssistState.Failed(AiFailure.UNAVAILABLE)
         }
     }
 

@@ -127,6 +127,16 @@
 
     <!-- Keyboard: smartbar AI button (rewrite / translate the field text) -->
     <string name="aichat__ai__button">AI writing tools</string>
+    <string name="aichat__ai__suggest_replies">💬 Suggest replies</string>
+    <string name="aichat__ai__rewrite_flirty">Flirty</string>
+    <string name="aichat__ai__tone_flirty">😏 Flirty</string>
+    <string name="aichat__ai__tone_funny">😄 Funny</string>
+    <string name="aichat__ai__tone_friendly">🙂 Friendly</string>
+    <string name="aichat__ai__tone_polite">Polite</string>
+    <string name="aichat__ai__tone_mature">Mature</string>
+    <string name="aichat__ai__back">‹ Back</string>
+    <string name="aichat__ai__enable_reading">Turn on</string>
+    <string name="aichat__ai__error_no_conversation">Can\'t read the chat. Turn on chat reading or copy the last message</string>
     <string name="aichat__ai__rewrite_friendly">Friendly</string>
     <string name="aichat__ai__rewrite_polite">Polite</string>
     <string name="aichat__ai__rewrite_funny">Funny</string>

@@ -4,7 +4,10 @@
 
 package com.aichat.keyboard.ai
 
+import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.provider.Settings
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -38,13 +41,23 @@ import org.florisboard.lib.snygg.ui.SnyggIcon
 import org.florisboard.lib.snygg.ui.SnyggIconButton
 import org.florisboard.lib.snygg.ui.SnyggText
 
-/** The chips shown when the AI button is open, in display order. */
+/** The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. */
 private val AiChips: List<Pair<AiAction, Int>> = listOf(
+    AiAction.Rewrite(Tone.FLIRTY) to R.string.aichat__ai__rewrite_flirty,
     AiAction.Rewrite(Tone.FRIENDLY) to R.string.aichat__ai__rewrite_friendly,
     AiAction.Rewrite(Tone.PROFESSIONAL) to R.string.aichat__ai__rewrite_polite,
     AiAction.Rewrite(Tone.FUNNY) to R.string.aichat__ai__rewrite_funny,
     AiAction.Translate("en") to R.string.aichat__ai__translate_en,
     AiAction.Translate("vi") to R.string.aichat__ai__translate_vi,
+)
+
+/** Reply tones, flirty first (the main use case). */
+private val ReplyTones: List<Pair<Tone, Int>> = listOf(
+    Tone.FLIRTY to R.string.aichat__ai__tone_flirty,
+    Tone.FUNNY to R.string.aichat__ai__tone_funny,
+    Tone.FRIENDLY to R.string.aichat__ai__tone_friendly,
+    Tone.PROFESSIONAL to R.string.aichat__ai__tone_polite,
+    Tone.MATURE to R.string.aichat__ai__tone_mature,
 )
 
 private val ChipAttrs = mapOf("state" to "inactive")
@@ -84,6 +97,7 @@ fun AiButton(
 @Composable
 fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
     val state by controller.state.collectAsState()
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .weight(1f)
@@ -93,6 +107,8 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
         when (val s = state) {
             AiAssistState.Closed -> Unit
             AiAssistState.Ready -> ActionChips(controller)
+            AiAssistState.ChoosingReplyTone -> ToneChips(controller)
+            is AiAssistState.Suggestions -> SuggestionChips(controller, s.replies)
             is AiAssistState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.padding(horizontal = 8.dp).size(18.dp),
@@ -107,6 +123,12 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
             }
             is AiAssistState.Failed -> {
                 Message(s.reason.messageRes())
+                if (s.reason == AiFailure.NO_CONVERSATION && s.captureDisabled) {
+                    Chip(R.string.aichat__ai__enable_reading, active = true) {
+                        controller.reset()
+                        openAccessibilitySettings(context)
+                    }
+                }
                 if (s.reason == AiFailure.NOT_SIGNED_IN) {
                     Chip(R.string.aichat__ai__sign_in, active = true) {
                         controller.reset()
@@ -126,10 +148,48 @@ private fun ActionChips(controller: AiAssistController) {
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        item { Chip(R.string.aichat__ai__suggest_replies, active = true) { controller.startReply() } }
         items(AiChips) { (action, label) ->
             Chip(label) { controller.run(action) }
         }
     }
+}
+
+@Composable
+private fun ToneChips(controller: AiAssistController) {
+    LazyRow(
+        modifier = Modifier.fillMaxHeight(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        item { Chip(R.string.aichat__ai__back) { controller.dismissMessage() } }
+        items(ReplyTones) { (tone, label) ->
+            Chip(label) { controller.requestReplies(tone) }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionChips(controller: AiAssistController, replies: List<String>) {
+    LazyRow(
+        modifier = Modifier.fillMaxHeight(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        item { Chip(R.string.aichat__ai__back) { controller.startReply() } }
+        items(replies) { reply ->
+            SnyggChip(
+                elementName = FlorisImeUi.ClipboardFilterChip.elementName,
+                attributes = ChipAttrs,
+                onClick = { controller.pickSuggestion(reply) },
+                text = reply,
+            )
+        }
+    }
+}
+
+/** Opens the system accessibility settings, where the user can turn on AIChat's chat reader. */
+private fun openAccessibilitySettings(context: Context) {
+    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
 }
 
 @Composable
@@ -162,6 +222,7 @@ private fun AiFailure.messageRes(): Int = when (this) {
     AiFailure.TIMEOUT -> R.string.aichat__ai__error_timeout
     AiFailure.SERVER -> R.string.aichat__ai__error_server
     AiFailure.TEXT_CHANGED -> R.string.aichat__ai__error_text_changed
+    AiFailure.NO_CONVERSATION -> R.string.aichat__ai__error_no_conversation
 }
 
 /**

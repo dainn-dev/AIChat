@@ -12,7 +12,13 @@ import com.aichat.keyboard.core.network.AiChatClient
 import com.aichat.keyboard.core.network.error.ApiResult
 import com.aichat.keyboard.core.network.error.errorOrNull
 import com.aichat.keyboard.core.network.error.map
+import com.aichat.keyboard.core.network.model.KeyboardReplyRequest
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
+import com.aichat.keyboard.core.network.model.Tone
+import com.aichat.keyboard.reply.AccessibilityConversationProvider
+import com.aichat.keyboard.reply.CapturedConversation
+import com.aichat.keyboard.reply.ClipboardConversationProvider
+import com.aichat.keyboard.reply.ConversationCapturer
 import com.aichat.keyboard.core.network.model.KeyboardTranslateRequest
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.editorInstance
@@ -46,21 +52,51 @@ object AiAssist {
         val editorInstance by appContext.editorInstance()
         val keyboardManager by appContext.keyboardManager()
         return AiAssistController(
-            backend = AiChatTextBackend(AiChat.client(appContext)),
+            backend = AiChatTextBackend(
+                client = AiChat.client(appContext),
+                // Incognito keyboard (private fields / incognito mode): the backend must not store the chat.
+                isIncognito = { keyboardManager.activeState.isIncognitoMode },
+            ),
             editor = ImeAiEditorPort(editorInstance, keyboardManager),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            // Order matters: the first provider that finds the chat wins.
+            capturer = ConversationCapturer(
+                listOf(
+                    AccessibilityConversationProvider(appContext),
+                    ClipboardConversationProvider(appContext),
+                ),
+            ),
         )
     }
 }
 
 /** Rewrite and translate through the backend's keyboard endpoints (`/v1/keyboard/rewrite|translate`). */
-internal class AiChatTextBackend(private val client: AiChatClient) : AiTextBackend {
+internal class AiChatTextBackend(
+    private val client: AiChatClient,
+    private val isIncognito: () -> Boolean,
+) : AiTextBackend {
+    override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<List<String>> {
+        val request = KeyboardReplyRequest(
+            conversation = conversation.messages,
+            tone = tone,
+            count = REPLY_COUNT,
+            platform = conversation.platform,
+            contactLabel = conversation.contactLabel,
+            remember = if (isIncognito()) false else null,
+        )
+        val result = client.reply(request).map { response -> response.suggestions.map { it.text } }
+        result.errorOrNull()?.let { Log.w(TAG, "Reply failed: $it") }
+        return result
+    }
+
     override suspend fun run(action: AiAction, text: String): ApiResult<String> {
         val result = when (action) {
             // `lang` omitted: the backend answers in the language of the text.
             is AiAction.Rewrite -> client.rewrite(KeyboardRewriteRequest(text = text, tone = action.tone)).map { it.text }
             is AiAction.Translate ->
                 client.translate(KeyboardTranslateRequest(text = text, targetLang = action.targetLang)).map { it.text }
+            // Replies go through reply(); the controller never routes them here.
+            is AiAction.Reply -> error("Reply is not a text transform")
         }
         // Error type and the server's message only; never the user's text.
         result.errorOrNull()?.let { Log.w(TAG, "${action::class.simpleName} failed: $it") }
@@ -69,6 +105,7 @@ internal class AiChatTextBackend(private val client: AiChatClient) : AiTextBacke
 
     private companion object {
         const val TAG = "AiAssist"
+        const val REPLY_COUNT = 3
     }
 }
 
