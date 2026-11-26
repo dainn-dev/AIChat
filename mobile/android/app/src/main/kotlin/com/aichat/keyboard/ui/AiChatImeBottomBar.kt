@@ -3,6 +3,7 @@ package com.aichat.keyboard.ui
 import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiButton
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,8 +40,8 @@ private val ButtonWidth = 56.dp
 private val IconSize = 24.dp
 
 /**
- * iOS-like strip under the keys: the language (globe) key and the AI button on the left (no mic key: chat apps
- * have their own voice messages), so the key rows
+ * iOS-like strip under the keys: the language (globe) key and the AI button on the left, and a settings key on the
+ * right where the mic key used to be (no mic key: chat apps have their own voice messages), so the key rows
  * themselves only keep 123 / emoji / space / return. Shown in every input mode so the keyboard height never jumps.
  */
 @Composable
@@ -71,6 +73,13 @@ fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
             iconModifier = Modifier.size(IconSize),
             // The chips live in the smartbar, which only the text layout has.
             onOpen = { keyboardManager.activeState.imeUiMode = ImeUiMode.TEXT },
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        // Opens the DBoard settings app (KeyCode.SETTINGS → FlorisImeService.launchSettings()).
+        BarButton(
+            keyData = TextKeyData.SETTINGS,
+            icon = Icons.Outlined.Settings,
+            description = stringRes(R.string.aichat__bottom_bar__settings),
         )
     }
 }

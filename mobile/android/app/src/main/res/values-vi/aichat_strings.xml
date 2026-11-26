@@ -160,6 +160,7 @@
 
     <!-- Bàn phím: thanh dưới cùng -->
     <string name="aichat__bottom_bar__switch_language">Đổi ngôn ngữ</string>
+    <string name="aichat__bottom_bar__settings">Mở cài đặt bàn phím</string>
 
     <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
     <string name="aichat__ai__button">Công cụ viết AI</string>
