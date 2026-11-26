@@ -105,6 +105,10 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
          * opt-in change.
          */
         val optOutResult: OptOutResult? = null,
+        val savingTrainingOptIn: Boolean = false,
+        val trainingOptInError: ApiError? = null,
+        /** True right after turning training consent off, to confirm it; cleared by the next change. */
+        val trainingOptOutDone: Boolean = false,
         val loggingOut: Boolean = false,
         /** Signing out failed locally (the stored session could not be cleared); the user is still signed in. */
         val logoutError: ApiError? = null,
@@ -122,6 +126,7 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
     /** Every request whose result writes account state. Cancelled on sign-out so a late answer cannot land. */
     private var loadJob: Job? = null
     private var optInJob: Job? = null
+    private var trainingJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -131,6 +136,7 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
                     false -> {
                         loadJob?.cancel()
                         optInJob?.cancel()
+                        trainingJob?.cancel()
                         _state.value = State()
                     }
                     null -> Unit
@@ -174,6 +180,26 @@ class AccountViewModel(private val client: AiChatClient) : ViewModel() {
                         },
                     )
                     is ApiResult.Failure -> it.copy(savingOptIn = false, optInError = result.error)
+                }
+            }
+        }
+    }
+
+    fun setTrainingOptIn(enabled: Boolean) {
+        val me = _state.value.me ?: return
+        if (_state.value.savingTrainingOptIn) return
+        _state.update { it.copy(savingTrainingOptIn = true, trainingOptInError = null, trainingOptOutDone = false) }
+        trainingJob = viewModelScope.launch {
+            val result = client.setTrainingOptIn(enabled)
+            if (isSignedIn.value != true) return@launch
+            _state.update {
+                when (result) {
+                    is ApiResult.Success -> it.copy(
+                        savingTrainingOptIn = false,
+                        me = (it.me ?: me).copy(settings = result.value.settings),
+                        trainingOptOutDone = !enabled,
+                    )
+                    is ApiResult.Failure -> it.copy(savingTrainingOptIn = false, trainingOptInError = result.error)
                 }
             }
         }

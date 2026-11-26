@@ -175,9 +175,25 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
       });
     });
 
+    it('updates training_opt_in alone', async () => {
+      auth.updateSettings.mockResolvedValue({
+        settings: { memory_opt_in: false, training_opt_in: true },
+      });
+      const res = await http()
+        .patch('/me/settings')
+        .set(bearer())
+        .send({ training_opt_in: true });
+
+      expect(res.status).toBe(200);
+      expect(auth.updateSettings).toHaveBeenCalledWith('user-1', {
+        training_opt_in: true,
+      });
+    });
+
     it.each([
       ['missing field', {}],
       ['string boolean', { memory_opt_in: 'true' }],
+      ['string training boolean', { training_opt_in: 'true' }],
       ['unknown field', { memory_opt_in: true, tier: 'pro' }],
     ])('400s on %s', async (_label, body) => {
       const res = await http().patch('/me/settings').set(bearer()).send(body);

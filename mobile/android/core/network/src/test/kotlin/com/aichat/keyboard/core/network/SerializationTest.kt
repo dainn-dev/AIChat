@@ -119,6 +119,12 @@ class SerializationTest {
             json.parseToJsonElement("""{"memory_opt_in":true}"""),
             encode { json.encodeToString(UpdateSettingsRequest.serializer(), UpdateSettingsRequest(true)) },
         )
+        assertEquals(
+            json.parseToJsonElement("""{"training_opt_in":false}"""),
+            encode {
+                json.encodeToString(UpdateSettingsRequest.serializer(), UpdateSettingsRequest(trainingOptIn = false))
+            },
+        )
     }
 
     @Test

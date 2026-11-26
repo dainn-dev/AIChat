@@ -61,6 +61,8 @@ describe('AuthService', () => {
       displayName: null,
       tier: Tier.Free,
       memoryOptIn: false,
+      trainingOptIn: false,
+      trainingOptInAt: null,
       createdAt: new Date('2026-01-01T00:00:00Z'),
       updatedAt: new Date('2026-01-01T00:00:00Z'),
       ...over,
@@ -299,7 +301,10 @@ describe('AuthService', () => {
     it('GET /me exposes memory_opt_in (defaults to false)', async () => {
       users.findOne.mockResolvedValue(await buildUser());
       const res = await service.getMe('user-1');
-      expect(res.settings).toEqual({ memory_opt_in: false });
+      expect(res.settings).toEqual({
+        memory_opt_in: false,
+        training_opt_in: false,
+      });
     });
 
     it('GET /me reflects an opted-in user', async () => {
@@ -342,10 +347,55 @@ describe('AuthService', () => {
         expect.stringContaining('UPDATE users SET memory_opt_in = $2'),
         ['user-1', true],
       );
-      expect(res).toEqual({ settings: { memory_opt_in: true } });
+      expect(res).toEqual({
+        settings: { memory_opt_in: true, training_opt_in: false },
+      });
       expect(res).not.toHaveProperty('deleted');
       expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
       expect(erasure.applyPurgeTimeouts).not.toHaveBeenCalled();
+    });
+
+    it('training_opt_in:true starts the consent window and keeps memory_opt_in', async () => {
+      const manager = withUser();
+      manager.query.mockImplementation(async (sql: string) =>
+        /FOR NO KEY UPDATE/.test(sql)
+          ? [{ id: 'user-1', memory_opt_in: true, training_opt_in: false }]
+          : [],
+      );
+      const res = await service.updateSettings('user-1', {
+        training_opt_in: true,
+      });
+      const updates = manager.query.mock.calls
+        .map(([sql]) => sql as string)
+        .filter((sql) => sql.startsWith('UPDATE'));
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toContain('training_opt_in = $2::boolean');
+      expect(updates[0]).toContain(
+        'CASE WHEN $2::boolean THEN COALESCE(training_opt_in_at, now()) ELSE NULL END',
+      );
+      expect(manager.query).toHaveBeenCalledWith(expect.any(String), [
+        'user-1',
+        true,
+      ]);
+      expect(res).toEqual({
+        settings: { memory_opt_in: true, training_opt_in: true },
+      });
+      expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
+    });
+
+    it('training_opt_in:false clears the consent and purges nothing', async () => {
+      const manager = withUser();
+      const res = await service.updateSettings('user-1', {
+        training_opt_in: false,
+      });
+      expect(manager.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE users SET training_opt_in'),
+        ['user-1', false],
+      );
+      expect(res).toEqual({
+        settings: { memory_opt_in: false, training_opt_in: false },
+      });
+      expect(erasure.purgeKeyboardConversations).not.toHaveBeenCalled();
     });
 
     it('every memory_opt_in:false purges in the same transaction (also legacy false -> false)', async () => {
@@ -358,7 +408,7 @@ describe('AuthService', () => {
         'user-1',
       );
       expect(res).toEqual({
-        settings: { memory_opt_in: false },
+        settings: { memory_opt_in: false, training_opt_in: false },
         deleted: { conversations: 2, memories: 1 },
       });
     });

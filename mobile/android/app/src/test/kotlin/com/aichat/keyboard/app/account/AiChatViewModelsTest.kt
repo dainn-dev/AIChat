@@ -157,6 +157,29 @@ class AiChatViewModelsTest {
     }
 
     @Test
+    fun `training consent sends only training_opt_in and keeps the memory setting`() {
+        val store = InMemoryTokenStore(tokens)
+        server.enqueue(json(me))
+        server.enqueue(json("""{"settings":{"memory_opt_in":true,"training_opt_in":true}}"""))
+        server.enqueue(json("""{"settings":{"memory_opt_in":true,"training_opt_in":false}}"""))
+        val viewModel = track(AccountViewModel(client(store)))
+        viewModel.state.await { it.me != null }
+        server.takeRequest() // GET /me
+
+        viewModel.setTrainingOptIn(true)
+        val on = viewModel.state.await { !it.savingTrainingOptIn && it.me?.settings?.trainingOptIn == true }
+        assertEquals("""{"training_opt_in":true}""", server.takeRequest().body.readUtf8())
+        assertEquals(true, on.me?.settings?.memoryOptIn)
+        assertEquals(false, on.trainingOptOutDone)
+
+        viewModel.setTrainingOptIn(false)
+        val off = viewModel.state.await { it.trainingOptOutDone }
+        assertEquals("""{"training_opt_in":false}""", server.takeRequest().body.readUtf8())
+        assertEquals(false, off.me?.settings?.trainingOptIn)
+        assertNull(off.optOutResult)
+    }
+
+    @Test
     fun `turning memory off without deleted in the response reports no deletion`() {
         val store = InMemoryTokenStore(tokens)
         server.enqueue(json(me))

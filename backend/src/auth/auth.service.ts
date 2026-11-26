@@ -174,8 +174,14 @@ export class AuthService {
   }
 
   /**
-   * Backs `PATCH /me/settings` (Android Phase 0): toggles the memory opt-in
-   * that gates keyboard conversation persistence.
+   * Backs `PATCH /me/settings`: toggles the memory opt-in that gates keyboard
+   * conversation persistence (Android Phase 0) and/or the model-training
+   * consent (docs/model-training.md). Fields not sent keep their value.
+   *
+   * `training_opt_in: true` starts the consent window
+   * (`training_opt_in_at = now()`, kept if already opted in); `false` clears
+   * it, so the next training export leaves this user out. Models already
+   * trained are not changed by it (documented in the consent text).
    *
    * Every request with `memory_opt_in: false` also purges every
    * keyboard-captured conversation and the memories only they backed, in the
@@ -200,18 +206,37 @@ export class AuthService {
       return await retryOnceOnDeadlock(() =>
         this.users.manager.transaction(async (manager) => {
           if (purge) await this.erasure.applyPurgeTimeouts(manager);
-          const rows: Array<{ id: string }> = await manager.query(
-            `SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE`,
+          const rows: Array<{
+            id: string;
+            memory_opt_in?: boolean;
+            training_opt_in?: boolean;
+          }> = await manager.query(
+            `SELECT id, memory_opt_in, training_opt_in FROM users WHERE id = $1 FOR NO KEY UPDATE`,
             [userId],
           );
           if (rows.length === 0) {
             throw new UnauthorizedException('User no longer exists.');
           }
-          await manager.query(
-            `UPDATE users SET memory_opt_in = $2, updated_at = now() WHERE id = $1`,
-            [userId, dto.memory_opt_in],
-          );
-          const settings = { memory_opt_in: dto.memory_opt_in };
+          if (dto.memory_opt_in !== undefined) {
+            await manager.query(
+              `UPDATE users SET memory_opt_in = $2, updated_at = now() WHERE id = $1`,
+              [userId, dto.memory_opt_in],
+            );
+          }
+          if (dto.training_opt_in !== undefined) {
+            await manager.query(
+              `UPDATE users SET training_opt_in = $2::boolean,
+                 training_opt_in_at = CASE WHEN $2::boolean THEN COALESCE(training_opt_in_at, now()) ELSE NULL END,
+                 updated_at = now()
+               WHERE id = $1`,
+              [userId, dto.training_opt_in],
+            );
+          }
+          const settings = {
+            memory_opt_in: dto.memory_opt_in ?? Boolean(rows[0].memory_opt_in),
+            training_opt_in:
+              dto.training_opt_in ?? Boolean(rows[0].training_opt_in),
+          };
           if (!purge) return { settings };
 
           const deleted = await this.erasure.purgeKeyboardConversations(

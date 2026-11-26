@@ -37,6 +37,18 @@ export class User {
   @Column({ name: 'memory_opt_in', type: 'boolean', default: false })
   memoryOptIn: boolean;
 
+  /**
+   * Consent to use this user's stored conversations for model training
+   * (docs/model-training.md). Defaults to false; see migration
+   * UserTrainingOptIn1719100000000.
+   */
+  @Column({ name: 'training_opt_in', type: 'boolean', default: false })
+  trainingOptIn: boolean;
+
+  /** When the current training opt-in started; null while opted out. */
+  @Column({ name: 'training_opt_in_at', type: 'timestamptz', nullable: true })
+  trainingOptInAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

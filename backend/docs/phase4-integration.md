@@ -36,7 +36,9 @@ new backend.
 - `POST /auth/refresh { refresh_token }` → rotated `{ access_token, refresh_token }`
   (old refresh token is revoked — persist the new one).
 - `GET /me` → `{ user, tier, usage, settings }` — validate session + seed the
-  quota/tier UI. `settings.memory_opt_in` drives the "Remember my chats" toggle.
+  quota/tier UI. `settings.memory_opt_in` drives the "Remember my chats" toggle;
+  `settings.training_opt_in` drives the model-training consent toggle
+  (`docs/model-training.md`).
 - `PATCH /me/settings { "memory_opt_in": true|false }` → `{ settings, deleted? }`
   (Android Phase 0) — the user-level opt-in for keyboard conversation storage.
   Every `false` request erases all keyboard-captured conversations and
