@@ -159,6 +159,9 @@ The full delta from upstream is:
       ndk.abiFilters arm64-v8a + armeabi-v7a only.
   app/src/main/AndroidManifest.xml (also)
       Exported com.aichat.keyboard.share.ShareReplyActivity (ACTION_SEND image/* share target).
+  app/src/main/AndroidManifest.xml (also)
+      <queries> entry for ACTION_SEND image/*, so StickerSender can share a sticker into chat apps whose chat field
+      does not accept images.
 
 Files added by AIChat (not part of upstream):
   NOTICE, UPSTREAM.md, docs/integration-points.md, app/src/main/res/xml/data_extraction_rules.xml,

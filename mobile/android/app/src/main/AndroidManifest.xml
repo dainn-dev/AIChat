@@ -23,6 +23,12 @@
         <intent>
             <action android:name="android.service.textservice.SpellCheckerService"/>
         </intent>
+        <!-- AIChat MODIFIED: lets the keyboard see which chat apps take a shared image, to send a sticker through
+             the app's share screen when its chat field does not accept images (com.aichat.keyboard.sticker.StickerSender). -->
+        <intent>
+            <action android:name="android.intent.action.SEND"/>
+            <data android:mimeType="image/*"/>
+        </intent>
     </queries>
 
     <!-- AIChat MODIFIED: Android auto-backup and device-to-device transfer disabled for v1 (the app will

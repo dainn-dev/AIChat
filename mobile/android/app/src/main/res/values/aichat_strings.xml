@@ -146,6 +146,9 @@
     <string name="aichat__stickers__import_full">Your sticker collection is full (at most {max}). Delete some to add more.</string>
     <string name="aichat__stickers__import_invalid">Images that could not be read: {count}</string>
 
+    <!-- Keyboard: sticker delivery through the chat app's share screen -->
+    <string name="aichat__stickers__pick_chat">Pick the chat to send the sticker to</string>
+
     <!-- Keyboard settings: utility key -->
     <string name="aichat__enum__utility_key_action__language_and_emojis">Language key and emoji key</string>
     <string name="aichat__enum__space_bar_mode__language_code">Language name (iOS style)</string>

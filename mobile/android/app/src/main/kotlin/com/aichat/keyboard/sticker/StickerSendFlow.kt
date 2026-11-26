@@ -32,6 +32,7 @@ object StickerSendFlow {
         when (result) {
             StickerSender.Result.UNSUPPORTED -> context.showShortToast(R.string.aichat__stickers__unsupported)
             StickerSender.Result.FAILED -> context.showShortToast(R.string.aichat__stickers__send_failed)
+            StickerSender.Result.SHARED -> context.showShortToast(R.string.aichat__stickers__pick_chat)
             StickerSender.Result.SENT,
             StickerSender.Result.SENT_AS_TEXT,
             StickerSender.Result.TARGET_CHANGED -> Unit
