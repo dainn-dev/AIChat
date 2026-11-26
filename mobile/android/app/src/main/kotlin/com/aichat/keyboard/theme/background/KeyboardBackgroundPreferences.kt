@@ -18,13 +18,15 @@ import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.jetpref.datastore.model.observeAsState
 import dev.patrickgold.jetpref.datastore.ui.Preference
+import dev.patrickgold.florisboard.lib.compose.LocalPreviewFieldController
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.florisboard.lib.compose.stringRes
 
 /**
  * "Hình nền bàn phím" on the theme settings screen: pick a photo from the gallery as the keyboard background,
- * or remove it. The photo picker needs no storage permission. The change shows in the preview field right away,
- * since `ThemeManager` observes the pref.
+ * or remove it. The photo picker needs no storage permission. After either, the real keyboard opens in the
+ * screen's preview field so the user sees the result (`ThemeManager` observes the pref, so it is already applied).
  */
 @Composable
 fun KeyboardBackgroundPreferences() {
@@ -34,6 +36,16 @@ fun KeyboardBackgroundPreferences() {
     val scope = rememberCoroutineScope()
     var importing by remember { mutableStateOf(false) }
     val errorText = stringRes(R.string.aichat__keyboard_background__error)
+    val previewField = LocalPreviewFieldController.current
+
+    // Opens the real keyboard in the screen's "Try out your setup" field, so the user sees the new background
+    // right away. The delay lets the activity regain focus after the photo picker closes.
+    suspend fun showKeyboardPreview() {
+        val controller = previewField ?: return
+        delay(PREVIEW_DELAY_MS)
+        controller.isVisible = true
+        runCatching { controller.focusRequester.requestFocus() }
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -43,6 +55,8 @@ fun KeyboardBackgroundPreferences() {
             importing = false
             if (outcome == KeyboardBackgroundStore.Outcome.INVALID) {
                 Toast.makeText(context, errorText, Toast.LENGTH_SHORT).show()
+            } else {
+                showKeyboardPreview()
             }
         }
     }
@@ -64,8 +78,13 @@ fun KeyboardBackgroundPreferences() {
             icon = Icons.Default.HideImage,
             title = stringRes(R.string.aichat__keyboard_background__remove),
             onClick = {
-                scope.launch { KeyboardBackgroundStore.clear(context.applicationContext) }
+                scope.launch {
+                    KeyboardBackgroundStore.clear(context.applicationContext)
+                    showKeyboardPreview()
+                }
             },
         )
     }
 }
+
+private const val PREVIEW_DELAY_MS = 300L
