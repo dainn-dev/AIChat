@@ -41,6 +41,53 @@ object BuiltInStickers {
         Phrase("vang-a", "Vâng ạ", BLUE, tags = setOf(StickerTag.YES, StickerTag.OK)),
         Phrase("chuc-mung", "Chúc mừng\n🎉", ORANGE, tags = setOf(StickerTag.CONGRATS, StickerTag.CHEER)),
         Phrase("an-com", "Ăn cơm\nchưa?", GREEN, tags = setOf(StickerTag.EAT)),
+        // Everyday chat phrases and teen code. Append only, never rename: ids are persisted (recent stickers).
+        Phrase("oke-la", "Oke la\n👍", TEAL, tags = setOf(StickerTag.OK, StickerTag.YES)),
+        Phrase("that-ha", "Thật hả?", ORANGE, tags = setOf(StickerTag.SURPRISED)),
+        Phrase("gi-zi", "Gì zị?", PURPLE, tags = setOf(StickerTag.SURPRISED, StickerTag.THINKING)),
+        Phrase("dinh", "Đỉnh!\n🔥", RED, tags = setOf(StickerTag.GREAT, StickerTag.COOL)),
+        Phrase("hihi", "Hihi\n😆", PINK, tags = setOf(StickerTag.LAUGH)),
+        Phrase("co-len", "Cố lên!\n💪", ORANGE, tags = setOf(StickerTag.CHEER)),
+        Phrase("hong-sao-dau", "Hông sao\nđâu", TEAL, tags = setOf(StickerTag.OK)),
+        Phrase("bye-bye", "Bye bye\n👋", INDIGO, tags = setOf(StickerTag.BYE)),
+        Phrase("iu", "Iu\n💕", PINK, tags = setOf(StickerTag.LOVE)),
+        Phrase("doi-qua", "Đói quá\n🍜", ORANGE, tags = setOf(StickerTag.EAT)),
+        Phrase("dang-ban", "Đang bận\nxíu", INDIGO, tags = setOf(StickerTag.BUSY, StickerTag.WAIT)),
+        Phrase("chao-nha", "Chào nha\n👋", BLUE, tags = setOf(StickerTag.HELLO)),
+        Phrase("nho-qua", "Nhớ quá\n🥺", PURPLE, tags = setOf(StickerTag.MISS_YOU, StickerTag.LOVE)),
+        Phrase("ha", "Hả??", YELLOW, BLACK, tags = setOf(StickerTag.SURPRISED)),
+        Phrase("hmm", "Hmm…\n🤔", TEAL, tags = setOf(StickerTag.THINKING)),
+        Phrase("duyet", "Duyệt!\n✅", GREEN, tags = setOf(StickerTag.YES, StickerTag.OK)),
+        Phrase("khong-nha", "Không\nnha", RED, tags = setOf(StickerTag.NO)),
+        Phrase("lam-on-ma", "Làm ơn\nmà 🥺", PINK, tags = setOf(StickerTag.PLEASE)),
+        Phrase("buon-ghe", "Buồn ghê\n😢", INDIGO, tags = setOf(StickerTag.SAD)),
+        Phrase("tuc-ghe", "Tức ghê\n😤", RED, tags = setOf(StickerTag.ANGRY)),
+        Phrase("xiu", "Xỉu\n😵", PURPLE, tags = setOf(StickerTag.SURPRISED)),
+        Phrase("thoi-xong", "Thôi\nxong!", ORANGE, tags = setOf(StickerTag.SAD, StickerTag.SURPRISED)),
+        Phrase("di-choi", "Đi chơi\nkhông?", GREEN, tags = setOf(StickerTag.HELLO, StickerTag.CHEER)),
+        Phrase("ve-chua", "Về chưa?", BLUE, tags = setOf(StickerTag.COMING, StickerTag.WAIT)),
+        Phrase("toi-roi", "Tới rồi\nnè!", GREEN, tags = setOf(StickerTag.COMING)),
+        Phrase("dung-roi", "Đúng\nrồi!", BLUE, tags = setOf(StickerTag.YES)),
+        Phrase("hong-chiu", "Hông chịu\nđâu", ORANGE, tags = setOf(StickerTag.NO)),
+        Phrase("thank-kiu", "Thank kiu\n🥰", TEAL, tags = setOf(StickerTag.THANKS)),
+        Phrase("ngai-qua", "Ngại quá\n🙈", PINK, tags = setOf(StickerTag.SORRY)),
+        Phrase("chill", "Chill\nthôi 😎", INDIGO, tags = setOf(StickerTag.COOL)),
+    )
+
+    /** A bubble color and the text color that reads on it. ARGB. */
+    data class TextColors(val background: Int, val foreground: Int)
+
+    /** The colors of the text pack, offered when the user makes their own text sticker. */
+    val textColors: List<TextColors> = listOf(
+        TextColors(BLUE, WHITE),
+        TextColors(PINK, WHITE),
+        TextColors(ORANGE, WHITE),
+        TextColors(GREEN, WHITE),
+        TextColors(PURPLE, WHITE),
+        TextColors(TEAL, WHITE),
+        TextColors(YELLOW, BLACK),
+        TextColors(RED, WHITE),
+        TextColors(INDIGO, WHITE),
     )
 
     private val emojis = listOf(
