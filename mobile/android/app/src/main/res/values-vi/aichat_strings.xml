@@ -281,15 +281,4 @@
     <string name="aichat__keyboard_background__importing">Đang đặt hình nền…</string>
     <string name="aichat__keyboard_background__remove">Bỏ hình nền</string>
     <string name="aichat__keyboard_background__error">Không dùng được ảnh này.</string>
-    <string name="aichat__bottom_bar__schedule">Hẹn giờ gửi tin</string>
-    <string name="aichat__schedule__title">Hẹn giờ gửi tin</string>
-    <string name="aichat__schedule__to">Gửi cho {name} · {app}</string>
-    <string name="aichat__schedule__no_recipient">Hãy mở một cuộc trò chuyện Messenger, Zalo, WhatsApp, Gmail hoặc Google Chat (đã bật Đọc chat) để AIChat biết gửi cho ai.</string>
-    <string name="aichat__schedule__message_hint">Nội dung tin nhắn</string>
-    <string name="aichat__schedule__in_past">Chọn thời điểm cách bây giờ ít nhất 1 phút.</string>
-    <string name="aichat__schedule__cancel">Huỷ</string>
-    <string name="aichat__schedule__ok">OK</string>
-    <string name="aichat__schedule__save">Hẹn giờ</string>
-    <string name="aichat__schedule__saved">Đã hẹn gửi lúc {time}.</string>
-    <string name="aichat__schedule__save_failed">Không hẹn giờ được tin nhắn này.</string>
 </resources>

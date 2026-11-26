@@ -69,21 +69,6 @@ object ChatTranscriptParser {
         val quotedAuthor: MessageSender? = null,
     )
 
-    /**
-     * Who the open chat is with: the messenger and the toolbar title, read the same way as [parse] reads
-     * [CapturedConversation.contactLabel], but also for a chat with no message on screen yet. Null when the app is not
-     * a [SupportedMessenger] or the header has no readable title.
-     */
-    fun recipient(snapshot: ChatWindowSnapshot): ChatRecipient? {
-        val messenger = SupportedMessenger.fromPackage(snapshot.packageName) ?: return null
-        val window = Window(snapshot)
-        val header = snapshot.nodes.filter {
-            it.isReadable() && window.contains(it) && it.boundsBottom <= window.headerBottom
-        }
-        val label = contactLabel(header) ?: return null
-        return ChatRecipient(messenger, label)
-    }
-
     fun parse(snapshot: ChatWindowSnapshot): CapturedConversation? {
         val messenger = SupportedMessenger.fromPackage(snapshot.packageName) ?: return null
         val window = Window(snapshot)
