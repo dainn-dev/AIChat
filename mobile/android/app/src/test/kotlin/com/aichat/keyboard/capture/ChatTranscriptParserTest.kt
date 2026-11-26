@@ -197,6 +197,24 @@ class ChatTranscriptParserTest {
     }
 
     @Test
+    fun `the recipient is read from the header, even in a chat with no messages yet`() {
+        assertEquals(
+            ChatRecipient(SupportedMessenger.MESSENGER, "Minh Anh"),
+            ChatTranscriptParser.recipient(snapshot(messenger, messengerHeader + messengerComposer)),
+        )
+        assertEquals(
+            ChatRecipient(SupportedMessenger.ZALO, "Bạn Test"),
+            ChatTranscriptParser.recipient(snapshot(zalo, zaloHeader + zaloComposer)),
+        )
+    }
+
+    @Test
+    fun `no recipient without a header or outside a supported messenger`() {
+        assertNull(ChatTranscriptParser.recipient(snapshot(messenger, listOf(them("hi", top = 400)))))
+        assertNull(ChatTranscriptParser.recipient(snapshot("com.example.other", messengerHeader)))
+    }
+
+    @Test
     fun `without a header the contact label is null`() {
         val conversation = assertNotNull(parse(messenger, listOf(them("hi", top = 400))))
 

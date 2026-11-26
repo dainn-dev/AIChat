@@ -2,6 +2,8 @@ package com.aichat.keyboard.ui
 
 import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiButton
+import com.aichat.keyboard.ai.ImeAiEditorPort
+import com.aichat.keyboard.schedule.ScheduleLauncher
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -12,11 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -26,6 +30,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.patrickgold.florisboard.R
+import dev.patrickgold.florisboard.editorInstance
 import dev.patrickgold.florisboard.ime.ImeUiMode
 import dev.patrickgold.florisboard.ime.keyboard.KeyData
 import dev.patrickgold.florisboard.ime.media.KeyboardLikeButton
@@ -35,12 +40,15 @@ import dev.patrickgold.florisboard.keyboardManager
 import dev.patrickgold.florisboard.subtypeManager
 import org.florisboard.lib.compose.stringRes
 import org.florisboard.lib.snygg.ui.SnyggIcon
+import org.florisboard.lib.snygg.ui.SnyggIconButton
+import kotlinx.coroutines.launch
 
 private val ButtonWidth = 56.dp
 private val IconSize = 24.dp
 
 /**
- * iOS-like strip under the keys: the language (globe) key and the AI button on the left, and a settings key on the
+ * iOS-like strip under the keys: the language (globe) key, the AI button and the schedule key on the left, and a
+ * settings key on the
  * right where the mic key used to be (no mic key: chat apps have their own voice messages), so the key rows
  * themselves only keep 123 / emoji / space / return. Shown in every input mode so the keyboard height never jumps.
  */
@@ -74,12 +82,39 @@ fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
             // The chips live in the smartbar, which only the text layout has.
             onOpen = { keyboardManager.activeState.imeUiMode = ImeUiMode.TEXT },
         )
+        ScheduleButton()
         Spacer(modifier = Modifier.weight(1f))
         // Opens the DBoard settings app (KeyCode.SETTINGS → FlorisImeService.launchSettings()).
         BarButton(
             keyData = TextKeyData.SETTINGS,
             icon = Icons.Outlined.Settings,
             description = stringRes(R.string.aichat__bottom_bar__settings),
+        )
+    }
+}
+
+/** Opens the "Hẹn giờ gửi" popup with the typed text and the open chat's recipient filled in. */
+@Composable
+private fun ScheduleButton() {
+    val context = LocalContext.current
+    val editorInstance by context.editorInstance()
+    val keyboardManager by context.keyboardManager()
+    val scope = rememberCoroutineScope()
+    val description = stringRes(R.string.aichat__bottom_bar__schedule)
+    SnyggIconButton(
+        elementName = FlorisImeUi.SmartbarActionKey.elementName,
+        onClick = {
+            scope.launch { ScheduleLauncher.open(context, ImeAiEditorPort(editorInstance, keyboardManager)) }
+        },
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(ButtonWidth)
+            .semantics { contentDescription = description },
+    ) {
+        SnyggIcon(
+            elementName = FlorisImeUi.SmartbarActionKey.elementName,
+            imageVector = Icons.Outlined.Schedule,
+            modifier = Modifier.size(IconSize),
         )
     }
 }
