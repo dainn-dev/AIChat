@@ -22,6 +22,9 @@
     <string name="aichat__capture__clipboard_heading">Khi không đọc được đoạn chat</string>
     <string name="aichat__capture__clipboard_body">Nếu đang tắt đọc tin nhắn, hoặc bạn ở ứng dụng khác ngoài Messenger và Zalo, Gợi ý trả lời sẽ dùng nội dung bạn vừa copy trong 2 phút gần nhất: nội dung đó được gửi tới máy chủ AIChat như tin nhắn của người kia. Mã xác nhận, mật khẩu và đường link chứa khoá không bao giờ được gửi.</string>
     <string name="aichat__capture__decline_button">Không, cảm ơn</string>
+    <string name="aichat__capture__restricted_heading">Không bật được hoặc thấy \"Cài đặt bị hạn chế\"?</string>
+    <string name="aichat__capture__restricted_body">Android chặn quyền này với ứng dụng cài từ file APK thay vì từ cửa hàng. Để cho phép:\n1. Bấm nút phía trên, chọn AIChat đọc tin nhắn và thử bật. Khi hiện \"Cài đặt bị hạn chế\", bấm OK. Android chỉ hiện tuỳ chọn ở bước 3 sau lần thử này.\n2. Quay lại đây và bấm Mở thông tin ứng dụng bên dưới.\n3. Bấm ⋮ (góc trên bên phải), chọn Cho phép cài đặt hạn chế, rồi xác nhận bằng mã PIN hoặc vân tay.\n4. Bấm lại nút phía trên và bật AIChat đọc tin nhắn.</string>
+    <string name="aichat__capture__restricted_button">Mở thông tin ứng dụng</string>
     <string name="aichat__capture__service_label">AIChat đọc tin nhắn</string>
     <string name="aichat__capture__service_description">Chỉ đọc các tin nhắn đang hiện trong Messenger hoặc Zalo khi bạn bấm Gợi ý trả lời trên bàn phím AIChat, rồi gửi tới máy chủ AIChat để viết gợi ý trả lời. Không đọc ứng dụng khác, ô mật khẩu hay nội dung bạn gõ, và không chạy ngầm.</string>
 

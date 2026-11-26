@@ -28,6 +28,9 @@
     <string name="aichat__capture__clipboard_heading">When the chat can\'t be read</string>
     <string name="aichat__capture__clipboard_body">If chat reading is off, or you are in an app other than Messenger or Zalo, Suggest replies uses the text you copied in the last 2 minutes instead: it is sent to AIChat\'s server as the other person\'s message. Copied codes, passwords and links with keys are never sent.</string>
     <string name="aichat__capture__decline_button">No thanks</string>
+    <string name="aichat__capture__restricted_heading">Switch greyed out or \"Restricted setting\"?</string>
+    <string name="aichat__capture__restricted_body">Android blocks this for apps installed from an APK file instead of a store. To allow it:\n1. Tap the button above, then tap AIChat chat reader and try to turn it on. When you see \"Restricted setting\", tap OK. Android only shows the option in step 3 after this attempt.\n2. Come back here and tap Open app info below.\n3. Tap ⋮ (top right), then Allow restricted settings, and confirm with your PIN or fingerprint.\n4. Tap the button above again and turn on AIChat chat reader.</string>
+    <string name="aichat__capture__restricted_button">Open app info</string>
     <string name="aichat__capture__service_label">AIChat chat reader</string>
     <string name="aichat__capture__service_description">Reads the messages visible in Messenger or Zalo only when you tap Suggest replies in the AIChat keyboard, and sends them to AIChat\'s server to write reply suggestions. It does not read other apps, password fields or what you type, and it does nothing in the background.</string>
 

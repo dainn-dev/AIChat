@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -38,6 +39,13 @@ val projectVersionName: String by project
 val aichatBaseApplicationId = "online.dainn.aichat.keyboard"
 // Launcher / IME label (renamed from "AIChat Keyboard" on 2026-11-26). The application ID above does not change.
 val aichatAppName = "DBoard"
+// AIChat MODIFIED: release signing. The keystore and its passwords never live in the repo: point the Gradle property
+// `aichat.releaseSigning` (e.g. in ~/.gradle/gradle.properties) at a properties file with storeFile, storePassword,
+// keyAlias and keyPassword. Without it, release/beta builds stay unsigned as before.
+val aichatReleaseSigning: Properties? = providers.gradleProperty("aichat.releaseSigning").orNull
+    ?.let { file(it) }
+    ?.takeIf { it.isFile }
+    ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
 val projectVersionNameSuffix = projectVersionName.substringAfter("-", "").let { suffix ->
     if (suffix.isNotEmpty()) {
         "-$suffix"
@@ -120,6 +128,18 @@ android {
         compose = true
     }
 
+    // AIChat MODIFIED: see aichatReleaseSigning above.
+    signingConfigs {
+        aichatReleaseSigning?.let { props ->
+            create("aichatRelease") {
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         named("debug") {
             applicationIdSuffix = ".debug"
@@ -141,6 +161,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             isMinifyEnabled = true
             isShrinkResources = true
+            // AIChat MODIFIED: signed only when aichat.releaseSigning is configured.
+            signingConfigs.findByName("aichatRelease")?.let { signingConfig = it }
 
             resValue("mipmap", "floris_app_icon", "@mipmap/ic_app_icon_beta")
             resValue("mipmap", "floris_app_icon_round", "@mipmap/ic_app_icon_beta_round")
@@ -154,6 +176,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             isMinifyEnabled = true
             isShrinkResources = true
+            // AIChat MODIFIED: signed only when aichat.releaseSigning is configured.
+            signingConfigs.findByName("aichatRelease")?.let { signingConfig = it }
 
             resValue("mipmap", "floris_app_icon", "@mipmap/ic_app_icon_stable")
             resValue("mipmap", "floris_app_icon_round", "@mipmap/ic_app_icon_stable_round")

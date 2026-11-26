@@ -277,8 +277,10 @@ export default () => ({
   auth: {
     // A dev/test default keeps the service bootable without secrets, matching
     // the scaffold's local-first philosophy. MUST be overridden in production.
+    // `||` (not `??`): `.env.example` ships `JWT_ACCESS_SECRET=` blank, and an
+    // empty secret makes every token sign/verify throw.
     jwtAccessSecret:
-      process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me',
+      process.env.JWT_ACCESS_SECRET || 'dev-access-secret-change-me',
     accessTokenTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTokenTtlDays: parseInt(
       process.env.REFRESH_TOKEN_TTL_DAYS ?? '30',

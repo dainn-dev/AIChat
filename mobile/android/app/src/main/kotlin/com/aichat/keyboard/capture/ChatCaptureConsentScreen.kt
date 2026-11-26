@@ -6,6 +6,8 @@ package com.aichat.keyboard.capture
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
@@ -107,7 +109,37 @@ fun ChatCaptureConsentScreen() = FlorisScreen {
                 }
             }
         }
+        if (!enabled && mayHitRestrictedSettings(context)) {
+            Section(R.string.aichat__capture__restricted_heading, R.string.aichat__capture__restricted_body)
+            OutlinedButton(
+                onClick = { openAppInfo(context) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Text(stringRes(R.string.aichat__capture__restricted_button))
+            }
+        }
     }
+}
+
+/**
+ * Android 13+ greys out the accessibility switch ("Restricted setting") for apps sideloaded from a browser or file
+ * manager (e.g. the APK from GitHub releases) until the user taps "Allow restricted settings" in App info. There is
+ * no public API to read that state, so show the steps for every non-Play install on 13+ while the service is off.
+ */
+private fun mayHitRestrictedSettings(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    val installer = runCatching {
+        context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
+    }.getOrNull()
+    return installer != PLAY_STORE_PACKAGE
+}
+
+private const val PLAY_STORE_PACKAGE = "com.android.vending"
+
+private fun openAppInfo(context: Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
 }
 
 /** Whether the service is on; re-read whenever the screen resumes (the user may come back from Settings). */
