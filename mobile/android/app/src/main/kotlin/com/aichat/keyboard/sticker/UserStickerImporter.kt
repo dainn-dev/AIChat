@@ -42,7 +42,8 @@ object UserStickerImporter {
     private fun importOrThrow(context: Context, uri: Uri, files: UserStickerFiles): Outcome {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return Outcome.INVALID
+        // Bounds-only decodes return null by design; yield Unit so `?:` fires only if the stream cannot be opened.
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds); Unit } ?: return Outcome.INVALID
         val width = bounds.outWidth
         val height = bounds.outHeight
         if (width <= 0 || height <= 0 || width.toLong() * height > MAX_SOURCE_PIXELS) return Outcome.INVALID
