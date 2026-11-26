@@ -15,8 +15,10 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -32,12 +34,26 @@ object ScreenshotOcr {
     private const val MAX_WIDTH = 1440
     private const val MAX_PIXELS = 1440 * 8000
 
-    /** Reads [uri] and returns the parsed chat, or null when it is not a readable image. */
+    /** Larger sources are refused before decoding (decompression bombs, absurd panoramas). */
+    private const val MAX_SOURCE_PIXELS = 100_000_000L
+
+    /** Decode + recognition budget; past it the image counts as unreadable. */
+    private const val READ_TIMEOUT_MS = 20_000L
+
+    /** Whether an image of these bounds may be decoded at all. */
+    internal fun isDecodable(width: Int, height: Int): Boolean =
+        width > 0 && height > 0 && width.toLong() * height <= MAX_SOURCE_PIXELS
+
+    /** Reads [uri] and returns the parsed chat, or null when it is not a readable image or reading took too long. */
     suspend fun read(context: Context, uri: Uri): ParsedChat? = withContext(Dispatchers.IO) {
-        val bitmap = decode(context, uri) ?: return@withContext null
+        withTimeoutOrNull(READ_TIMEOUT_MS) { decodeAndRecognize(context, uri) }
+    }
+
+    private suspend fun decodeAndRecognize(context: Context, uri: Uri): ParsedChat? {
+        val bitmap = runInterruptible { decode(context, uri) } ?: return null
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         var cancelled = false
-        try {
+        return try {
             val text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
             ChatScreenshotParser.parse(text.toOcrLines(), bitmap.width, bitmap.height)
         } catch (e: CancellationException) {
@@ -59,7 +75,7 @@ object ScreenshotOcr {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+        if (!isDecodable(bounds.outWidth, bounds.outHeight)) {
             null
         } else {
             val options = BitmapFactory.Options().apply {

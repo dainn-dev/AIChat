@@ -168,6 +168,7 @@
             android:roundIcon="@mipmap/floris_app_icon_round"
             android:theme="@style/FlorisAppTheme"
             android:windowSoftInputMode="adjustResize"
+            android:excludeFromRecents="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>

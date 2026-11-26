@@ -6,11 +6,11 @@ package com.aichat.keyboard.share
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -43,7 +43,7 @@ import org.florisboard.lib.compose.ProvideLocalizedResources
 class ShareReplyActivity : ComponentActivity() {
     private val viewModel: ShareReplyViewModel by viewModels {
         val appContext = applicationContext
-        val uri = sharedImageUri(intent, ownAuthorityPrefix = "$packageName.")
+        val uri = sharedImageUri(intent)
         viewModelFactory {
             initializer {
                 ShareReplyViewModel(
@@ -57,6 +57,8 @@ class ShareReplyActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // The chat must not show up in the recents thumbnail or in screen captures of this screen.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         viewModel.start()
 
         val actions = object : ShareReplyActions {
@@ -69,7 +71,7 @@ class ShareReplyActivity : ComponentActivity() {
         }
 
         setContent {
-            ProvideLocalizedResources(this, appName = R.string.app_name) {
+            ProvideLocalizedResources(this, appName = R.string.aichat_app_name) {
                 FlorisAppTheme(theme = AppTheme.AUTO) {
                     Surface(color = MaterialTheme.colorScheme.background) {
                         val state by viewModel.state.collectAsState()
@@ -103,19 +105,26 @@ class ShareReplyActivity : ComponentActivity() {
         }
     }
 
-    private companion object {
-        /**
-         * A `content:` image from `ACTION_SEND`, or null for anything else (explicit intents included). URIs served
-         * by this app's own providers (clipboard media, stickers) are refused: another app must not be able to make
-         * this exported activity read our private files.
-         */
-        fun sharedImageUri(intent: Intent?, ownAuthorityPrefix: String): Uri? {
-            if (intent?.action != Intent.ACTION_SEND) return null
-            if (intent.type?.startsWith("image/") != true) return null
-            val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: return null
-            if (uri.scheme != ContentResolver.SCHEME_CONTENT) return null
-            if (uri.authority.orEmpty().startsWith(ownAuthorityPrefix)) return null
-            return uri
-        }
+    /**
+     * A `content:` image from `ACTION_SEND`, or null for anything else (explicit intents included). URIs served by
+     * this app's own providers are refused (see [SharedImageUriGuard]).
+     */
+    private fun sharedImageUri(intent: Intent?): Uri? {
+        if (intent?.action != Intent.ACTION_SEND) return null
+        if (intent.type?.startsWith("image/") != true) return null
+        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: return null
+        val accepted = SharedImageUriGuard.accepts(
+            scheme = uri.scheme,
+            authority = uri.encodedAuthority,
+            ownPackage = packageName,
+            resolveOwner = { authority -> providerOwner(authority) },
+        )
+        return if (accepted) uri else null
+    }
+
+    private fun providerOwner(authority: String): String? = try {
+        packageManager.resolveContentProvider(authority, 0)?.packageName
+    } catch (_: RuntimeException) {
+        null
     }
 }

@@ -112,10 +112,11 @@ class ChatScreenshotParserTest {
             them("Ngủ chưa", top = 600),
             line("10:30", left = 160, top = 660, right = 260, height = 30),
             me("Chưa nè", top = 800),
-            line("Đã xem", left = 880, top = 870, right = 1030, height = 30),
+            line("Đã xem", left = 880, top = 900, right = 1030, height = 30),
             line("Seen", left = 930, top = 1000, right = 1030, height = 30),
             line("12/05/2026", left = 440, top = 1100, right = 640, height = 36),
-            line("10:45 PM", left = 900, top = 1200, right = 1030, height = 30),
+            // A trailing time attached under the user's bubble.
+            line("10:45 PM", left = 900, top = 855, right = 1030, height = 30),
             line("Yesterday at 9:15 AM", left = 380, top = 1300, right = 700, height = 36),
         )
         assertEquals(listOf(ChatMessage(THEM, "Ngủ chưa"), ChatMessage(ME, "Chưa nè")), chat.messages)
@@ -164,13 +165,96 @@ class ChatScreenshotParserTest {
     }
 
     @Test
-    fun `a Vietnamese input placeholder near the bottom ends the chat`() {
+    fun `a placeholder-like message in the lower half is kept with everything below it`() {
         val chat = parse(
-            them("Ok", top = 1600),
-            line("Tin nhắn", left = 250, top = 2000, right = 420),
-            them("not a message", top = 2100),
+            them("Ok", top = 1300),
+            them("Message", top = 1450),
+            line("Aa", left = 950, top = 1600, right = 1030),
+            them("Tin nhắn", top = 2000),
+            them("still a message", top = 2100),
         )
-        assertEquals(listOf("Ok"), chat.messages.map { it.content })
+        assertEquals(
+            listOf(
+                ChatMessage(THEM, "Ok"),
+                ChatMessage(THEM, "Message"),
+                ChatMessage(ME, "Aa"),
+                ChatMessage(THEM, "Tin nhắn"),
+                ChatMessage(THEM, "still a message"),
+            ),
+            chat.messages,
+        )
+    }
+
+    @Test
+    fun `a placeholder in the bottom band of a cropped image is the input bar`() {
+        val chat = ChatScreenshotParser.parse(
+            listOf(
+                OcrLine("Hi", 150, 100, 400, 150),
+                OcrLine("Aa", 300, 930, 360, 980),
+            ),
+            imageWidth = 1080,
+            imageHeight = 1000,
+        )
+        assertEquals(listOf("Hi"), chat.messages.map { it.content })
+    }
+
+    @Test
+    fun `lone left or right aligned weekday, time and date words are messages`() {
+        val chat = parse(
+            them("cn", top = 600, right = 210),
+            line("sat", left = 960, top = 760, right = 1030),
+            them("9h30", top = 920, right = 260),
+            line("Hôm nay", left = 860, top = 1080, right = 1030),
+            them("T7", top = 1240, right = 200),
+            line("12/05", left = 920, top = 1400, right = 1030),
+        )
+        assertEquals(
+            listOf(
+                ChatMessage(THEM, "cn"),
+                ChatMessage(ME, "sat"),
+                ChatMessage(THEM, "9h30"),
+                ChatMessage(ME, "Hôm nay"),
+                ChatMessage(THEM, "T7"),
+                ChatMessage(ME, "12/05"),
+            ),
+            chat.messages,
+        )
+    }
+
+    @Test
+    fun `centered weekday separators and inline bubble times are dropped`() {
+        val chat = parse(
+            line("T2", left = 510, top = 500, right = 570, height = 36),
+            line("Ok nha", left = 700, top = 600, right = 900),
+            line("21:05", left = 920, top = 615, right = 1030, height = 30),
+            them("Sun", top = 800, right = 230),
+            line("CN 10:30", left = 470, top = 950, right = 610, height = 36),
+        )
+        assertEquals(listOf(ChatMessage(ME, "Ok nha"), ChatMessage(THEM, "Sun")), chat.messages)
+    }
+
+    @Test
+    fun `a wide partner bubble after an avatar is them`() {
+        val chat = parse(
+            line("Một tin nhắn rất dài của bạn kia, gần chạm", left = 170, top = 600, right = 950),
+            line("mép phải màn hình luôn", left = 170, top = 660, right = 640),
+        )
+        assertEquals(
+            listOf(ChatMessage(THEM, "Một tin nhắn rất dài của bạn kia, gần chạm mép phải màn hình luôn")),
+            chat.messages,
+        )
+    }
+
+    @Test
+    fun `a wide own bubble touching the right edge is me`() {
+        val chat = parse(line("Tin nhắn của mình dài gần hết chiều ngang", left = 140, top = 600, right = 1030))
+        assertEquals(listOf(ChatMessage(ME, "Tin nhắn của mình dài gần hết chiều ngang")), chat.messages)
+    }
+
+    @Test
+    fun `a mid-screen bubble away from the right edge is them`() {
+        val chat = parse(line("hmm", left = 700, top = 600, right = 900))
+        assertEquals(listOf(ChatMessage(THEM, "hmm")), chat.messages)
     }
 
     @Test
