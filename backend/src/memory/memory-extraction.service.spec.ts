@@ -78,6 +78,101 @@ describe('MemoryExtractionService (Android Phase 0)', () => {
     );
   });
 
+  it('writes extracted communication style as contact-scoped memory with conversation provenance', async () => {
+    const { service, extractor, writer } = build(
+      { source: 'keyboard', memory_opt_in: true },
+      [
+        {
+          kind: 'style',
+          content: 'Uses short, warm Vietnamese replies with emojis.',
+          confidence: 0.9,
+          scope: 'contact',
+          fromSender: 'me',
+        },
+      ],
+    );
+    writer.writeFacts.mockResolvedValue({ written: 1, superseded: 0 });
+
+    await service.extractForConversation('conv-1');
+
+    expect(extractor.extract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ sender: 'them', content: 'I love hiking' }],
+        contactLabel: 'Linh',
+      }),
+    );
+    expect(writer.writeFacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        facts: [expect.objectContaining({ kind: 'style', scope: 'contact' })],
+        contactLabel: 'Linh',
+        sourceRef: 'conversation:conv-1',
+        conversationId: 'conv-1',
+      }),
+    );
+  });
+
+  it('drops style profiles attributed to them before writing', async () => {
+    const { service, writer } = build(
+      { source: 'keyboard', memory_opt_in: true },
+      [
+        {
+          kind: 'style',
+          content: 'Uses formal greetings and full sentences.',
+          confidence: 0.95,
+          scope: 'contact',
+          fromSender: 'them',
+        },
+      ],
+    );
+
+    await service.extractForConversation('conv-1');
+
+    expect(writer.writeFacts).not.toHaveBeenCalled();
+  });
+
+  it('forces a user-attributed style profile to contact scope', async () => {
+    const { service, writer } = build(
+      { source: 'keyboard', memory_opt_in: true },
+      [
+        {
+          kind: 'style',
+          content: 'Uses short, warm replies.',
+          confidence: 0.9,
+          scope: 'user',
+          fromSender: 'me',
+        },
+      ],
+    );
+    writer.writeFacts.mockResolvedValue({ written: 1, superseded: 0 });
+
+    await service.extractForConversation('conv-1');
+
+    expect(writer.writeFacts.mock.calls[0][0].facts[0]).toMatchObject({
+      kind: 'style',
+      scope: 'contact',
+      requireReview: false,
+    });
+  });
+
+  it('does not store a style profile without a contact label', async () => {
+    const { service, writer } = build(
+      { source: 'ocr', memory_opt_in: false, contact_label: null },
+      [
+        {
+          kind: 'style',
+          content: 'Uses short, warm replies.',
+          confidence: 0.9,
+          scope: 'contact',
+          fromSender: 'me',
+        },
+      ],
+    );
+
+    await service.extractForConversation('conv-1');
+
+    expect(writer.writeFacts).not.toHaveBeenCalled();
+  });
+
   it('drops results and skips the audit row when the writer aborts', async () => {
     const { service, writer, query } = build({
       source: 'keyboard',

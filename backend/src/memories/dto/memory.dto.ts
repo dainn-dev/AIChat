@@ -7,7 +7,13 @@ import {
 } from 'class-validator';
 
 /** Phase-2 memory kinds (§5.8), shared by the dashboard DTOs. */
-export const MEMORY_KINDS = ['interest', 'job', 'birthday', 'fact'] as const;
+export const MEMORY_KINDS = [
+  'interest',
+  'job',
+  'birthday',
+  'fact',
+  'style',
+] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
 /** Statuses a client may filter by / transition to. */

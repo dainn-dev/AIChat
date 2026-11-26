@@ -119,6 +119,11 @@ export class MemoryExtractionService {
     // Sensitive-category filter (§5.7): drop high-risk facts and redact inline
     // PII before anything is embedded or stored.
     const facts = extracted
+      .filter((fact) => fact.kind !== 'style' || fact.fromSender === 'me')
+      .filter((fact) => fact.kind !== 'style' || contactLabel !== null)
+      .map((fact) =>
+        fact.kind === 'style' ? { ...fact, scope: 'contact' as const } : fact,
+      )
       .map((f) => {
         const scan = this.sensitive.scan(f.content);
         return scan.dropped ? null : { ...f, content: scan.content };
