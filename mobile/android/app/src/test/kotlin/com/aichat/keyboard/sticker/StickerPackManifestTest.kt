@@ -1,5 +1,6 @@
 package com.aichat.keyboard.sticker
 
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -58,5 +59,45 @@ class StickerPackManifestTest {
     fun `unknown fields are tolerated`() {
         val json = """{"id": "p", "title": "P", "icon": "P", "author": "me", "stickers": [{"file": "a.png", "x": 1}]}"""
         assertTrue(StickerPackManifest.parse(json, "d") != null)
+    }
+
+    @Test
+    fun `tags map to the sticker tag vocabulary and unknown ones are ignored`() {
+        val json = """
+            {"id": "p", "title": "P", "icon": "P",
+             "stickers": [{"file": "a.webp", "tags": ["laugh", " LOVE ", "dance", "laugh"]}, {"file": "b.png"}]}
+        """.trimIndent()
+
+        val pack = StickerPackManifest.parse(json, "d")!!
+
+        assertEquals(setOf(StickerTag.LAUGH, StickerTag.LOVE), pack.stickers[0].tags)
+        assertEquals(emptySet(), pack.stickers[1].tags) // tags are optional
+    }
+
+    @Test
+    fun `a tags value of the wrong type rejects the manifest`() {
+        val json = """{"id": "p", "title": "P", "stickers": [{"file": "a.png", "tags": "laugh"}]}"""
+        assertNull(StickerPackManifest.parse(json, "d"))
+    }
+
+    @Test
+    fun `the bundled Noto animated pack parses, its files exist and every sticker is tagged`() {
+        val dir = File("src/main/assets/ime/media/sticker/noto-animated") // unit tests run from the app module
+        val text = File(dir, "pack.json").readText()
+
+        val pack = StickerPackManifest.parse(text, "ime/media/sticker/noto-animated")!!
+
+        val listed = Regex(""""file"\s*:""").findAll(text).count()
+        assertEquals(listed, pack.stickers.size) // no entry was dropped as unsafe or unsupported
+        for (sticker in pack.stickers) {
+            val file = File(dir, (sticker.source as StickerSource.Asset).path.substringAfterLast('/'))
+            assertTrue(file.isFile, "missing $file")
+            assertTrue(sticker.tags.isNotEmpty(), "untagged ${sticker.id}")
+        }
+        val unknownTags = Regex(""""tags"\s*:\s*\[([^\]]*)]""").findAll(text)
+            .flatMap { Regex(""""([^"]+)"""").findAll(it.groupValues[1]).map { m -> m.groupValues[1] } }
+            .filter { StickerTag.fromWire(it) == null }
+            .toList()
+        assertEquals(emptyList(), unknownTags)
     }
 }
