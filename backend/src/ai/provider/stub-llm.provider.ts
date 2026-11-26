@@ -53,6 +53,9 @@ export class StubLlmProvider implements LlmProvider {
             { text: 'Love it. When works for you?' },
             { text: "Ha, you read my mind. Let's do it." },
           ],
+          // Fixed so tests can assert keyboard `sticker_tags`; surfaces that
+          // did not ask for tags ignore the field.
+          sticker_tags: ['great', 'yes'],
         });
       case AiRequestType.Analysis:
       default:

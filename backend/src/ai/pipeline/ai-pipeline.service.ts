@@ -31,6 +31,7 @@ import { AnalyzeResponse } from '../dto/analyze.dto';
 import { ReplyCandidate } from '../dto/reply.dto';
 import { Tone } from '../enums/tone.enum';
 import { OutputLang } from '../enums/output-lang.enum';
+import { StickerTag } from '../enums/sticker-tag';
 import { AiRequestType, AiSource } from '../enums/source.enum';
 
 export interface PipelineContext {
@@ -49,6 +50,13 @@ export interface ReplyInput {
   relationshipStage?: string;
   /** Explicit output language (keyboard EN/VI toggle); omitted → auto. */
   lang?: OutputLang;
+}
+
+/** Replies plus keyboard sticker suggestions from the same provider call. */
+export interface RepliesWithStickers {
+  replies: ReplyCandidate[];
+  /** 0-3 tags from `STICKER_TAGS`; `[]` when none or when output degraded. */
+  stickerTags: StickerTag[];
 }
 
 export interface AnalyzeInput {
@@ -99,6 +107,27 @@ export class AiPipelineService {
     input: ReplyInput,
     ctx: PipelineContext,
   ): Promise<ReplyCandidate[]> {
+    const { replies } = await this.runReply(input, ctx, false);
+    return replies;
+  }
+
+  /**
+   * Keyboard reply (sticker suggestions): same single provider call as
+   * {@link generateReplies}, but the prompt also asks for `sticker_tags`, which
+   * are coerced best-effort — bad tags never fail the call or force a retry.
+   */
+  async generateRepliesWithStickers(
+    input: ReplyInput,
+    ctx: PipelineContext,
+  ): Promise<RepliesWithStickers> {
+    return this.runReply(input, ctx, true);
+  }
+
+  private async runReply(
+    input: ReplyInput,
+    ctx: PipelineContext,
+    stickerTags: boolean,
+  ): Promise<RepliesWithStickers> {
     const messages = this.normalizer.normalize(input.messages);
     const memories = await this.memory.retrieve({
       userId: ctx.userId,
@@ -115,6 +144,7 @@ export class AiPipelineService {
       userGoal: input.userGoal,
       relationshipStage: input.relationshipStage,
       lang: input.lang,
+      stickerTags,
     };
     const prompt = this.contextBuilder.buildReplyPrompt(replyCtx);
 
@@ -137,14 +167,21 @@ export class AiPipelineService {
         result,
         'degraded',
       );
-      return [
-        {
-          tone: input.tone,
-          text: "Hey! I'd love to keep this going — what's next?",
-        },
-      ];
+      return {
+        replies: [
+          {
+            tone: input.tone,
+            text: "Hey! I'd love to keep this going — what's next?",
+          },
+        ],
+        // Tags would describe replies we discarded; suggest none.
+        stickerTags: [],
+      };
     }
-    return candidates;
+    return {
+      replies: candidates,
+      stickerTags: stickerTags ? this.validator.toStickerTags(parsed) : [],
+    };
   }
 
   async analyze(

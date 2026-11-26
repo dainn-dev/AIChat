@@ -19,6 +19,7 @@ import { AiMessageDto } from '../../ai/dto/ai-message.dto';
 import { ReplyCandidate, UsageSnapshot } from '../../ai/dto/reply.dto';
 import { Tone } from '../../ai/enums/tone.enum';
 import { OutputLang } from '../../ai/enums/output-lang.enum';
+import { StickerTag } from '../../ai/enums/sticker-tag';
 import {
   NO_NUL_PATTERN,
   PLATFORM_PATTERN,
@@ -142,6 +143,11 @@ export class KeyboardTranslateDto {
 
 export interface KeyboardReplyResponse {
   suggestions: ReplyCandidate[];
+  /**
+   * 0-3 sticker tags (from `STICKER_TAGS`) describing the mood/intent of the
+   * suggestions, produced by the same LLM call. Always present; `[]` when none.
+   */
+  sticker_tags: StickerTag[];
   /**
    * Stored conversation this capture was merged into (Android Phase 0), or
    * `null` when it was not persisted (not opted in, missing platform /

@@ -59,6 +59,7 @@ Response `200`:
 ```json
 {
   "suggestions": [ { "tone": "Flirty", "text": "…" } ],
+  "sticker_tags": ["laugh", "love"],
   "conversation_id": "7b0c4a3e-2f4e-4b8a-9a52-0d6f1f4a9c11",
   "usage": { "replies_used": 1, "replies_limit": 20, "screenshots_used": 0, "screenshots_limit": 5 }
 }
@@ -68,6 +69,20 @@ Response `200`:
   is also returned when the write was slower than the ~1.5 s budget and
   finished in the background, or when the response was lost. Use
   `GET /conversations` to see what is actually stored.
+- `sticker_tags` is always present: **0–3** sticker tags describing the
+  mood/intent of the suggestions, most fitting first, so the keyboard can offer
+  matching stickers. They come from the **same** LLM call as `suggestions` (no
+  extra latency or quota). `[]` means "no sticker suggestion" — also returned
+  when the model's tags were missing/invalid or the reply output degraded to
+  the fallback suggestion. Bad tags never fail the request.
+  Tags are only ever from this fixed vocabulary (`STICKER_TAGS` in
+  `src/ai/enums/sticker-tag.ts`, kept in sync with Android `StickerTag` wire
+  names): `thanks`, `ok`, `laugh`, `love`, `wait`, `great`, `sorry`,
+  `goodnight`, `coming`, `yes`, `no`, `congrats`, `eat`, `hello`, `bye`, `sad`,
+  `angry`, `surprised`, `cheer`, `busy`, `miss_you`, `thinking`, `cool`,
+  `please`. The server lowercases, dedupes and drops anything else. New tags
+  may be added later, so clients must ignore tags they don't know. The keyless
+  stub provider always returns `["great", "yes"]`.
 
 ### Conversation storage (Android Phase 0)
 
