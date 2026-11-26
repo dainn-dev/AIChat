@@ -65,7 +65,8 @@ internal object StickerThumbnails {
 
     private fun decode(open: () -> InputStream?): ImageBitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        open()?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+        // Bounds-only decodes return null by design; yield Unit so `?:` fires only if the stream cannot be opened.
+        open()?.use { BitmapFactory.decodeStream(it, null, bounds); Unit } ?: return null
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         val options = BitmapFactory.Options().apply {
             inSampleSize = StickerImageMath.sampleSize(bounds.outWidth, bounds.outHeight, THUMBNAIL_PX)
