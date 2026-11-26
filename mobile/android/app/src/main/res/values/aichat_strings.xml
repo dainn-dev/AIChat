@@ -149,6 +149,19 @@
     <!-- Keyboard: sticker delivery through the chat app's share screen -->
     <string name="aichat__stickers__pick_chat">Pick the chat to send the sticker to</string>
 
+    <!-- Keyboard: sticker panel, recent tab and making stickers -->
+    <string name="aichat__stickers__recent">Recent</string>
+    <string name="aichat__stickers__add_menu">Add a sticker</string>
+    <string name="aichat__stickers__add_from_gallery">Add from photo gallery</string>
+    <string name="aichat__stickers__add_text">Create a text sticker</string>
+    <string name="aichat__stickers__cancel">Cancel</string>
+    <string name="aichat__stickers__text_hint">Type a short phrase</string>
+    <string name="aichat__stickers__text_preview">Sticker preview</string>
+    <string name="aichat__stickers__text_color">Color {number}</string>
+    <string name="aichat__stickers__text_save">Save</string>
+    <string name="aichat__stickers__text_saved">Sticker created. Find it in My stickers.</string>
+    <string name="aichat__stickers__text_failed">Could not create the sticker.</string>
+
     <!-- Keyboard settings: utility key -->
     <string name="aichat__enum__utility_key_action__language_and_emojis">Language key and emoji key</string>
     <string name="aichat__enum__space_bar_mode__language_code">Language name (iOS style)</string>
