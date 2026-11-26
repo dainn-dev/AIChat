@@ -665,8 +665,9 @@ class FlorisImeService : LifecycleInputMethodService() {
                                 .weight(keyboardWeight)
                                 .wrapContentHeight(),
                         ) {
-                            // AIChat MODIFIED: iOS-like globe / mic strip under every input mode.
-                            Column {
+                            // AIChat MODIFIED: iOS-like globe / mic strip under every input mode, and a little
+                            // breathing room above the top key row (it sat flush against the keyboard edge).
+                            Column(modifier = Modifier.padding(top = 6.dp)) {
                                 when (state.imeUiMode) {
                                     ImeUiMode.TEXT -> TextInputLayout()
                                     ImeUiMode.MEDIA -> MediaInputLayout()
