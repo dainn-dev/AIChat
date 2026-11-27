@@ -120,7 +120,8 @@ internal fun RowScope.TranslatePanel(controller: AiAssistController, state: AiAs
     }
     Chip("${languageName(state.targetLang)} ▾", active = true) { controller.toggleTranslateLangPicker() }
     when (val preview = state.preview) {
-        TranslatePreview.Idle -> Message(R.string.aichat__ai__translate_hint, maxLines = AiSmartbarLayout.MESSAGE_MAX_LINES)
+        // One line: the bar is one row tall while there is nothing to translate (AiSmartbarLayout.mainRowCount).
+        TranslatePreview.Idle -> Message(R.string.aichat__ai__translate_hint, maxLines = 1)
         is TranslatePreview.Loading -> CircularProgressIndicator(
             modifier = Modifier.padding(horizontal = 8.dp).size(18.dp),
             strokeWidth = 2.dp,
