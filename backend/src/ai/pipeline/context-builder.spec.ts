@@ -160,6 +160,17 @@ describe('ContextBuilder language instructions', () => {
     expect(auto).toContain('same language as the request');
   });
 
+  it('adds Formal/Casual guidance to replies but leaves older tones unchanged', () => {
+    const formal = builder.buildReplyPrompt({
+      ...base,
+      tone: Tone.Formal,
+    }).system;
+    expect(formal).toContain('formal, courteous');
+    const friendly = builder.buildReplyPrompt(base).system;
+    expect(friendly).not.toContain('formal, courteous');
+    expect(friendly).not.toContain('relaxed, natural');
+  });
+
   it('derives the Vietnamese pronoun pair per contact, never from other contacts', () => {
     const { system } = builder.buildReplyPrompt(base);
     expect(system).toContain('work out the pair for THIS conversation');

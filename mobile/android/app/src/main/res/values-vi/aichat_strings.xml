@@ -179,6 +179,8 @@
     <string name="aichat__ai__tone_friendly">🙂 Thân thiện</string>
     <string name="aichat__ai__tone_polite">Lịch sự</string>
     <string name="aichat__ai__tone_mature">Chín chắn</string>
+    <string name="aichat__ai__tone_formal">Trang trọng</string>
+    <string name="aichat__ai__tone_casual">Bình thường</string>
     <string name="aichat__ai__back">‹ Quay lại</string>
     <string name="aichat__ai__enable_reading">Bật</string>
     <string name="aichat__ai__error_no_conversation">Chưa đọc được tin nhắn. Bật đọc tin nhắn hoặc copy tin nhắn cuối</string>

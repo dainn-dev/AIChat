@@ -83,10 +83,23 @@ export class ContextBuilder {
     `neutral wording or avoid pronouns. Match how "me" writes (length, casing, emoji, diacritics); use teen code only if "me" does.`,
   ].join(' ');
 
+  /** Extra style guidance for tones whose name alone is too vague. */
+  static readonly TONE_GUIDANCE: Partial<Record<Tone, string>> = {
+    [Tone.Formal]:
+      'Use formal, courteous language and complete phrasing; avoid slang and contractions.',
+    [Tone.Casual]:
+      'Use relaxed, natural everyday language; conversational, not stiff or overly polished.',
+  };
+
   buildReplyPrompt(ctx: ReplyContext): LlmPrompt {
     const system = [
       `You are a messaging assistant that drafts replies on behalf of "me".`,
       `Write ${ctx.count} candidate reply/replies in a ${ctx.tone} tone.`,
+      // Only the newer tones carry extra guidance; the older ones keep their
+      // original wording (training examples are built from this prompt).
+      ...(ContextBuilder.TONE_GUIDANCE[ctx.tone]
+        ? [ContextBuilder.TONE_GUIDANCE[ctx.tone]]
+        : []),
       `Each reply must be natural, concise, and ready to send.`,
       `You are writing as "me" to "them". Never speak as the contact or attribute the contact's words, feelings, or first-person perspective to "me".`,
       `Use the labeled conversation and any communication-style memory as reference; style memories describe only how "me" writes to this contact.`,
@@ -127,13 +140,8 @@ export class ContextBuilder {
   }
 
   buildRewritePrompt(ctx: RewriteContext): LlmPrompt {
-    const toneGuidance: Partial<Record<Tone, string>> = {
-      [Tone.Formal]:
-        'Use formal, courteous language and complete phrasing; avoid slang and contractions.',
-      [Tone.Casual]:
-        'Use relaxed, natural everyday language; conversational, not stiff or overly polished.',
-    };
-    const guidance = toneGuidance[ctx.tone] ?? `Use a ${ctx.tone} tone.`;
+    const guidance =
+      ContextBuilder.TONE_GUIDANCE[ctx.tone] ?? `Use a ${ctx.tone} tone.`;
     const system =
       `Rewrite the user's draft message. ${guidance} ` +
       `Keep the original intent. ${this.rewriteLanguageInstruction(ctx.lang)} ` +

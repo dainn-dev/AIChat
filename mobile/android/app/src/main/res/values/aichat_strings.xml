@@ -187,6 +187,8 @@
     <string name="aichat__ai__tone_friendly">🙂 Friendly</string>
     <string name="aichat__ai__tone_polite">Polite</string>
     <string name="aichat__ai__tone_mature">Mature</string>
+    <string name="aichat__ai__tone_formal">Formal</string>
+    <string name="aichat__ai__tone_casual">Casual</string>
     <string name="aichat__ai__back">‹ Back</string>
     <string name="aichat__ai__enable_reading">Turn on</string>
     <string name="aichat__ai__error_no_conversation">Can\'t read the chat. Turn on chat reading or copy the last message</string>
