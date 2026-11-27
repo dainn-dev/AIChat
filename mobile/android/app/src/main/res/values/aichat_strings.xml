@@ -192,6 +192,12 @@
     <string name="aichat__ai__rewrite_funny">Funny</string>
     <string name="aichat__ai__translate_en">To English</string>
     <string name="aichat__ai__translate_vi">To Vietnamese</string>
+    <string name="aichat__ai__translate_button">Live translate</string>
+    <string name="aichat__ai__translate_hint">Type and the translation shows here</string>
+    <string name="aichat__ai__translate_apply">Use this translation</string>
+    <string name="aichat__ai__translate_copied">Copied</string>
+    <string name="aichat__ai__translate_copied_hint">Pick a language to translate the copied message</string>
+    <string name="aichat__ai__translate_close">Close</string>
     <string name="aichat__ai__loading">Working…</string>
     <string name="aichat__ai__done">Text replaced</string>
     <string name="aichat__ai__undo">Undo</string>

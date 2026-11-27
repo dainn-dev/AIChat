@@ -17,6 +17,7 @@ import com.aichat.keyboard.core.network.model.KeyboardReplyRequest
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
 import com.aichat.keyboard.core.network.model.Tone
 import com.aichat.keyboard.reply.AccessibilityConversationProvider
+import com.aichat.keyboard.reply.CaptureResult
 import com.aichat.keyboard.reply.CapturedConversation
 import com.aichat.keyboard.reply.ClipboardConversationProvider
 import com.aichat.keyboard.reply.ConversationCapturer
@@ -53,6 +54,7 @@ object AiAssist {
     private fun create(appContext: Context): AiAssistController {
         val editorInstance by appContext.editorInstance()
         val keyboardManager by appContext.keyboardManager()
+        val clipboard = ClipboardConversationProvider(appContext)
         return AiAssistController(
             backend = AiChatTextBackend(
                 client = AiChat.client(appContext),
@@ -65,9 +67,14 @@ object AiAssist {
             capturer = ConversationCapturer(
                 listOf(
                     AccessibilityConversationProvider(appContext),
-                    ClipboardConversationProvider(appContext),
+                    clipboard,
                 ),
             ),
+            // The translate button translates a message the user just copied, with the same checks (recent, plain
+            // text, not a code or login, not the user's own draft) as replies to a copied message.
+            copiedText = {
+                (clipboard.capture() as? CaptureResult.Captured)?.conversation?.messages?.firstOrNull()?.content
+            },
         )
     }
 }
@@ -152,6 +159,12 @@ internal class ImeAiEditorPort(
         val ic = FlorisImeService.currentInputConnection() ?: return FieldRead.Unreadable
         editorInstance.viInput.finishWord()
         ic.finishComposingText()
+        val snapshot = ic.snapshot() ?: return FieldRead.Unreadable
+        return if (snapshot.isTruncated) FieldRead.TooLong else FieldRead.Text(snapshot.text)
+    }
+
+    override fun peekAllText(): FieldRead {
+        val ic = FlorisImeService.currentInputConnection() ?: return FieldRead.Unreadable
         val snapshot = ic.snapshot() ?: return FieldRead.Unreadable
         return if (snapshot.isTruncated) FieldRead.TooLong else FieldRead.Text(snapshot.text)
     }
