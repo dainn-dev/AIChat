@@ -52,6 +52,25 @@ class AiSmartbarLayoutTest {
     }
 
     @Test
+    fun `a translation that fits on one line keeps the bar one row tall`() {
+        assertEquals(
+            1,
+            AiSmartbarLayout.mainRowCount(
+                suggestionsOnly = true,
+                state = AiAssistState.Translating("zh", TranslatePreview.Ready("solid", "固体")),
+                translationWraps = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `a translation wraps when it is wider than the row or has a line break`() {
+        assertEquals(false, AiSmartbarLayout.translationWraps("固体", contentWidthPx = 200f, chromePx = 80f, rowWidthPx = 1080f))
+        assertEquals(true, AiSmartbarLayout.translationWraps("long", contentWidthPx = 1050f, chromePx = 80f, rowWidthPx = 1080f))
+        assertEquals(true, AiSmartbarLayout.translationWraps("a\nb", contentWidthPx = 10f, chromePx = 0f, rowWidthPx = 1080f))
+    }
+
+    @Test
     fun `a copied message's translation gets the tall bar`() {
         assertEquals(
             AiSmartbarLayout.SUGGESTION_ROWS,

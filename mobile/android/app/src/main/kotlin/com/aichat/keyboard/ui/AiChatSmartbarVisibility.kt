@@ -13,6 +13,15 @@ import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiAssistState
 import com.aichat.keyboard.ai.AiFeatureGate
 import com.aichat.keyboard.ai.AiSmartbarLayout
+import com.aichat.keyboard.ai.TranslatePreview
+import com.aichat.keyboard.ai.keyboardString
+import com.aichat.keyboard.ai.languageName
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.patrickgold.florisboard.R
 import com.aichat.keyboard.sticker.suggest.rememberTypingStickerSuggestion
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.nlp.NlpInlineAutofill
@@ -62,5 +71,43 @@ fun smartbarMainRowCount(): Int {
     val aiEnabled by prefs.aichatAi.enabled.observeAsState()
     val rawAiState by aiController.state.collectAsState()
     val aiState = AiFeatureGate.panelState(aiEnabled, rawAiState)
-    return AiSmartbarLayout.mainRowCount(suggestionsOnly = layout == SmartbarLayout.SUGGESTIONS_ONLY, state = aiState)
+    return AiSmartbarLayout.mainRowCount(
+        suggestionsOnly = layout == SmartbarLayout.SUGGESTIONS_ONLY,
+        state = aiState,
+        translationWraps = rememberTranslationWraps(aiState),
+    )
+}
+
+/**
+ * Whether the live translation needs a second line, measured at the AI text size against the keyboard width.
+ * While the next translation loads, the last answer is kept so the bar does not jump while typing.
+ */
+@Composable
+private fun rememberTranslationWraps(state: AiAssistState): Boolean {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val last = remember { booleanArrayOf(false) }
+    val translating = state as? AiAssistState.Translating ?: return true
+    val style = TextStyle(fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp)
+    fun width(text: String): Float = measurer.measure(text, style, softWrap = false, maxLines = 1).size.width.toFloat()
+    val chip = width("${languageName(translating.targetLang)} ▾")
+    val rowWidth = context.resources.displayMetrics.widthPixels.toFloat()
+    val chrome = with(density) { AiSmartbarLayout.TRANSLATE_ROW_CHROME_DP.dp.toPx() }
+    val undo = keyboardString(R.string.aichat__ai__undo)
+    val wraps = when (val preview = translating.preview) {
+        TranslatePreview.Idle -> false
+        is TranslatePreview.Loading -> return last[0]
+        is TranslatePreview.Failed -> true
+        is TranslatePreview.Ready ->
+            AiSmartbarLayout.translationWraps(preview.text, chip + width(preview.text), chrome, rowWidth)
+        is TranslatePreview.Applied -> AiSmartbarLayout.translationWraps(
+            preview.text,
+            chip + width(preview.text) + width(undo),
+            chrome + with(density) { AiSmartbarLayout.CHIP_CHROME_DP.dp.toPx() },
+            rowWidth,
+        )
+    }
+    last[0] = wraps
+    return wraps
 }

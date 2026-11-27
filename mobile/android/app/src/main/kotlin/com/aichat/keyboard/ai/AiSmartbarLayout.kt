@@ -30,11 +30,28 @@ object AiSmartbarLayout {
     /** Card padding (8dp + 8dp) and top margin (4dp) from the chip style, in dp. */
     const val CARD_VERTICAL_CHROME_DP = 20f
 
+    /**
+     * Width the translate row needs besides the chip label and the translation text: chip and card padding and
+     * margins, and the smartbar's edges. Generous on purpose: wrongly staying one row would clip the text.
+     */
+    const val TRANSLATE_ROW_CHROME_DP = 80f
+
+    /** Extra width of the undo chip next to an applied translation, besides its label. */
+    const val CHIP_CHROME_DP = 32f
+
+    /** Whether the translate row's content ([contentWidthPx]: chip label + text + extra chips) needs two lines. */
+    fun translationWraps(text: String, contentWidthPx: Float, chromePx: Float, rowWidthPx: Float): Boolean =
+        '\n' in text || contentWidthPx + chromePx > rowWidthPx
+
     const val MIN_CARD_LINES = 2
     const val MAX_CARD_LINES = 3
 
     /** Rows of the smartbar's main row: grown only in the suggestions-only layout (the one that shows the AI panel). */
-    fun mainRowCount(suggestionsOnly: Boolean, state: AiAssistState): Int = when {
+    /**
+     * [translationWraps]: the live translation (with its language chip) does not fit on one line, measured by the
+     * caller. A short translation keeps the bar one row tall instead of leaving an empty second row.
+     */
+    fun mainRowCount(suggestionsOnly: Boolean, state: AiAssistState, translationWraps: Boolean = true): Int = when {
         !suggestionsOnly -> 1
         state is AiAssistState.Suggestions -> SUGGESTION_ROWS
         // A summary is a few sentences plus the interest score: the tall bar, like reply suggestions.
@@ -45,9 +62,9 @@ object AiSmartbarLayout {
         state is AiAssistState.Translating && state.copied != null -> SUGGESTION_ROWS
         // Nothing to show yet (empty field: just the hint) or picking a language: one row, like the closed bar.
         state is AiAssistState.Translating && (state.choosingLang || state.preview == TranslatePreview.Idle) -> 1
-        // A translation may wrap: two rows from the first translation on, kept while the preview updates, so the
-        // bar does not jump while typing. It shrinks back once the field is empty again (e.g. after sending).
-        state is AiAssistState.Translating -> MESSAGE_ROWS
+        // Two rows only when the translation needs a second line; the caller keeps the last answer while the next
+        // translation loads, so the bar does not jump while typing.
+        state is AiAssistState.Translating -> if (translationWraps) MESSAGE_ROWS else 1
         else -> 1
     }
 
