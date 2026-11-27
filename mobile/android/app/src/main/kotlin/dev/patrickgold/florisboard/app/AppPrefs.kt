@@ -290,19 +290,19 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
     inner class Gestures {
         val swipeUp = enum(
             key = "gestures__swipe_up",
-            default = SwipeAction.SHIFT,
+            default = SwipeAction.NO_ACTION, // AIChat MODIFIED: Gboard-like default (upstream: SHIFT)
         )
         val swipeDown = enum(
             key = "gestures__swipe_down",
-            default = SwipeAction.HIDE_KEYBOARD,
+            default = SwipeAction.NO_ACTION, // AIChat MODIFIED: Gboard-like default (upstream: HIDE_KEYBOARD)
         )
         val swipeLeft = enum(
             key = "gestures__swipe_left",
-            default = SwipeAction.SWITCH_TO_NEXT_SUBTYPE,
+            default = SwipeAction.NO_ACTION, // AIChat MODIFIED: Gboard-like default (upstream: SWITCH_TO_NEXT_SUBTYPE)
         )
         val swipeRight = enum(
             key = "gestures__swipe_right",
-            default = SwipeAction.SWITCH_TO_PREV_SUBTYPE,
+            default = SwipeAction.NO_ACTION, // AIChat MODIFIED: Gboard-like default (upstream: SWITCH_TO_PREV_SUBTYPE)
         )
         val spaceBarSwipeUp = enum(
             key = "gestures__space_bar_swipe_up",
@@ -322,7 +322,7 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val deleteKeySwipeLeft = enum(
             key = "gestures__delete_key_swipe_left",
-            default = SwipeAction.DELETE_CHARACTERS_PRECISELY,
+            default = SwipeAction.DELETE_WORDS_PRECISELY, // AIChat MODIFIED: Gboard-like default (upstream: DELETE_CHARACTERS_PRECISELY)
         )
         val deleteKeyLongPress = enum(
             key = "gestures__delete_key_long_press",
@@ -342,7 +342,7 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
     inner class Glide {
         val enabled = boolean(
             key = "glide__enabled",
-            default = false,
+            default = true, // AIChat MODIFIED: Gboard-like default (upstream: false)
         )
         val showTrail = boolean(
             key = "glide__show_trail",
