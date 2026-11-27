@@ -14,8 +14,15 @@ object AiFeatureGate {
 
     fun showAiButton(enabled: Boolean): Boolean = enabled
 
-    /** The chat reader only feeds AI reply suggestions, so its entry goes with the AI. */
-    fun showChatReaderEntry(enabled: Boolean): Boolean = enabled
+    /**
+     * The chat reader only feeds AI reply suggestions, so its entry goes with the AI, except while the reader is
+     * still enabled: the user must always be able to review and revoke it.
+     */
+    fun showChatReaderEntry(enabled: Boolean, readerEnabled: Boolean): Boolean = enabled || readerEnabled
+
+    /** The AI state the smartbar may draw: always [AiAssistState.Closed] while the AI is off. */
+    fun panelState(enabled: Boolean, state: AiAssistState): AiAssistState =
+        if (enabled) state else AiAssistState.Closed
 
     /** Turning the AI off while its panel is open closes the panel. */
     fun shouldCloseAssist(enabled: Boolean, state: AiAssistState): Boolean =

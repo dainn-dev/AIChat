@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.aichat.keyboard.ai.AiFeatureGate
 import com.aichat.keyboard.app.account.AiChatAccountPreference
 import com.aichat.keyboard.capture.AiChatCapturePreference
+import com.aichat.keyboard.capture.rememberCaptureEnabled
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
@@ -120,7 +121,7 @@ fun HomeScreen() = FlorisScreen {
             summary = stringRes(R.string.aichat__ai__pref_summary),
         )
         val aiEnabled by prefs.aichatAi.enabled.observeAsState()
-        if (AiFeatureGate.showChatReaderEntry(aiEnabled)) {
+        if (AiFeatureGate.showChatReaderEntry(aiEnabled, readerEnabled = rememberCaptureEnabled())) {
             // AIChat MODIFIED: "Đọc tin nhắn để gợi ý trả lời" (chat reader consent) entry below the account.
             AiChatCapturePreference()
         }

@@ -15,11 +15,23 @@ class AiFeatureGateTest {
     }
 
     @Test
-    fun `ai button and chat reader entry follow the setting`() {
+    fun `ai button follows the setting`() {
         assertTrue(AiFeatureGate.showAiButton(enabled = true))
         assertFalse(AiFeatureGate.showAiButton(enabled = false))
-        assertTrue(AiFeatureGate.showChatReaderEntry(enabled = true))
-        assertFalse(AiFeatureGate.showChatReaderEntry(enabled = false))
+    }
+
+    @Test
+    fun `chat reader entry shows with ai on or while the reader is still enabled`() {
+        assertTrue(AiFeatureGate.showChatReaderEntry(enabled = true, readerEnabled = false))
+        assertFalse(AiFeatureGate.showChatReaderEntry(enabled = false, readerEnabled = false))
+        // A reader the user turned on earlier must stay reviewable and revocable after the AI is switched off.
+        assertTrue(AiFeatureGate.showChatReaderEntry(enabled = false, readerEnabled = true))
+    }
+
+    @Test
+    fun `ai panel is never shown while ai is off`() {
+        assertTrue(AiFeatureGate.panelState(enabled = true, state = AiAssistState.Ready) == AiAssistState.Ready)
+        assertTrue(AiFeatureGate.panelState(enabled = false, state = AiAssistState.Ready) == AiAssistState.Closed)
     }
 
     @Test
