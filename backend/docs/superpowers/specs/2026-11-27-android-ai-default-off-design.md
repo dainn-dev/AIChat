@@ -23,7 +23,9 @@ Settings.
 - Rejected: hiding only the icon. The chat reader entry would then point to a feature nobody can reach.
 
 ## Non-goals
-Changing the AI features themselves, the backend, or the chat-reader accessibility service. A service the user already
+Gating the Share-menu AI reply target. The user chooses it explicitly, so it stays available while the switch is
+off (user's decision, 2026-11-27). Changing the AI features themselves, the backend, or the chat-reader accessibility
+service. A service the user already
 enabled stays enabled; only the settings entry is hidden.
 
 ## Tests
