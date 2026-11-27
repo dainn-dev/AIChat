@@ -173,6 +173,7 @@
 
     <!-- Keyboard: smartbar AI button (rewrite / translate the field text) -->
     <string name="aichat__ai__button">AI writing tools</string>
+    <string name="aichat__typing__status">Spell checking works offline for English and Vietnamese: turn it on under "Spelling" below. Word suggestions while typing are not available yet (emoji and Chinese suggestions are); everything under "Corrections" works.</string>
     <string name="aichat__ai__suggest_replies">💬 Suggest replies</string>
     <string name="aichat__ai__rewrite_formal">Formal</string>
     <string name="aichat__ai__rewrite_casual">Casual</string>
