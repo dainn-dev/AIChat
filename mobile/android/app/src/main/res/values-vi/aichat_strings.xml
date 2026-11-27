@@ -166,6 +166,13 @@
     <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
     <string name="aichat__ai__button">Công cụ viết AI</string>
     <string name="aichat__ai__suggest_replies">💬 Gợi ý trả lời</string>
+    <string name="aichat__ai__rewrite_formal">Trang trọng</string>
+    <string name="aichat__ai__rewrite_casual">Bình thường</string>
+    <string name="aichat__ai__write">✍️ Viết giúp</string>
+    <string name="aichat__ai__correct">✅ Sửa lỗi</string>
+    <string name="aichat__ai__summarize">📝 Tóm tắt</string>
+    <string name="aichat__ai__summary_interest">Quan tâm %1$d/100</string>
+    <string name="aichat__ai__summary_unavailable">Cuộc trò chuyện chưa đủ nội dung để tóm tắt.</string>
     <string name="aichat__ai__rewrite_flirty">Tán tỉnh</string>
     <string name="aichat__ai__tone_flirty">😏 Tán tỉnh</string>
     <string name="aichat__ai__tone_funny">😄 Vui vẻ</string>
@@ -182,8 +189,6 @@
     <string name="aichat__ai__rewrite_friendly">Thân thiện</string>
     <string name="aichat__ai__rewrite_polite">Lịch sự</string>
     <string name="aichat__ai__rewrite_funny">Hài hước</string>
-    <string name="aichat__ai__translate_en">Dịch → English</string>
-    <string name="aichat__ai__translate_vi">Dịch → Tiếng Việt</string>
     <string name="aichat__ai__translate_button">Dịch trực tiếp</string>
     <string name="aichat__ai__translate_hint">Gõ chữ, bản dịch hiện ở đây</string>
     <string name="aichat__ai__translate_apply">Dùng bản dịch này</string>

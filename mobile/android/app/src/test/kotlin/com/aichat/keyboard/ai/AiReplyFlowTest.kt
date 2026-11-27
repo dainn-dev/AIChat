@@ -4,6 +4,7 @@ import com.aichat.keyboard.core.network.error.ApiError
 import com.aichat.keyboard.core.network.error.ApiResult
 import com.aichat.keyboard.core.network.model.ChatMessage
 import com.aichat.keyboard.core.network.model.MessageSender
+import com.aichat.keyboard.core.network.model.OutputLang
 import com.aichat.keyboard.core.network.model.Tone
 import com.aichat.keyboard.reply.CaptureResult
 import com.aichat.keyboard.reply.CapturedConversation
@@ -58,6 +59,14 @@ class AiReplyFlowTest {
         override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions> {
             replyCalls += conversation to tone
             return replies
+        }
+
+        var summary: ApiResult<ConversationSummary> =
+            ApiResult.Success(ConversationSummary("Lan rủ đi chơi tối nay.", 80, listOf("Hơi vội")))
+        val summaryCalls = mutableListOf<Pair<CapturedConversation, OutputLang?>>()
+        override suspend fun summarize(conversation: CapturedConversation, lang: OutputLang?): ApiResult<ConversationSummary> {
+            summaryCalls += conversation to lang
+            return summary
         }
     }
 
@@ -206,6 +215,11 @@ class AiReplyFlowTest {
                 if (calls++ > 0) gate.await()
                 return ApiResult.Success(ReplySuggestions(listOf("ok")))
             }
+
+            override suspend fun summarize(
+                conversation: CapturedConversation,
+                lang: com.aichat.keyboard.core.network.model.OutputLang?,
+            ): ApiResult<ConversationSummary> = ApiResult.Success(ConversationSummary("s", 50))
         }
         val c = controller(listOf(FakeProvider("a", CaptureResult.Captured(chat))), backend)
         c.requestReplies(Tone.FLIRTY)
@@ -247,5 +261,58 @@ class AiReplyFlowTest {
         c.requestReplies(Tone.FRIENDLY)
         advanceUntilIdle()
         assertEquals(AiAssistState.Failed(AiFailure.UNSUPPORTED_CHAT_APP), c.state.value)
+    }
+
+    @Test
+    fun `summary captures the chat and shows it in the keyboard language`() = runTest {
+        val backend = FakeBackend()
+        val c = controller(listOf(FakeProvider("a", CaptureResult.Captured(chat))), backend)
+        c.toggle()
+        c.requestSummary(OutputLang.VI)
+        assertEquals(AiAssistState.Loading(AiAction.Summarize), c.state.value)
+        advanceUntilIdle()
+        assertEquals(
+            AiAssistState.Summary(ConversationSummary("Lan rủ đi chơi tối nay.", 80, listOf("Hơi vội"))),
+            c.state.value,
+        )
+        assertEquals(listOf<Pair<CapturedConversation, OutputLang?>>(chat to OutputLang.VI), backend.summaryCalls)
+        // Back returns to the chips.
+        c.dismissMessage()
+        assertEquals(AiAssistState.Ready, c.state.value)
+    }
+
+    @Test
+    fun `summary without a readable chat explains why and never calls the backend`() = runTest {
+        val backend = FakeBackend()
+        val c = controller(
+            listOf(FakeProvider("a", CaptureResult.Unavailable(UnavailableReason.UNSUPPORTED_APP))),
+            backend,
+        )
+        c.requestSummary(null)
+        advanceUntilIdle()
+        assertEquals(AiAssistState.Failed(AiFailure.UNSUPPORTED_CHAT_APP), c.state.value)
+        assertTrue(backend.summaryCalls.isEmpty())
+    }
+
+    @Test
+    fun `summary failures map like replies`() = runTest {
+        val backend = FakeBackend().apply { summary = ApiResult.Failure(ApiError.QuotaExceeded("x", 20, "reply")) }
+        val c = controller(listOf(FakeProvider("a", CaptureResult.Captured(chat))), backend)
+        c.requestSummary(null)
+        advanceUntilIdle()
+        assertEquals(AiAssistState.Failed(AiFailure.QUOTA), c.state.value)
+    }
+
+    @Test
+    fun `summary is refused in a password field`() = runTest {
+        val backend = FakeBackend()
+        val c = controller(
+            listOf(FakeProvider("a", CaptureResult.Captured(chat))),
+            backend,
+            FakeEditor().apply { available = false },
+        )
+        c.requestSummary(null)
+        assertEquals(AiAssistState.Failed(AiFailure.UNAVAILABLE), c.state.value)
+        assertTrue(backend.summaryCalls.isEmpty())
     }
 }

@@ -3,11 +3,15 @@ package com.aichat.keyboard.core.network
 import com.aichat.keyboard.core.network.model.AuthTokensResponse
 import com.aichat.keyboard.core.network.model.ChatMessage
 import com.aichat.keyboard.core.network.model.ConversationListResponse
+import com.aichat.keyboard.core.network.model.KeyboardCorrectRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyResponse
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
 import com.aichat.keyboard.core.network.model.KeyboardTextResponse
 import com.aichat.keyboard.core.network.model.KeyboardTranslateRequest
+import com.aichat.keyboard.core.network.model.KeyboardWriteRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummarizeRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummaryResponse
 import com.aichat.keyboard.core.network.model.LoginRequest
 import com.aichat.keyboard.core.network.model.LogoutRequest
 import com.aichat.keyboard.core.network.model.RefreshRequest
@@ -125,6 +129,60 @@ class SerializationTest {
                 json.encodeToString(UpdateSettingsRequest.serializer(), UpdateSettingsRequest(trainingOptIn = false))
             },
         )
+    }
+
+    @Test
+    fun `write request matches the doc example`() {
+        assertEquals(
+            json.parseToJsonElement("""{ "instruction": "chúc sinh nhật sếp", "lang": "vi" }"""),
+            encode {
+                json.encodeToString(
+                    KeyboardWriteRequest.serializer(),
+                    KeyboardWriteRequest("chúc sinh nhật sếp", OutputLang.VI),
+                )
+            },
+        )
+    }
+
+    @Test
+    fun `correct request is just the text`() {
+        assertEquals(
+            json.parseToJsonElement("""{ "text": "toi nay ban ranh ko" }"""),
+            encode {
+                json.encodeToString(KeyboardCorrectRequest.serializer(), KeyboardCorrectRequest("toi nay ban ranh ko"))
+            },
+        )
+    }
+
+    @Test
+    fun `summarize request matches the doc example and omits unset fields`() {
+        val conversation = listOf(ChatMessage(MessageSender.THEM, "cuối tuần đi cafe ko?"))
+        assertEquals(
+            json.parseToJsonElement(
+                """{ "conversation": [{ "sender": "them", "content": "cuối tuần đi cafe ko?" }],
+                    "lang": "vi", "contact_label": "Linh" }""",
+            ),
+            encode {
+                json.encodeToString(
+                    KeyboardSummarizeRequest.serializer(),
+                    KeyboardSummarizeRequest(conversation, OutputLang.VI, contactLabel = "Linh"),
+                )
+            },
+        )
+        val bare = encode {
+            json.encodeToString(KeyboardSummarizeRequest.serializer(), KeyboardSummarizeRequest(conversation))
+        }.jsonObject
+        assertEquals(setOf("conversation"), bare.keys)
+    }
+
+    @Test
+    fun `decodes the summarize response from the doc`() {
+        val body = """{"summary":"Linh rủ bạn đi cà phê.","interest_score":78,
+            "red_flags":[{"code":"pressure","message":"Hơi hối thúc"}],"degraded":false,"usage":${Payloads.USAGE}}"""
+        val response = json.decodeFromString(KeyboardSummaryResponse.serializer(), body)
+        assertEquals(78, response.interestScore)
+        assertEquals("Hơi hối thúc", response.redFlags.single().message)
+        assertEquals(false, response.degraded)
     }
 
     @Test

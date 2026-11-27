@@ -2,11 +2,15 @@ package com.aichat.keyboard.core.network.api
 
 import com.aichat.keyboard.core.network.model.AuthTokensResponse
 import com.aichat.keyboard.core.network.model.ConversationListResponse
+import com.aichat.keyboard.core.network.model.KeyboardCorrectRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyResponse
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummarizeRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummaryResponse
 import com.aichat.keyboard.core.network.model.KeyboardTextResponse
 import com.aichat.keyboard.core.network.model.KeyboardTranslateRequest
+import com.aichat.keyboard.core.network.model.KeyboardWriteRequest
 import com.aichat.keyboard.core.network.model.LoginRequest
 import com.aichat.keyboard.core.network.model.LogoutRequest
 import com.aichat.keyboard.core.network.model.MeResponse
@@ -75,6 +79,15 @@ internal interface AiChatApi {
 
     @POST("v1/keyboard/reply")
     suspend fun reply(@Body body: KeyboardReplyRequest): KeyboardReplyResponse
+
+    @POST("v1/keyboard/write")
+    suspend fun write(@Body body: KeyboardWriteRequest): KeyboardTextResponse
+
+    @POST("v1/keyboard/correct")
+    suspend fun correct(@Body body: KeyboardCorrectRequest): KeyboardTextResponse
+
+    @POST("v1/keyboard/summarize")
+    suspend fun summarize(@Body body: KeyboardSummarizeRequest): KeyboardSummaryResponse
 
     @POST("v1/keyboard/rewrite")
     suspend fun rewrite(@Body body: KeyboardRewriteRequest): KeyboardTextResponse

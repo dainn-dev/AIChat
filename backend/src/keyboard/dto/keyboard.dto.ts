@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AiMessageDto } from '../../ai/dto/ai-message.dto';
+import { RedFlag } from '../../ai/dto/analyze.dto';
 import { ReplyCandidate, UsageSnapshot } from '../../ai/dto/reply.dto';
 import { Tone } from '../../ai/enums/tone.enum';
 import { OutputLang } from '../../ai/enums/output-lang.enum';
@@ -105,6 +106,38 @@ export class KeyboardReplyDto {
   remember?: boolean;
 }
 
+/**
+ * `POST /v1/keyboard/summarize` — summary of the chat on screen: what it is
+ * about, how interested the other person seems, and red flags. Read-only: the
+ * conversation is never stored by this call.
+ */
+export class KeyboardSummarizeDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => AiMessageDto)
+  conversation!: AiMessageDto[];
+
+  /** Language of the summary (keyboard language); omitted → the chat's. */
+  @IsOptional()
+  @IsEnum(OutputLang)
+  lang?: OutputLang;
+
+  /** Chat partner's display name; scopes memory retrieval (MS-3) only. */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    sanitizeLabelInput(value, Number.MAX_SAFE_INTEGER),
+  )
+  @IsString()
+  @Matches(NO_NUL_PATTERN, {
+    message: 'contact_label must not contain NUL characters',
+  })
+  @MinLength(1)
+  @MaxLength(CONTACT_LABEL_MAX_LENGTH)
+  contact_label?: string;
+}
+
 /** `POST /v1/keyboard/rewrite` — rewrite a draft in a tone. */
 export class KeyboardRewriteDto {
   @IsString()
@@ -119,6 +152,27 @@ export class KeyboardRewriteDto {
   @IsOptional()
   @IsEnum(OutputLang)
   lang?: OutputLang;
+}
+
+/** `POST /v1/keyboard/write` - write a new message from an instruction. */
+export class KeyboardWriteDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  instruction!: string;
+
+  /** Output language (keyboard language); omitted -> the instruction's. */
+  @IsOptional()
+  @IsEnum(OutputLang)
+  lang?: OutputLang;
+}
+
+/** `POST /v1/keyboard/correct` — fix spelling and grammar of a draft. */
+export class KeyboardCorrectDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  text!: string;
 }
 
 /** `POST /v1/keyboard/translate` — translate a draft into a target language. */
@@ -154,6 +208,16 @@ export interface KeyboardReplyResponse {
    * contact_label, `remember: false`, or a best-effort write failure/timeout).
    */
   conversation_id: string | null;
+  usage: UsageSnapshot;
+}
+
+export interface KeyboardSummaryResponse {
+  summary: string;
+  /** How interested the other person seems, integer 0-100. */
+  interest_score: number;
+  red_flags: RedFlag[];
+  /** True when the model output was unusable and `summary` is a placeholder. */
+  degraded: boolean;
   usage: UsageSnapshot;
 }
 

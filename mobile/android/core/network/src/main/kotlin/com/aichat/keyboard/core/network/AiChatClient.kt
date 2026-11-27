@@ -9,11 +9,15 @@ import com.aichat.keyboard.core.network.error.ApiResult
 import com.aichat.keyboard.core.network.error.ErrorEnvelopeMapper
 import com.aichat.keyboard.core.network.model.AuthTokensResponse
 import com.aichat.keyboard.core.network.model.ConversationListResponse
+import com.aichat.keyboard.core.network.model.KeyboardCorrectRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyResponse
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
 import com.aichat.keyboard.core.network.model.KeyboardTextResponse
 import com.aichat.keyboard.core.network.model.KeyboardTranslateRequest
+import com.aichat.keyboard.core.network.model.KeyboardWriteRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummarizeRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummaryResponse
 import com.aichat.keyboard.core.network.model.LoginRequest
 import com.aichat.keyboard.core.network.model.LogoutRequest
 import com.aichat.keyboard.core.network.model.MeResponse
@@ -120,6 +124,15 @@ class AiChatClient internal constructor(
 
     suspend fun translate(request: KeyboardTranslateRequest): ApiResult<KeyboardTextResponse> =
         authed { api.translate(request) }
+
+    suspend fun write(request: KeyboardWriteRequest): ApiResult<KeyboardTextResponse> =
+        authed { api.write(request) }
+
+    suspend fun correct(request: KeyboardCorrectRequest): ApiResult<KeyboardTextResponse> =
+        authed { api.correct(request) }
+
+    suspend fun summarize(request: KeyboardSummarizeRequest): ApiResult<KeyboardSummaryResponse> =
+        authed { api.summarize(request) }
 
     // -- Plumbing ---------------------------------------------------------------------------------------------
 

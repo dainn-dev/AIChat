@@ -7,11 +7,15 @@ import { UsageService } from '../usage/usage.service';
 import { AuthenticatedUser } from '../auth/jwt-payload';
 import { ConversationsService } from '../conversations/conversations.service';
 import {
+  KeyboardCorrectDto,
   KeyboardReplyDto,
   KeyboardReplyResponse,
   KeyboardRewriteDto,
+  KeyboardSummarizeDto,
+  KeyboardSummaryResponse,
   KeyboardTextResponse,
   KeyboardTranslateDto,
+  KeyboardWriteDto,
 } from './dto/keyboard.dto';
 
 const DEFAULT_REPLY_COUNT = 3;
@@ -82,6 +86,38 @@ export class KeyboardService {
     };
   }
 
+  /**
+   * Summary of the captured chat. One metered generation, like a reply; it
+   * never persists the conversation (summaries are read-only).
+   */
+  async summarize(
+    user: AuthenticatedUser,
+    dto: KeyboardSummarizeDto,
+  ): Promise<KeyboardSummaryResponse> {
+    const tier = this.toUsageTier(user.tier);
+    const analysis = await this.usage.runWithQuota(
+      user.sub,
+      tier,
+      UsageMetric.Reply,
+      () =>
+        this.pipeline.analyze(
+          { messages: dto.conversation, lang: dto.lang },
+          {
+            source: AiSource.Keyboard,
+            userId: user.sub,
+            contactLabel: dto.contact_label,
+          },
+        ),
+    );
+    return {
+      summary: analysis.summary,
+      interest_score: analysis.interest_score,
+      red_flags: analysis.red_flags,
+      degraded: analysis.degraded,
+      usage: await this.snapshot(user.sub, tier),
+    };
+  }
+
   async rewrite(
     user: AuthenticatedUser,
     dto: KeyboardRewriteDto,
@@ -94,6 +130,42 @@ export class KeyboardService {
       () =>
         this.pipeline.rewrite(
           { text: dto.text, tone: dto.tone, lang: dto.lang },
+          { source: AiSource.Keyboard, userId: user.sub },
+        ),
+    );
+    return { text, usage: await this.snapshot(user.sub, tier) };
+  }
+
+  async write(
+    user: AuthenticatedUser,
+    dto: KeyboardWriteDto,
+  ): Promise<KeyboardTextResponse> {
+    const tier = this.toUsageTier(user.tier);
+    const text = await this.usage.runWithQuota(
+      user.sub,
+      tier,
+      UsageMetric.Reply,
+      () =>
+        this.pipeline.write(
+          { instruction: dto.instruction, lang: dto.lang },
+          { source: AiSource.Keyboard, userId: user.sub },
+        ),
+    );
+    return { text, usage: await this.snapshot(user.sub, tier) };
+  }
+
+  async correct(
+    user: AuthenticatedUser,
+    dto: KeyboardCorrectDto,
+  ): Promise<KeyboardTextResponse> {
+    const tier = this.toUsageTier(user.tier);
+    const text = await this.usage.runWithQuota(
+      user.sub,
+      tier,
+      UsageMetric.Reply,
+      () =>
+        this.pipeline.correct(
+          { text: dto.text },
           { source: AiSource.Keyboard, userId: user.sub },
         ),
     );

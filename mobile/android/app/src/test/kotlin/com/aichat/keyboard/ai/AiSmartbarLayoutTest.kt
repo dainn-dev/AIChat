@@ -13,14 +13,33 @@ class AiSmartbarLayoutTest {
         assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Closed))
         assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Ready))
         assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.ChoosingReplyTone))
+        assertEquals(
+            AiSmartbarLayout.SUGGESTION_ROWS,
+            AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Summary(ConversationSummary("a", 50))),
+        )
+        assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Loading(AiAction.Summarize)))
         // Other layouts never show the AI panel, so they keep one row.
         assertEquals(1, AiSmartbarLayout.mainRowCount(suggestionsOnly = false, state = AiAssistState.Suggestions(listOf("a"))))
     }
 
     @Test
-    fun `live translation keeps two rows whatever its preview, so the bar does not jump while typing`() {
+    fun `live translation is one row with nothing to translate or while picking a language`() {
+        assertEquals(
+            1,
+            AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Translating("en")),
+        )
+        assertEquals(
+            1,
+            AiSmartbarLayout.mainRowCount(
+                suggestionsOnly = true,
+                state = AiAssistState.Translating("en", TranslatePreview.Ready("a", "b"), choosingLang = true),
+            ),
+        )
+    }
+
+    @Test
+    fun `live translation keeps two rows once translating, so the bar does not jump while typing`() {
         listOf(
-            TranslatePreview.Idle,
             TranslatePreview.Loading("a"),
             TranslatePreview.Ready("a", "b"),
             TranslatePreview.Failed(AiFailure.NETWORK),

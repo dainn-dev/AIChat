@@ -27,6 +27,9 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
     reply: jest.fn(),
     rewrite: jest.fn(),
     translate: jest.fn(),
+    summarize: jest.fn(),
+    correct: jest.fn(),
+    write: jest.fn(),
   };
   const auth = { getMe: jest.fn(), updateSettings: jest.fn() };
   const conversations = { remove: jest.fn(), list: jest.fn() };
@@ -84,6 +87,13 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
       usage: {},
     });
     keyboard.rewrite.mockResolvedValue({ text: 'x', usage: {} });
+    keyboard.summarize.mockResolvedValue({
+      summary: 'ok',
+      interest_score: 50,
+      red_flags: [],
+      degraded: false,
+      usage: {},
+    });
   });
 
   describe('POST /v1/keyboard/reply', () => {
@@ -155,6 +165,99 @@ describe('Android Phase 0 contract (e2e, no DB)', () => {
         .set(bearer())
         .send({ text: 'ok', tone: 'Professional', lang: 'jp' });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /v1/keyboard/write', () => {
+    it('passes instruction and lang through', async () => {
+      keyboard.write.mockResolvedValue({ text: 'Chúc mừng!', usage: {} });
+      const res = await http()
+        .post('/v1/keyboard/write')
+        .set(bearer())
+        .send({ instruction: 'chúc mừng sinh nhật', lang: 'vi' })
+        .expect(200);
+      expect(res.body.text).toBe('Chúc mừng!');
+      expect(keyboard.write.mock.calls[0][1]).toEqual({
+        instruction: 'chúc mừng sinh nhật',
+        lang: 'vi',
+      });
+    });
+
+    it('400s on empty or oversized instruction and unknown fields', async () => {
+      for (const body of [
+        { instruction: '' },
+        { instruction: 'a'.repeat(2001) },
+        { instruction: 'hi', tone: 'Friendly' },
+      ]) {
+        await http()
+          .post('/v1/keyboard/write')
+          .set(bearer())
+          .send(body)
+          .expect(400);
+      }
+      expect(keyboard.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /v1/keyboard/correct', () => {
+    it('passes the text through', async () => {
+      keyboard.correct.mockResolvedValue({ text: 'Chào bạn', usage: {} });
+      const res = await http()
+        .post('/v1/keyboard/correct')
+        .set(bearer())
+        .send({ text: 'chao ban' })
+        .expect(200);
+      expect(res.body.text).toBe('Chào bạn');
+      expect(keyboard.correct.mock.calls[0][1]).toEqual({ text: 'chao ban' });
+    });
+
+    it('400s on empty text or unknown fields', async () => {
+      for (const body of [{ text: '' }, { text: 'hi', tone: 'Friendly' }]) {
+        await http()
+          .post('/v1/keyboard/correct')
+          .set(bearer())
+          .send(body)
+          .expect(400);
+      }
+      expect(keyboard.correct).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /v1/keyboard/summarize', () => {
+    it('passes the conversation, lang and contact_label to the service', async () => {
+      const res = await http()
+        .post('/v1/keyboard/summarize')
+        .set(bearer())
+        .send({ conversation, lang: 'vi', contact_label: '  Linh  ' })
+        .expect(200);
+      expect(res.body).toMatchObject({ summary: 'ok', interest_score: 50 });
+      expect(keyboard.summarize.mock.calls[0][1]).toMatchObject({
+        conversation,
+        lang: 'vi',
+        contact_label: 'Linh',
+      });
+    });
+
+    it('400s on fields it does not store (platform, remember) or an empty chat', async () => {
+      for (const body of [
+        { conversation, platform: 'zalo' },
+        { conversation, remember: true },
+        { conversation: [] },
+      ]) {
+        await http()
+          .post('/v1/keyboard/summarize')
+          .set(bearer())
+          .send(body)
+          .expect(400);
+      }
+      expect(keyboard.summarize).not.toHaveBeenCalled();
+    });
+
+    it('401s without a token', async () => {
+      await http()
+        .post('/v1/keyboard/summarize')
+        .send({ conversation })
+        .expect(401);
     });
   });
 

@@ -22,6 +22,12 @@ import dev.patrickgold.florisboard.ime.core.Subtype
 import dev.patrickgold.florisboard.ime.editor.EditorContent
 import dev.patrickgold.florisboard.ime.nlp.SpellingProvider
 import dev.patrickgold.florisboard.ime.nlp.SpellingResult
+import com.aichat.keyboard.spell.EnglishSpellDictionary
+import com.aichat.keyboard.spell.OfflineSpellChecker
+import com.aichat.keyboard.spell.SpellDictionary
+import com.aichat.keyboard.spell.SpellVerdict
+import com.aichat.keyboard.spell.ViSpellDictionary
+import com.aichat.keyboard.vi.glide.ViGlideLexiconLoader
 import dev.patrickgold.florisboard.ime.nlp.SuggestionCandidate
 import dev.patrickgold.florisboard.ime.nlp.SuggestionProvider
 import dev.patrickgold.florisboard.lib.devtools.flogDebug
@@ -44,6 +50,10 @@ class LatinLanguageProvider(context: Context) : SpellingProvider, SuggestionProv
 
     private val wordData = guardedByLock { mutableMapOf<String, Int>() }
     private val wordDataSerializer = MapSerializer(String.serializer(), Int.serializer())
+
+    /** Built once from [wordData] on the first English spell check. */
+    @Volatile
+    private var englishDictionary: EnglishSpellDictionary? = null
 
     override val providerId = ProviderId
 
@@ -87,14 +97,21 @@ class LatinLanguageProvider(context: Context) : SpellingProvider, SuggestionProv
         allowPossiblyOffensive: Boolean,
         isPrivateSession: Boolean,
     ): SpellingResult {
-        return when (word.lowercase()) {
-            // Use typo for typing errors
-            "typo" -> SpellingResult.typo(arrayOf("typo1", "typo2", "typo3"))
-            // Use grammar error if the algorithm can detect this. On Android 11 and lower grammar errors are visually
-            // marked as typos due to a lack of support
-            "gerror" -> SpellingResult.grammarError(arrayOf("grammar1", "grammar2", "grammar3"))
-            // Use valid word for valid input
-            else -> SpellingResult.validWord()
+        // Offline spell check (nothing leaves the device). English and Vietnamese have word lists; other
+        // languages are not underlined rather than flagged wholesale against the wrong list.
+        val dictionary: SpellDictionary = when (subtype.primaryLocale.language) {
+            "vi" -> ViSpellDictionary(ViGlideLexiconLoader.get(appContext))
+            "en" -> {
+                englishDictionary ?: run {
+                    preload(subtype)
+                    EnglishSpellDictionary(wordData.withLock { it.toMap() }).also { englishDictionary = it }
+                }
+            }
+            else -> return SpellingResult.validWord()
+        }
+        return when (val verdict = OfflineSpellChecker.check(word, dictionary, maxSuggestionCount)) {
+            SpellVerdict.Valid -> SpellingResult.validWord()
+            is SpellVerdict.Typo -> SpellingResult.typo(verdict.suggestions.toTypedArray())
         }
     }
 

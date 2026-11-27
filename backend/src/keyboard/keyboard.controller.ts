@@ -10,11 +10,15 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/jwt-payload';
 import {
+  KeyboardCorrectDto,
   KeyboardReplyDto,
   KeyboardReplyResponse,
   KeyboardRewriteDto,
+  KeyboardSummarizeDto,
+  KeyboardSummaryResponse,
   KeyboardTextResponse,
   KeyboardTranslateDto,
+  KeyboardWriteDto,
 } from './dto/keyboard.dto';
 import { KeyboardService } from './keyboard.service';
 
@@ -38,6 +42,15 @@ export class KeyboardController {
     return this.keyboard.reply(user, dto);
   }
 
+  @Post('summarize')
+  @HttpCode(HttpStatus.OK)
+  summarize(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: KeyboardSummarizeDto,
+  ): Promise<KeyboardSummaryResponse> {
+    return this.keyboard.summarize(user, dto);
+  }
+
   @Post('rewrite')
   @HttpCode(HttpStatus.OK)
   rewrite(
@@ -45,6 +58,24 @@ export class KeyboardController {
     @Body() dto: KeyboardRewriteDto,
   ): Promise<KeyboardTextResponse> {
     return this.keyboard.rewrite(user, dto);
+  }
+
+  @Post('write')
+  @HttpCode(HttpStatus.OK)
+  write(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: KeyboardWriteDto,
+  ): Promise<KeyboardTextResponse> {
+    return this.keyboard.write(user, dto);
+  }
+
+  @Post('correct')
+  @HttpCode(HttpStatus.OK)
+  correct(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: KeyboardCorrectDto,
+  ): Promise<KeyboardTextResponse> {
+    return this.keyboard.correct(user, dto);
   }
 
   @Post('translate')

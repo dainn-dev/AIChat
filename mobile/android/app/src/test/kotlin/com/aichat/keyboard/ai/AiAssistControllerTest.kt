@@ -47,6 +47,11 @@ class AiAssistControllerTest {
             conversation: com.aichat.keyboard.reply.CapturedConversation,
             tone: Tone,
         ): ApiResult<ReplySuggestions> = ApiResult.Success(ReplySuggestions(emptyList()))
+
+        override suspend fun summarize(
+            conversation: com.aichat.keyboard.reply.CapturedConversation,
+            lang: com.aichat.keyboard.core.network.model.OutputLang?,
+        ): ApiResult<ConversationSummary> = ApiResult.Success(ConversationSummary("s", 50))
     }
 
     private fun TestScope.controller(editor: AiEditorPort, backend: AiTextBackend) =
@@ -77,6 +82,39 @@ class AiAssistControllerTest {
         assertEquals(listOf<Pair<AiAction, String>>(friendly to "xin chao"), backend.calls)
         assertEquals(listOf("Xin chào!"), editor.replaced)
         assertEquals(AiAssistState.Done(original = "  xin chao  ", applied = "Xin chào!"), c.state.value)
+    }
+
+    @Test
+    fun `fix errors sends the trimmed field and replaces it, with undo`() = runTest {
+        val editor = FakeEditor(text = " xin chao ")
+        val backend = FakeBackend()
+        val c = controller(editor, backend)
+        c.toggle()
+
+        c.run(AiAction.Correct)
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<AiAction, String>>(AiAction.Correct to "xin chao"), backend.calls)
+        assertEquals(AiAssistState.Done(original = " xin chao ", applied = "Xin chào!"), c.state.value)
+    }
+
+    @Test
+    fun `write for me sends the typed request and replaces it with the result, with undo`() = runTest {
+        val editor = FakeEditor(text = " chuc sinh nhat sep ")
+        val backend = FakeBackend()
+        val c = controller(editor, backend)
+        c.toggle()
+
+        c.run(AiAction.Write(com.aichat.keyboard.core.network.model.OutputLang.VI))
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf<Pair<AiAction, String>>(
+                AiAction.Write(com.aichat.keyboard.core.network.model.OutputLang.VI) to "chuc sinh nhat sep",
+            ),
+            backend.calls,
+        )
+        assertEquals(AiAssistState.Done(original = " chuc sinh nhat sep ", applied = "Xin chào!"), c.state.value)
     }
 
     @Test

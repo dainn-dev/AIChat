@@ -30,6 +30,15 @@ function build() {
       .fn()
       .mockResolvedValue({ replies: suggestions, stickerTags: STICKER_TAGS }),
     rewrite: jest.fn().mockResolvedValue('rewritten'),
+    write: jest.fn().mockResolvedValue('Chúc sếp sinh nhật vui vẻ!'),
+    correct: jest.fn().mockResolvedValue('Tối nay bạn rảnh không?'),
+    analyze: jest.fn().mockResolvedValue({
+      summary: 'Hai bạn đang hẹn đi cà phê.',
+      interest_score: 72,
+      suggested_replies: suggestions,
+      red_flags: [{ code: 'pressure', message: 'Hơi hối thúc' }],
+      degraded: false,
+    }),
   };
   const usage = {
     runWithQuota: jest.fn(
@@ -153,5 +162,70 @@ describe('KeyboardService.rewrite (Android Phase 0)', () => {
       { text: 'ok', tone: Tone.Funny, lang: OutputLang.En },
       { source: AiSource.Keyboard, userId: 'user-1' },
     );
+  });
+});
+
+describe('KeyboardService.summarize', () => {
+  const summarizeDto = {
+    conversation: [{ sender: MessageSender.Them, content: 'cafe ko?' }],
+    lang: OutputLang.Vi,
+    contact_label: 'Linh',
+  };
+
+  it('meters one generation and passes lang and the memory scope', async () => {
+    const { service, pipeline, usage } = build();
+    await service.summarize(user, summarizeDto);
+    expect(usage.runWithQuota).toHaveBeenCalledTimes(1);
+    expect(pipeline.analyze).toHaveBeenCalledWith(
+      { messages: summarizeDto.conversation, lang: OutputLang.Vi },
+      { source: AiSource.Keyboard, userId: 'user-1', contactLabel: 'Linh' },
+    );
+  });
+
+  it('returns the summary, score, red flags and usage without suggested replies', async () => {
+    const { service } = build();
+    const res = await service.summarize(user, summarizeDto);
+    expect(res).toEqual({
+      summary: 'Hai bạn đang hẹn đi cà phê.',
+      interest_score: 72,
+      red_flags: [{ code: 'pressure', message: 'Hơi hối thúc' }],
+      degraded: false,
+      usage: USAGE,
+    });
+  });
+
+  it('never stores the conversation', async () => {
+    const { service, conversations } = build();
+    await service.summarize(user, summarizeDto);
+    expect(conversations.persistKeyboardCapture).not.toHaveBeenCalled();
+  });
+});
+
+describe('KeyboardService.correct', () => {
+  it('meters one generation and returns the corrected text with usage', async () => {
+    const { service, pipeline, usage } = build();
+    const res = await service.correct(user, { text: 'toi nay ban ranh ko' });
+    expect(usage.runWithQuota).toHaveBeenCalledTimes(1);
+    expect(pipeline.correct).toHaveBeenCalledWith(
+      { text: 'toi nay ban ranh ko' },
+      { source: AiSource.Keyboard, userId: 'user-1' },
+    );
+    expect(res).toEqual({ text: 'Tối nay bạn rảnh không?', usage: USAGE });
+  });
+});
+
+describe('KeyboardService.write', () => {
+  it('meters one generation and passes instruction and lang', async () => {
+    const { service, pipeline, usage } = build();
+    const res = await service.write(user, {
+      instruction: 'chúc sinh nhật sếp',
+      lang: OutputLang.Vi,
+    });
+    expect(usage.runWithQuota).toHaveBeenCalledTimes(1);
+    expect(pipeline.write).toHaveBeenCalledWith(
+      { instruction: 'chúc sinh nhật sếp', lang: OutputLang.Vi },
+      { source: AiSource.Keyboard, userId: 'user-1' },
+    );
+    expect(res).toEqual({ text: 'Chúc sếp sinh nhật vui vẻ!', usage: USAGE });
   });
 });

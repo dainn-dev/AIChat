@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aichat.keyboard.capture.ChatCaptureLauncher
+import com.aichat.keyboard.core.network.model.OutputLang
 import com.aichat.keyboard.core.network.model.Tone
 import com.aichat.keyboard.sticker.StickerTag
 import com.aichat.keyboard.sticker.suggest.AiReplyStickerSuggestions
@@ -50,14 +53,18 @@ import org.florisboard.lib.snygg.ui.SnyggIcon
 import org.florisboard.lib.snygg.ui.SnyggIconButton
 import org.florisboard.lib.snygg.ui.SnyggRow
 
-/** The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. */
+/**
+ * The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. Translation is
+ * not here: it has its own key in the bottom bar (live translate, AiTranslatePanel).
+ */
 private val AiChips: List<Pair<AiAction, Int>> = listOf(
+    AiAction.Correct to R.string.aichat__ai__correct,
     AiAction.Rewrite(Tone.FLIRTY) to R.string.aichat__ai__rewrite_flirty,
     AiAction.Rewrite(Tone.FRIENDLY) to R.string.aichat__ai__rewrite_friendly,
     AiAction.Rewrite(Tone.PROFESSIONAL) to R.string.aichat__ai__rewrite_polite,
     AiAction.Rewrite(Tone.FUNNY) to R.string.aichat__ai__rewrite_funny,
-    AiAction.Translate("en") to R.string.aichat__ai__translate_en,
-    AiAction.Translate("vi") to R.string.aichat__ai__translate_vi,
+    AiAction.Rewrite(Tone.FORMAL) to R.string.aichat__ai__rewrite_formal,
+    AiAction.Rewrite(Tone.CASUAL) to R.string.aichat__ai__rewrite_casual,
 )
 
 /** Reply tones, flirty first (the main use case). */
@@ -119,6 +126,7 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
             AiAssistState.ChoosingReplyTone -> ToneChips(controller)
             is AiAssistState.Translating -> TranslatePanel(controller, s)
             is AiAssistState.Suggestions -> SuggestionPanel(controller, s.replies, s.stickerTags)
+            is AiAssistState.Summary -> SummaryPanel(controller, s.summary)
             is AiAssistState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.padding(horizontal = 8.dp).size(18.dp),
@@ -165,6 +173,11 @@ private fun ActionChips(controller: AiAssistController) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         item { Chip(R.string.aichat__ai__suggest_replies, active = true) { controller.startReply() } }
+        item {
+            val lang = keyboardOutputLang()
+            Chip(R.string.aichat__ai__write, active = true) { controller.run(AiAction.Write(lang)) }
+            Chip(R.string.aichat__ai__summarize) { controller.requestSummary(lang) }
+        }
         items(AiChips) { (action, label) ->
             Chip(label) { controller.run(action) }
         }
@@ -233,6 +246,72 @@ private fun RowScope.SuggestionPanel(controller: AiAssistController, replies: Li
             }
         }
     }
+}
+
+/**
+ * The chat summary in the tall bar: one row with back, the interest score and a shortcut to reply suggestions,
+ * then the summary and any red flags, scrollable when they do not fit.
+ */
+@Composable
+private fun RowScope.SummaryPanel(controller: AiAssistController, summary: ConversationSummary) {
+    val rowHeight = FlorisImeSizing.smartbarHeight
+    val textAreaHeight = rowHeight * (AiSmartbarLayout.SUGGESTION_ROWS - 1)
+    val interest = keyboardString(R.string.aichat__ai__summary_interest, summary.interestScore)
+    val body = buildString {
+        append(summary.text ?: keyboardString(R.string.aichat__ai__summary_unavailable))
+        summary.redFlags.forEach { append("\n⚠️ ").append(it) }
+    }
+    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().height(rowHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            item { Chip(R.string.aichat__ai__back) { controller.dismissMessage() } }
+            item { InfoChip("❤️ $interest") }
+            item { Chip(R.string.aichat__ai__suggest_replies) { controller.startReply() } }
+        }
+        SnyggBox(
+            elementName = FlorisImeUi.ClipboardFilterChip.elementName,
+            attributes = ChipAttrs,
+            modifier = Modifier.fillMaxWidth().height(textAreaHeight),
+            contentAlignment = Alignment.TopStart,
+        ) {
+            Text(
+                text = body,
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 6.dp),
+                fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
+                lineHeight = AiSmartbarLayout.LINE_HEIGHT_SP.sp,
+            )
+        }
+    }
+}
+
+/** A chip-styled label that is not a button (the interest score). */
+@Composable
+private fun InfoChip(label: String) {
+    SnyggRow(
+        elementName = FlorisImeUi.ClipboardFilterChip.elementName,
+        attributes = ActiveChipAttrs,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 4.dp),
+            fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
+            maxLines = 1,
+        )
+    }
+}
+
+/** Summaries come back in the keyboard language picked with the globe key, like the AI chips. */
+@Composable
+private fun keyboardOutputLang(): OutputLang {
+    val context = LocalContext.current
+    val subtypeManager by context.subtypeManager()
+    val subtype by subtypeManager.activeSubtypeFlow.collectAsState()
+    return if (subtype.primaryLocale.language == "vi") OutputLang.VI else OutputLang.EN
 }
 
 /** Cards narrower than the bar, so the next one peeks in and the row reads as scrollable. */
@@ -315,7 +394,7 @@ internal fun AiFailure.messageRes(): Int = when (this) {
  * language: the chips belong to the keyboard, like its key labels.
  */
 @Composable
-internal fun keyboardString(@StringRes id: Int): String {
+internal fun keyboardString(@StringRes id: Int, vararg formatArgs: Any): String {
     val context = LocalContext.current
     val subtypeManager by context.subtypeManager()
     val subtype by subtypeManager.activeSubtypeFlow.collectAsState()
@@ -324,5 +403,5 @@ internal fun keyboardString(@StringRes id: Int): String {
         val config = Configuration(context.resources.configuration).apply { setLocale(locale) }
         context.createConfigurationContext(config).resources
     }
-    return resources.getString(id)
+    return if (formatArgs.isEmpty()) resources.getString(id) else resources.getString(id, *formatArgs)
 }

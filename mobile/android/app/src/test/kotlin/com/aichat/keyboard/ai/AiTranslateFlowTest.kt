@@ -52,6 +52,11 @@ class AiTranslateFlowTest {
 
         override suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions> =
             ApiResult.Success(ReplySuggestions(emptyList()))
+
+        override suspend fun summarize(
+            conversation: CapturedConversation,
+            lang: com.aichat.keyboard.core.network.model.OutputLang?,
+        ): ApiResult<ConversationSummary> = ApiResult.Success(ConversationSummary("s", 50))
     }
 
     private fun TestScope.controller(editor: AiEditorPort, backend: AiTextBackend, copied: String? = null) =

@@ -37,11 +37,16 @@ object AiSmartbarLayout {
     fun mainRowCount(suggestionsOnly: Boolean, state: AiAssistState): Int = when {
         !suggestionsOnly -> 1
         state is AiAssistState.Suggestions -> SUGGESTION_ROWS
+        // A summary is a few sentences plus the interest score: the tall bar, like reply suggestions.
+        state is AiAssistState.Summary -> SUGGESTION_ROWS
         state is AiAssistState.Loading && state.fromSuggestions -> SUGGESTION_ROWS
         state is AiAssistState.Failed -> MESSAGE_ROWS
         // A copied message (a whole chat message) and its translation get the tall bar, like reply suggestions.
         state is AiAssistState.Translating && state.copied != null -> SUGGESTION_ROWS
-        // The translation may wrap; always two rows so the bar keeps its height while the preview updates.
+        // Nothing to show yet (empty field: just the hint) or picking a language: one row, like the closed bar.
+        state is AiAssistState.Translating && (state.choosingLang || state.preview == TranslatePreview.Idle) -> 1
+        // A translation may wrap: two rows from the first translation on, kept while the preview updates, so the
+        // bar does not jump while typing. It shrinks back once the field is empty again (e.g. after sending).
         state is AiAssistState.Translating -> MESSAGE_ROWS
         else -> 1
     }

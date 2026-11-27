@@ -158,6 +158,78 @@ Response `200`:
 { "text": "See you again", "usage": { … } }
 ```
 
+## POST /v1/keyboard/write
+
+Writing assistant (the AI panel's "Write for me" chip): the user types a
+request ("chúc sinh nhật sếp") and gets a ready-to-send message. Metered like
+rewrite. The request is never stored.
+
+Request:
+```json
+{ "instruction": "chúc sinh nhật sếp", "lang": "vi" }
+```
+- `instruction` required, 1-2000 chars. `lang` optional, `en` | `vi`
+  (omitted -> the instruction's own language). No other fields.
+
+Response `200`:
+```json
+{ "text": "Chúc sếp sinh nhật vui vẻ, nhiều sức khoẻ và thành công!", "usage": { … } }
+```
+Unusable model output degrades to the instruction text.
+
+## POST /v1/keyboard/correct
+
+Fix spelling, grammar and punctuation of a draft (the AI panel's "Fix" chip).
+Minimal edits: language, tone, wording and slang stay the user's; Vietnamese
+typed without diacritics gets them back. Metered like rewrite.
+
+Request:
+```json
+{ "text": "toi nay ban ranh ko" }
+```
+- `text` required, 1-2000 chars. No other fields.
+
+Response `200`:
+```json
+{ "text": "Tối nay bạn rảnh ko?", "usage": { … } }
+```
+Unusable model output degrades to the original text.
+
+## POST /v1/keyboard/summarize
+
+Summary of the chat on screen (the AI panel's "Summary" chip): what the
+conversation is about, how interested the other person seems, and red flags.
+One metered generation, like a reply. Read-only: the conversation is **never
+stored** by this call, whatever `memory_opt_in` says, so `platform` and
+`remember` are not accepted (400).
+
+Request:
+```json
+{
+  "conversation": [{ "sender": "them", "content": "cuối tuần đi cafe ko?" }],
+  "lang": "vi",
+  "contact_label": "Linh"
+}
+```
+- `conversation` required, 1-100 messages (same shape as `reply`).
+- `lang` optional, `en` | `vi`: language of `summary` and red flag messages.
+  Omitted → the conversation's own language.
+- `contact_label` optional: scopes memory retrieval to this contact only.
+
+Response `200`:
+```json
+{
+  "summary": "Linh rủ bạn đi cà phê cuối tuần và có vẻ hào hứng.",
+  "interest_score": 78,
+  "red_flags": [{ "code": "pressure", "message": "…" }],
+  "degraded": false,
+  "usage": { … }
+}
+```
+- `interest_score` is always an integer 0-100.
+- `degraded: true` → the model output was unusable; `summary` is an English
+  placeholder and clients should show their own "not enough context" text.
+
 ## Settings & erasure (Android Phase 0)
 
 These live outside `/v1/keyboard` but gate/undo keyboard storage. Both need
