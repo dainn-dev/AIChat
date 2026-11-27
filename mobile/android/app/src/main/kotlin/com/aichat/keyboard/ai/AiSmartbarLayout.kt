@@ -39,6 +39,10 @@ object AiSmartbarLayout {
         state is AiAssistState.Suggestions -> SUGGESTION_ROWS
         state is AiAssistState.Loading && state.fromSuggestions -> SUGGESTION_ROWS
         state is AiAssistState.Failed -> MESSAGE_ROWS
+        // A copied message (a whole chat message) and its translation get the tall bar, like reply suggestions.
+        state is AiAssistState.Translating && state.copied != null -> SUGGESTION_ROWS
+        // The translation may wrap; always two rows so the bar keeps its height while the preview updates.
+        state is AiAssistState.Translating -> MESSAGE_ROWS
         else -> 1
     }
 

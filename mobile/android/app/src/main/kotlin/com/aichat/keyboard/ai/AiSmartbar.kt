@@ -84,7 +84,8 @@ fun AiButton(
     onOpen: () -> Unit = {},
 ) {
     val state by controller.state.collectAsState()
-    val open = state != AiAssistState.Closed
+    // Live translation has its own button (TranslateButton); the sparkle stays outlined while it is open.
+    val open = state != AiAssistState.Closed && state !is AiAssistState.Translating
     val description = keyboardString(R.string.aichat__ai__button)
     SnyggIconButton(
         elementName = FlorisImeUi.SmartbarActionKey.elementName,
@@ -116,6 +117,7 @@ fun RowScope.AiSmartbarPanel(controller: AiAssistController) {
             AiAssistState.Closed -> Unit
             AiAssistState.Ready -> ActionChips(controller)
             AiAssistState.ChoosingReplyTone -> ToneChips(controller)
+            is AiAssistState.Translating -> TranslatePanel(controller, s)
             is AiAssistState.Suggestions -> SuggestionPanel(controller, s.replies, s.stickerTags)
             is AiAssistState.Loading -> {
                 CircularProgressIndicator(
@@ -238,7 +240,12 @@ private const val CARD_WIDTH_FRACTION = 0.8f
 
 /** A one-line chip at [AiSmartbarLayout.TEXT_SIZE_SP] (the smartbar's ~17sp made the chips overflow). */
 @Composable
-private fun Chip(@StringRes label: Int, active: Boolean = false, onClick: () -> Unit) {
+internal fun Chip(@StringRes label: Int, active: Boolean = false, onClick: () -> Unit) {
+    Chip(keyboardString(label), active, onClick)
+}
+
+@Composable
+internal fun Chip(label: String, active: Boolean = false, onClick: () -> Unit) {
     SnyggRow(
         elementName = FlorisImeUi.ClipboardFilterChip.elementName,
         attributes = if (active) ActiveChipAttrs else ChipAttrs,
@@ -246,7 +253,7 @@ private fun Chip(@StringRes label: Int, active: Boolean = false, onClick: () -> 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = keyboardString(label),
+            text = label,
             modifier = Modifier.padding(horizontal = 4.dp),
             fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
             maxLines = 1,
@@ -257,14 +264,19 @@ private fun Chip(@StringRes label: Int, active: Boolean = false, onClick: () -> 
 
 /** A status or failure message; failures may wrap to [maxLines] lines (the bar grows for them) instead of "…". */
 @Composable
-private fun RowScope.Message(@StringRes text: Int, maxLines: Int = 1) {
+internal fun RowScope.Message(@StringRes text: Int, maxLines: Int = 1) {
+    Message(keyboardString(text), maxLines)
+}
+
+@Composable
+internal fun RowScope.Message(text: String, maxLines: Int = 1) {
     SnyggBox(
         elementName = FlorisImeUi.SmartbarCandidateWord.elementName,
         modifier = Modifier.weight(1f, fill = false).padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
-            text = keyboardString(text),
+            text = text,
             fontSize = AiSmartbarLayout.TEXT_SIZE_SP.sp,
             lineHeight = AiSmartbarLayout.LINE_HEIGHT_SP.sp,
             maxLines = maxLines,
@@ -283,7 +295,7 @@ private fun AiAssistState.Failed.messageRes(): Int =
     }
 
 @StringRes
-private fun AiFailure.messageRes(): Int = when (this) {
+internal fun AiFailure.messageRes(): Int = when (this) {
     AiFailure.UNAVAILABLE -> R.string.aichat__ai__error_unavailable
     AiFailure.EMPTY_TEXT -> R.string.aichat__ai__error_empty
     AiFailure.TOO_LONG -> R.string.aichat__ai__error_too_long
@@ -303,7 +315,7 @@ private fun AiFailure.messageRes(): Int = when (this) {
  * language: the chips belong to the keyboard, like its key labels.
  */
 @Composable
-private fun keyboardString(@StringRes id: Int): String {
+internal fun keyboardString(@StringRes id: Int): String {
     val context = LocalContext.current
     val subtypeManager by context.subtypeManager()
     val subtype by subtypeManager.activeSubtypeFlow.collectAsState()

@@ -18,6 +18,32 @@ class AiSmartbarLayoutTest {
     }
 
     @Test
+    fun `live translation keeps two rows whatever its preview, so the bar does not jump while typing`() {
+        listOf(
+            TranslatePreview.Idle,
+            TranslatePreview.Loading("a"),
+            TranslatePreview.Ready("a", "b"),
+            TranslatePreview.Failed(AiFailure.NETWORK),
+        ).forEach { preview ->
+            assertEquals(
+                AiSmartbarLayout.MESSAGE_ROWS,
+                AiSmartbarLayout.mainRowCount(suggestionsOnly = true, state = AiAssistState.Translating("en", preview)),
+            )
+        }
+    }
+
+    @Test
+    fun `a copied message's translation gets the tall bar`() {
+        assertEquals(
+            AiSmartbarLayout.SUGGESTION_ROWS,
+            AiSmartbarLayout.mainRowCount(
+                suggestionsOnly = true,
+                state = AiAssistState.Translating("en", copied = CopiedTranslation("hi", targetLang = "vi")),
+            ),
+        )
+    }
+
+    @Test
     fun `cards show three lines on a normal phone`() {
         // 393 dp wide phone: smartbar row ~40 dp, cards get the two lower rows.
         assertEquals(3, AiSmartbarLayout.cardMaxLines(cardAreaHeightDp = 80f))

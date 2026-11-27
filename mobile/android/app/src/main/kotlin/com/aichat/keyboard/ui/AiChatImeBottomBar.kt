@@ -3,6 +3,7 @@ package com.aichat.keyboard.ui
 import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiButton
 import com.aichat.keyboard.ai.AiFeatureGate
+import com.aichat.keyboard.ai.TranslateButton
 import androidx.compose.runtime.LaunchedEffect
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.jetpref.datastore.model.observeAsState
@@ -46,8 +47,8 @@ private val ButtonWidth = 56.dp
 private val IconSize = 24.dp
 
 /**
- * iOS-like strip under the keys: the language (globe) key, the AI button and the clipboard key on the left, and a
- * settings key on the
+ * iOS-like strip under the keys: the language (globe) key, the AI button, the clipboard key and the live translate
+ * key on the left (the AI and translate keys only with the "Trợ lý AI" setting on), and a settings key on the
  * right where the mic key used to be (no mic key: chat apps have their own voice messages), so the key rows
  * themselves only keep 123 / emoji / space / return. Shown in every input mode so the keyboard height never jumps.
  */
@@ -79,8 +80,8 @@ fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
         LaunchedEffect(aiEnabled, aiState) {
             if (AiFeatureGate.shouldCloseAssist(aiEnabled, aiState)) aiController.reset()
         }
+        val keyboardManager by context.keyboardManager()
         if (AiFeatureGate.showAiButton(aiEnabled)) {
-            val keyboardManager by context.keyboardManager()
             AiButton(
                 controller = aiController,
                 modifier = Modifier.fillMaxHeight().width(ButtonWidth),
@@ -90,6 +91,16 @@ fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
             )
         }
         ClipboardButton()
+        // Live translation goes through the AI backend, so it follows the same "Trợ lý AI" setting.
+        if (AiFeatureGate.showAiButton(aiEnabled)) {
+            TranslateButton(
+                controller = aiController,
+                modifier = Modifier.fillMaxHeight().width(ButtonWidth),
+                iconModifier = Modifier.size(IconSize),
+                // The translation shows in the smartbar, which only the text layout has.
+                onOpen = { keyboardManager.activeState.imeUiMode = ImeUiMode.TEXT },
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
         // Opens the DBoard settings app (KeyCode.SETTINGS → FlorisImeService.launchSettings()).
         BarButton(
