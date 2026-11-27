@@ -64,4 +64,40 @@ class PreviousSyllableTest {
     fun `only the last word counts`() {
         assertEquals("không", of("zzz không "))
     }
+
+    @Test
+    fun `first word of a new line is context`() {
+        assertEquals("không", of("a\nkhông "))
+        assertEquals("không", of("a\r\nkhông "))
+    }
+
+    @Test
+    fun `newline between token and cursor gives null`() {
+        assertNull(of("không\n "))
+        assertNull(of("không\n"))
+    }
+
+    @Test
+    fun `opening punctuation before the token is allowed`() {
+        for (opener in listOf("(", "[", "\"", "“", "'", "‘")) {
+            assertEquals("không", of("${opener}không "), "opener $opener")
+        }
+    }
+
+    @Test
+    fun `other characters before the token give null`() {
+        for (c in listOf("-", ".", ")", "#", "@", "”")) {
+            assertNull(of("${c}không "), "char $c")
+        }
+    }
+
+    @Test
+    fun `long line ending in a known word returns the word`() {
+        assertEquals("không", of("x".repeat(200) + " không "))
+    }
+
+    @Test
+    fun `over-long token returns null`() {
+        assertNull(PreviousSyllable.of("a".repeat(100) + " ") { true })
+    }
 }

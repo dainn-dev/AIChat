@@ -82,13 +82,18 @@ class ViGlideRankerTest {
     }
 
     @Test
-    fun `english entries are not tone converted`() {
-        assertEquals(listOf("the"), rank(listOf("the"), null).filter { it == "the" })
+    fun `english entries are returned verbatim under both styles`() {
+        // English is a-z only, so no tone conversion could change it today; this pins the contract.
+        for (style in ToneStyle.values()) assertEquals(listOf("ok"), rank(listOf("ok"), null, style))
     }
 
     @Test
     fun `duplicate folded forms yield one result`() {
-        assertEquals(listOf("hoà"), rank(listOf("hoa", "hoa"), null))
+        // Stored as both hòa and hoà; they merge, and a repeated folded form must not repeat the output.
+        val lex = ViGlideLexicon.parse(sequenceOf("U\thòa\t60", "U\thoà\t40"), emptyMap())
+        for ((style, expected) in listOf(ToneStyle.MODERN to "hoà", ToneStyle.CLASSIC to "hòa")) {
+            assertEquals(listOf(expected), ViGlideRanker.rank(listOf("hoa", "hoa"), null, lex, style))
+        }
     }
 
     @Test
@@ -113,5 +118,41 @@ class ViGlideRankerTest {
         assertEquals(ViGlideRanker.MAX_RESULTS, result.size)
         assertFalse("ca" in result)
         assertEquals("ba", result.first())
+    }
+
+    private fun lex(vararg lines: String) = ViGlideLexicon.parse(lines.asSequence(), emptyMap())
+
+    @Test
+    fun `smoothing term decides when the previous syllable has few bigrams`() {
+        // me -> bá seen once (total(me)=1). Pu(bá)=10/9110 ~ 0.001, Pu(bả)=9000/9110 ~ 0.988.
+        // P(bá|me) = (1 + 5*0.001) / 6 ~ 0.168    P(bả|me) = (0 + 5*0.988) / 6 ~ 0.823 -> bả first.
+        // SMOOTHING=0 would give bá 1.0 vs bả 0 and flip the order; SMOOTHING=1 gives 0.50 vs 0.49.
+        val l = lex("U\tme\t100", "U\tbá\t10", "U\tbả\t9000", "B\tme\tbá\t1")
+        assertEquals(listOf("bả", "bá"), ViGlideRanker.rank(listOf("ba"), "me", l, ToneStyle.MODERN))
+    }
+
+    @Test
+    fun `previous syllable without bigrams falls back to unigram`() {
+        // total(me)=0: P = 5*Pu/5 = Pu -> bả (9000) before bá (10). With SMOOTHING=0 every score is 0,
+        // and with the "+ 5" dropped it is 0/0 = NaN; both tie and fall back to word order (bá first).
+        val l = lex("U\tme\t100", "U\tbá\t10", "U\tbả\t9000")
+        assertEquals(listOf("bả", "bá"), ViGlideRanker.rank(listOf("ba"), "me", l, ToneStyle.MODERN))
+    }
+
+    @Test
+    fun `rank decay factor is exactly one half`() {
+        // No context, so score = f^r * count (same total). f=0.5:
+        //   pair 1: be(3000) at r=1 scores 1500 > ba(1000) at r=0 -> be first. f=0.25 gives 750 -> ba first.
+        //   pair 2: bo(1700) at r=1 scores 850 < bi(1000) at r=0 -> bi first. f=0.6 gives 1020 -> bo first.
+        val l = lex("U\tba\t1000", "U\tbe\t3000", "U\tbi\t1000", "U\tbo\t1700")
+        assertEquals(listOf("be", "ba"), ViGlideRanker.rank(listOf("ba", "be"), null, l, ToneStyle.MODERN))
+        assertEquals(listOf("bi", "bo"), ViGlideRanker.rank(listOf("bi", "bo"), null, l, ToneStyle.MODERN))
+    }
+
+    @Test
+    fun `exactly the first five folded forms contribute`() {
+        val l = lex("U\tba\t10", "U\tbe\t10", "U\tbi\t10", "U\tbo\t10", "U\tbu\t10", "U\tca\t10")
+        val result = ViGlideRanker.rank(listOf("ba", "be", "bi", "bo", "bu", "ca"), null, l, ToneStyle.MODERN)
+        assertEquals(listOf("ba", "be", "bi", "bo", "bu"), result) // 5th ("bu") in, 6th ("ca") out
     }
 }
