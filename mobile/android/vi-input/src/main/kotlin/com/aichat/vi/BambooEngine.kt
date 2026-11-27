@@ -127,30 +127,9 @@ internal class BambooEngine(private val im: InputMethodRules, private val classi
         if (composition.isEmpty()) return null
         val (_, vo, lc) = splitCvc(composition)
         val vowels = vo.filter { it.isAppending }
-        return when (vowels.size) {
-            1 -> vowels[0]
-            2 -> when {
-                // iê/yê/uô/ươ carry the tone on the marked second vowel in both styles, even while
-                // the syllable is still open (`tiế` before its final `ng`).
-                lc.isEmpty() && flatten(vo, FlattenMode.VI_TONELESS_LOWER) in MARKED_SECOND_VOWEL_PAIRS -> vowels[1]
-                classicToneStyle -> classicTwoVowelTarget(vo, vowels, lc)
-                else -> modernTwoVowelTarget(vowels, lc)
-            }
-            3 -> if (flatten(vowels, FlattenMode.ENGLISH_BASE_LOWER) == "uye") vowels[2] else vowels[1]
-            else -> null
-        }
-    }
-
-    private fun classicTwoVowelTarget(vo: Composition, vowels: Composition, lc: Composition): Transformation {
-        val horned = vo.lastOrNull { it.rule.result == 'ơ' || it.rule.result == 'ê' }
-        if (horned != null) return horned.target ?: horned
-        return if (lc.isNotEmpty()) vowels[1] else vowels[0]
-    }
-
-    private fun modernTwoVowelTarget(vowels: Composition, lc: Composition): Transformation {
-        if (lc.isNotEmpty()) return vowels[1]
-        val pair = flatten(vowels, FlattenMode.ENGLISH_BASE_LOWER)
-        return if (pair in MODERN_SECOND_VOWEL_PAIRS) vowels[1] else vowels[0]
+        val nucleus = flatten(vo, FlattenMode.VI_TONELESS_LOWER)
+        val index = TonePlacement.targetIndex(nucleus, hasFinal = lc.isNotEmpty(), classic = classicToneStyle)
+        return index?.let { vowels.getOrNull(it) }
     }
 
     /**
@@ -303,8 +282,6 @@ internal class BambooEngine(private val im: InputMethodRules, private val classi
     }
 
     private companion object {
-        val MODERN_SECOND_VOWEL_PAIRS = setOf("oa", "oe", "uy", "ue", "uo")
-        val MARKED_SECOND_VOWEL_PAIRS = setOf("iê", "yê", "uô", "ươ")
         val UO_TAIL = Regex("(uơ|ưo)\\p{L}+")
         val UHO = Regex("(ưo|ươ)")
 
