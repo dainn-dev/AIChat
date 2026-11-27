@@ -54,11 +54,20 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
     private var keys: ArrayList<TextKey> = arrayListOf()
     private lateinit var pruner: Pruner
     private var wordDataSubtype: Subtype? = null
+    // AIChat MODIFIED: the word source is pluggable (Vietnamese folded forms); upstream used nlpManager directly.
+    private var lexicon: GlideLexicon = EmptyGlideLexicon
+    private var prunerLexicon: GlideLexicon? = null
     private var layoutSubtype: Subtype? = null
     private var currentSubtype: Subtype? = null
     val ready: Boolean
         get() = currentSubtype == layoutSubtype && wordDataSubtype == layoutSubtype && wordDataSubtype != null
-    private val prunerCache = LruCache<Subtype, Pruner>(PRUNER_CACHE_SIZE)
+    // AIChat MODIFIED: keyed by (subtype, lexicon) so the Vietnamese and default word sources never share a pruner.
+    private val prunerCache = LruCache<Pair<Subtype, GlideLexicon>, Pruner>(PRUNER_CACHE_SIZE)
+
+    // AIChat MODIFIED: true when the pruner was built for [subtype] from [lexicon], so a glide never runs on
+    // a classifier left over from another subtype or word source.
+    fun isReadyFor(subtype: Subtype, lexicon: GlideLexicon): Boolean =
+        ready && currentSubtype == subtype && prunerLexicon == lexicon
 
     /**
      * The minimum distance between points to be added to a gesture.
@@ -117,7 +126,12 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
     }
 
     override fun setLayout(keyViews: List<TextKey>, subtype: Subtype) {
-        setWordData(subtype)
+        setLayout(keyViews, subtype, NlpGlideLexicon(nlpManager, subtype)) // AIChat MODIFIED: default word source.
+    }
+
+    // AIChat MODIFIED: setLayout with an explicit word source; the body is upstream's setLayout.
+    fun setLayout(keyViews: List<TextKey>, subtype: Subtype, lexicon: GlideLexicon) {
+        setLexicon(subtype, lexicon)
         // stop duplicate calls
         if (layoutSubtype == subtype && keys == keyViews) {
             return
@@ -145,12 +159,19 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
     }
 
     override fun setWordData(subtype: Subtype) {
+        setLexicon(subtype, NlpGlideLexicon(nlpManager, subtype)) // AIChat MODIFIED: default word source.
+    }
+
+    // AIChat MODIFIED: upstream setWordData, reading words from [lexicon] instead of nlpManager.
+    fun setLexicon(subtype: Subtype, lexicon: GlideLexicon) {
         // stop duplicate calls..
-        if (wordDataSubtype == subtype) {
+        if (wordDataSubtype == subtype && this.lexicon == lexicon) {
             return
         }
 
-        this.words = nlpManager.getListOfWords(subtype)
+        this.words = lexicon.words
+        this.lexicon = lexicon
+        lruSuggestionCache.evictAll() // AIChat MODIFIED: cached suggestions belong to the previous word source.
 
         this.wordDataSubtype = subtype
         if (wordDataSubtype == layoutSubtype) {
@@ -164,17 +185,19 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
      */
     private fun initializePruner(invalidateCache: Boolean) {
         val currentSubtype = this.layoutSubtype!!
+        val cacheKey = currentSubtype to this.lexicon // AIChat MODIFIED: cache per (subtype, lexicon).
         val cached = when {
             invalidateCache -> null
-            else -> prunerCache.get(currentSubtype)
+            else -> prunerCache.get(cacheKey)
         }
         if (cached == null) {
             this.pruner = Pruner(PRUNING_LENGTH_THRESHOLD, this.words, keysByCharacter)
-            prunerCache.put(currentSubtype, this.pruner)
+            prunerCache.put(cacheKey, this.pruner)
         } else {
             this.pruner = cached
         }
         this.currentSubtype = currentSubtype
+        this.prunerLexicon = this.lexicon // AIChat MODIFIED: remember which word source the pruner holds.
     }
 
     override fun initGestureFromPointerData(pointerData: GlideTypingGesture.Detector.PointerData) {
@@ -201,6 +224,7 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
     private fun unCachedGetSuggestions(maxSuggestionCount: Int): List<String> {
         val candidates = arrayListOf<String>()
         val candidateWeights = arrayListOf<Float>()
+        val lexicon = this.lexicon // AIChat MODIFIED: one word source for the whole pass.
         val key = keys.firstOrNull() ?: return listOf()
         val radius = min(key.visibleBounds.height, key.visibleBounds.width)
         var remainingWords = pruner.pruneByExtremities(gesture, this.keys)
@@ -219,7 +243,7 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
                 val locationDistance = calcLocationDistance(wordGesture, userGesture)
                 val shapeProbability = calcGaussianProbability(shapeDistance, 0.0f, SHAPE_STD)
                 val locationProbability = calcGaussianProbability(locationDistance, 0.0f, LOCATION_STD * radius)
-                val frequency = 255f * nlpManager.getFrequencyForWord(currentSubtype!!, word).toFloat()
+                val frequency = 255f * lexicon.frequency(word).toFloat() // AIChat MODIFIED: via GlideLexicon.
                 val confidence = 1.0f / (shapeProbability * locationProbability * frequency)
 
                 var candidateDistanceSortedIndex = 0

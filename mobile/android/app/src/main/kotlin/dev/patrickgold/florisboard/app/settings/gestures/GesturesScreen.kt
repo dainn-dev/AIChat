@@ -16,10 +16,7 @@
 
 package dev.patrickgold.florisboard.app.settings.gestures
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.enumDisplayEntriesOf
 import dev.patrickgold.florisboard.ime.text.gestures.SwipeAction
@@ -28,7 +25,7 @@ import dev.patrickgold.jetpref.datastore.ui.DialogSliderPreference
 import dev.patrickgold.jetpref.datastore.ui.ExperimentalJetPrefDatastoreUi
 import dev.patrickgold.jetpref.datastore.ui.ListPreference
 import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
-import org.florisboard.lib.compose.FlorisInfoCard
+import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
 import org.florisboard.lib.compose.stringRes
 
 @OptIn(ExperimentalJetPrefDatastoreUi::class)
@@ -38,14 +35,8 @@ fun GesturesScreen() = FlorisScreen {
     previewFieldVisible = true
 
     content {
-        FlorisInfoCard(
-            modifier = Modifier.padding(8.dp),
-            text = """
-                Glide typing is currently not available and will be re-implemented from the ground up with word suggestions & the new keyboard layout engine. DO NOT file an issue for this missing functionality.
-            """.trimIndent()
-        )
-
-        /*PreferenceGroup(title = stringRes(R.string.pref__glide__title)) {
+        // AIChat MODIFIED: glide typing is implemented (Vietnamese + English), so expose its settings (upstream: info card, group commented out).
+        PreferenceGroup(title = stringRes(R.string.pref__glide__title)) {
             SwitchPreference(
                 prefs.glide.enabled,
                 title = stringRes(R.string.pref__glide__enabled__label),
@@ -87,7 +78,7 @@ fun GesturesScreen() = FlorisScreen {
                 summary = stringRes(R.string.pref__glide__immediate_backspace_deletes_word__summary),
                 enabledIf = { prefs.glide.enabled isEqualTo true },
             )
-        }*/
+        }
 
         PreferenceGroup(title = stringRes(R.string.pref__gestures__general_title)) {
             ListPreference(

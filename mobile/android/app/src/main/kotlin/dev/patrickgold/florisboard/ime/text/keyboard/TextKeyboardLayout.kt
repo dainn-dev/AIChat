@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import com.aichat.keyboard.vi.glide.ViGlideRouting // AIChat MODIFIED: glide field gate.
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.editorInstance
@@ -113,8 +114,12 @@ fun TextKeyboardLayout(
 
     val keyboard = evaluator.keyboard as TextKeyboard
     val glideEnabledInternal by prefs.glide.enabled.observeAsState()
+    // AIChat MODIFIED: glide is also off in email and URL fields (ViInputGate.BLOCKED_VARIATIONS), on every subtype.
     val glideEnabled = glideEnabledInternal && evaluator.editorInfo.isRichInputEditor &&
-        evaluator.state.keyVariation != KeyVariation.PASSWORD
+        ViGlideRouting.glideAllowed(
+            isPassword = evaluator.state.keyVariation == KeyVariation.PASSWORD,
+            variation = evaluator.editorInfo.inputAttributes.variation,
+        )
     val glideShowTrail by prefs.glide.showTrail.observeAsState()
     val glideTrailStyle = rememberSnyggThemeQuery(FlorisImeUi.GlideTrail.elementName)
     val glideTrailColor = glideTrailStyle.foreground(default = Color.Green)
@@ -416,8 +421,12 @@ private class TextKeyboardLayoutController(
     lateinit var keyboard: TextKeyboard
     var size = Size.Zero
 
+    // AIChat MODIFIED: same field gate as `glideEnabled` above (password, email, URL), for touch handling.
     val isGlideEnabled: Boolean get() = prefs.glide.enabled.get() && editorInstance.activeInfo.isRichInputEditor &&
-        keyboardManager.activeState.keyVariation != KeyVariation.PASSWORD
+        ViGlideRouting.glideAllowed(
+            isPassword = keyboardManager.activeState.keyVariation == KeyVariation.PASSWORD,
+            variation = editorInstance.activeInfo.inputAttributes.variation,
+        )
 
     fun onTouchEventInternal(event: MotionEvent) {
         flogDebug { "event=$event" }

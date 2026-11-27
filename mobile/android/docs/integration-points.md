@@ -221,13 +221,33 @@ and the settings screens in `app/src/main/kotlin/com/aichat/keyboard/app/account
   - [x] The `ui://florisboard` BROWSABLE deep link was removed (manifest intent-filter, NavController deep-link
     registration and the intent-to-navigation handling in `FlorisAppActivity`).
 
+## (f) Glide typing and gesture defaults (Vietnamese syllable glide)
+
+Vietnamese-specific code lives in `app/src/main/kotlin/com/aichat/keyboard/vi/glide/` (`ViGlideLexicon`,
+`ViGlideLexiconLoader`, `ViGlideRanker`, `ViGlideRouting`, `PreviousSyllable`) and in `vi-input`
+(`ViText`, `TonePlacement`). The data asset is `app/src/main/assets/ime/dict/vi_glide.tsv`, built by
+`tools/vi-glide-data/` from Wikipedia (CC BY-SA 4.0, see `NOTICE`). Upstream files carry these hooks:
+
+| File (under `FB/`) | Hook | Purpose |
+|--------------------|------|---------|
+| `ime/text/gestures/GlideLexicon.kt` (new file in an upstream package) | `GlideLexicon` interface | Word source seam: `words`/`frequency` for a subtype. `NlpGlideLexicon` wraps `nlpManager` and keeps the upstream behavior. |
+| `ime/text/gestures/StatisticalGlideTypingClassifier.kt` | `setLexicon`, `setLayout` overload, `setWordData` | The classifier reads words from a pluggable `GlideLexicon` instead of `nlpManager`. The pruner cache is keyed by (subtype, lexicon) and cleared when the source changes. |
+| `ime/text/gestures/GlideTypingManager.kt` | Vietnamese routing | The manager keeps `context` and `editorInstance`. On a Vietnamese subtype (composer check, same as `ViInputGate`) it loads the lexicon off the main thread, feeds the classifier folded forms, then ranks diacritics with the previous syllable (bigrams) and the tone style. Before the lexicon loads, a Vietnamese glide does nothing. Other subtypes use the default word source. |
+| `ime/text/keyboard/TextKeyboardLayout.kt` | glide field gate, 2 places | `glideEnabled` and the touch-handling gate both use `ViGlideRouting` so glide is off in password, email and URL fields on every subtype. |
+| `app/AppPrefs.kt` | Gboard-like defaults | `gestures__swipe_up/down/left/right` default `NO_ACTION`, `gestures__delete_key_swipe_left` default `DELETE_WORDS_PRECISELY`, `glide__enabled` default `true` (upstream values noted in each comment). Glide owns letter swipes. |
+| `app/settings/gestures/GesturesScreen.kt` | glide group re-enabled | The glide settings group, commented out upstream behind an info card, is shown again. |
+| `vi-input/.../BambooEngine.kt` | `ViText` / `TonePlacement` extraction | Tone placement and fold/tone-style conversion moved into reusable `ViText` and `TonePlacement` so the engine and the glide ranker share one implementation. |
+
+Privacy: glide never logs swiped text or candidates, and makes no network calls. Tests are in
+`app/src/test/kotlin/com/aichat/keyboard/vi/glide/` and `vi-input/src/test/.../ViTextTest.kt`.
+
 ## FlorisBoard features to disable or hide for v1
 
 | Feature | Where | Why |
 |---------|-------|-----|
 | Addons store / extension import, export, and edit | `FB/app/ext/*`, `AddonBox.kt` (opens `beta.addons.florisboard.org`). The external import intent-filters on `FlorisAppActivity` were already removed in Phase 2 (finding 5). | External content, support burden, upstream branding |
 | "Check for updates" of extensions | `FB/app/ext/CheckUpdatesScreen.kt` (opens the addons site) | Points to FlorisBoard infrastructure |
-| Glide typing | `FB/ime/text/gestures/GlideTyping*`, pref `glide__enabled` | Not tuned for Vietnamese; experimental upstream |
+| Glide typing | `FB/ime/text/gestures/GlideTyping*`, pref `glide__enabled` | Superseded: now enabled and tuned for Vietnamese, see section (f) |
 | Spell-checker service | `FlorisSpellCheckerService` in the manifest, `FB/FlorisSpellCheckerService.kt` | System-wide service outside our scope |
 | Clipboard history / clipboard suggestions / `FlorisCopyToClipboardActivity` | `FB/ime/clipboard/*`, prefs `clipboard__*`, `ACTION_SEND image/*` filter in the manifest | Privacy surface; not needed for v1 |
 | Media (emoji / emoticon) panel, optional | `FB/ime/media/*` | Keep it if UX wants emoji; it is local-only |
