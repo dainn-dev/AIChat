@@ -182,8 +182,6 @@
     <string name="aichat__ai__rewrite_friendly">Thân thiện</string>
     <string name="aichat__ai__rewrite_polite">Lịch sự</string>
     <string name="aichat__ai__rewrite_funny">Hài hước</string>
-    <string name="aichat__ai__translate_en">Dịch → English</string>
-    <string name="aichat__ai__translate_vi">Dịch → Tiếng Việt</string>
     <string name="aichat__ai__translate_button">Dịch trực tiếp</string>
     <string name="aichat__ai__translate_hint">Gõ chữ, bản dịch hiện ở đây</string>
     <string name="aichat__ai__translate_apply">Dùng bản dịch này</string>

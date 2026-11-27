@@ -190,8 +190,6 @@
     <string name="aichat__ai__rewrite_friendly">Friendly</string>
     <string name="aichat__ai__rewrite_polite">Polite</string>
     <string name="aichat__ai__rewrite_funny">Funny</string>
-    <string name="aichat__ai__translate_en">To English</string>
-    <string name="aichat__ai__translate_vi">To Vietnamese</string>
     <string name="aichat__ai__translate_button">Live translate</string>
     <string name="aichat__ai__translate_hint">Type and the translation shows here</string>
     <string name="aichat__ai__translate_apply">Use this translation</string>

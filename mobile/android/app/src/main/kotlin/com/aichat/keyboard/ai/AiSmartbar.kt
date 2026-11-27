@@ -50,14 +50,15 @@ import org.florisboard.lib.snygg.ui.SnyggIcon
 import org.florisboard.lib.snygg.ui.SnyggIconButton
 import org.florisboard.lib.snygg.ui.SnyggRow
 
-/** The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. */
+/**
+ * The chips shown when the AI button is open, after the "Suggest replies" chip, in display order. Translation is
+ * not here: it has its own key in the bottom bar (live translate, AiTranslatePanel).
+ */
 private val AiChips: List<Pair<AiAction, Int>> = listOf(
     AiAction.Rewrite(Tone.FLIRTY) to R.string.aichat__ai__rewrite_flirty,
     AiAction.Rewrite(Tone.FRIENDLY) to R.string.aichat__ai__rewrite_friendly,
     AiAction.Rewrite(Tone.PROFESSIONAL) to R.string.aichat__ai__rewrite_polite,
     AiAction.Rewrite(Tone.FUNNY) to R.string.aichat__ai__rewrite_funny,
-    AiAction.Translate("en") to R.string.aichat__ai__translate_en,
-    AiAction.Translate("vi") to R.string.aichat__ai__translate_vi,
 )
 
 /** Reply tones, flirty first (the main use case). */
