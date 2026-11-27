@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
 import androidx.compose.material.icons.filled.SmartButton
 import androidx.compose.material.icons.filled.Spellcheck
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Keyboard
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.aichat.keyboard.ai.AiFeatureGate
 import com.aichat.keyboard.app.account.AiChatAccountPreference
 import com.aichat.keyboard.capture.AiChatCapturePreference
 import dev.patrickgold.florisboard.R
@@ -43,6 +45,7 @@ import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.lib.util.InputMethodUtils
 import dev.patrickgold.jetpref.datastore.model.observeAsState
 import dev.patrickgold.jetpref.datastore.ui.Preference
+import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
 import org.florisboard.lib.compose.FlorisErrorCard
 import org.florisboard.lib.compose.FlorisWarningCard
 import org.florisboard.lib.compose.stringRes
@@ -109,8 +112,18 @@ fun HomeScreen() = FlorisScreen {
         }*/
         // AIChat MODIFIED: "Tài khoản AIChat" (AIChat account) entry at the top of the settings list.
         AiChatAccountPreference()
-        // AIChat MODIFIED: "Đọc tin nhắn để gợi ý trả lời" (chat reader consent) entry below the account.
-        AiChatCapturePreference()
+        // AIChat MODIFIED: "Trợ lý AI" switch (off by default); the chat reader entry only shows while it is on.
+        SwitchPreference(
+            prefs.aichatAi.enabled,
+            icon = Icons.Outlined.AutoAwesome,
+            title = stringRes(R.string.aichat__ai__pref_label),
+            summary = stringRes(R.string.aichat__ai__pref_summary),
+        )
+        val aiEnabled by prefs.aichatAi.enabled.observeAsState()
+        if (AiFeatureGate.showChatReaderEntry(aiEnabled)) {
+            // AIChat MODIFIED: "Đọc tin nhắn để gợi ý trả lời" (chat reader consent) entry below the account.
+            AiChatCapturePreference()
+        }
         Preference(
             icon = Icons.Default.Language,
             title = stringRes(R.string.settings__localization__title),
