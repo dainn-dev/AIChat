@@ -86,7 +86,7 @@ class WriteAssetTest(unittest.TestCase):
         self.path = os.path.join(self.dir.name, "out.tsv.gz")
 
     def test_write_asset_format_and_pruning(self):
-        uni = Counter({"là": 10, "và": 7, "hiếm": 2})
+        uni = Counter({"là": 10, "và": 7, "hiếm": 2, "x": 6, "y": 6, "z": 6})
         bi = Counter(
             {("là", "và"): 5, ("là", "x"): 4, ("là", "y"): 3, ("và", "là"): 2, ("và", "z"): 9}
         )
@@ -105,6 +105,22 @@ class WriteAssetTest(unittest.TestCase):
         self.assertLess(lines.index("B\tlà\tvà\t5"), lines.index("B\tlà\tx\t4"))
         # all U lines precede all B lines
         self.assertGreater(lines.index(bigram_lines[0]), lines.index("U\tvà\t7"))
+
+    def test_bigrams_never_reference_pruned_unigrams(self):
+        uni = Counter({"a": 9, "b": 9, "c": 2})
+        bi = Counter({("a", "b"): 5, ("a", "c"): 5, ("c", "a"): 5})
+        b.write_asset(uni, bi, self.path, 5, 1, 5, 10_000)
+        lines = _read_asset(self.path)
+        self.assertEqual([l for l in lines if l.startswith("B")], ["B\ta\tb\t5"])
+
+    def test_over_budget_leaves_existing_output_intact(self):
+        with open(self.path, "wb") as f:
+            f.write(b"previous-good-asset")
+        uni = Counter({f"s{i}": 100 for i in range(2000)})
+        with self.assertRaises(ValueError):
+            b.write_asset(uni, Counter(), self.path, 1, 1, 5, 50)
+        self.assertEqual(_read_bytes(self.path), b"previous-good-asset")
+        self.assertFalse(os.path.exists(self.path + ".tmp"))
 
     def test_write_asset_deterministic(self):
         uni = Counter({"a": 9, "b": 9})
@@ -160,6 +176,59 @@ class DumpParsingTest(unittest.TestCase):
             self.assertIn("U\tlà\t3", lines)
             self.assertIn("B\ttôi\tlà\t3", lines)
             self.assertEqual(_read_bytes(out1), _read_bytes(out2))
+
+
+CORPUS = "tôi là người\ntôi là Wifi người\ntôi là người ta\nhiếm lạ\n"
+
+
+class TwoPassAndCacheTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.txt = os.path.join(self.dir.name, "c.txt")
+        with open(self.txt, "w", encoding="utf-8") as f:
+            f.write(CORPUS)
+
+    def test_two_pass_equals_one_pass_on_kept_syllables(self):
+        runs = [r for line in CORPUS.splitlines() for r in b.tokenize(line)]
+        uni1, bi1 = b.count(runs)
+        kept = {s for s, c in uni1.items() if c >= 2}
+        expected = Counter({k: c for k, c in bi1.items()
+                            if k[0] in kept and k[1] in kept})
+        self.assertEqual(b.count_unigrams([self.txt]), uni1)
+        self.assertEqual(b.count_bigrams([self.txt], kept), expected)
+
+    def test_cache_round_trip_gives_same_output(self):
+        cache = os.path.join(self.dir.name, "counts.tsv.gz")
+        out1 = os.path.join(self.dir.name, "o1.tsv.gz")
+        out2 = os.path.join(self.dir.name, "o2.tsv.gz")
+        base = ["--input", self.txt, "--min-unigram", "2", "--min-bigram", "2"]
+        self.assertEqual(b.main(base + ["--output", out1, "--counts-cache", cache]), 0)
+        # same size and name, different content: only a valid cache can match
+        with open(self.txt, "w", encoding="utf-8") as f:
+            f.write(CORPUS.replace("hiếm lạ", "xxxx yyyy"))
+        self.assertEqual(b.main(base + ["--output", out2, "--counts-cache", cache]), 0)
+        self.assertEqual(_read_bytes(out1), _read_bytes(out2))
+        self.assertIn("B\ttôi\tlà\t3", _read_asset(out2))
+
+    def test_stale_cache_is_recounted(self):
+        cache = os.path.join(self.dir.name, "counts.tsv.gz")
+        out = os.path.join(self.dir.name, "o.tsv.gz")
+        base = ["--input", self.txt, "--min-unigram", "2", "--min-bigram", "2",
+                "--output", out, "--counts-cache", cache]
+        b.main(base)
+        with open(self.txt, "a", encoding="utf-8") as f:
+            f.write("tôi là người\n")
+        b.main(base)
+        self.assertIn("U\ttôi\t4", _read_asset(out))
+
+    def test_validate_inputs_fails_before_counting(self):
+        out = os.path.join(self.dir.name, "o.tsv.gz")
+        self.assertEqual(b.main(["--input", self.txt, "nope.txt", "--output", out]), 1)
+        bad = os.path.join(self.dir.name, "x.csv")
+        open(bad, "w").close()
+        self.assertEqual(b.main(["--input", bad, "--output", out]), 1)
+        self.assertFalse(os.path.exists(out))
 
 
 if __name__ == "__main__":

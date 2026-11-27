@@ -24,11 +24,27 @@ From `mobile/android`:
 Options (defaults): `--min-unigram 5`, `--min-bigram 3`, `--top-per-prev 40`,
 `--max-bytes 3000000`, `--progress` (page count to stderr every 50k pages).
 
-Expected: roughly 30-60 minutes single-threaded on a laptop and a few hundred MB
-of RAM (pages are streamed); output about 1-3 MB. If the output exceeds
-`--max-bytes` the tool exits non-zero and tells you which thresholds to raise
-(`--min-unigram`, `--min-bigram`, or lower `--top-per-prev`). The output is
-deterministic (fixed gzip mtime), so diffs stay stable.
+Counting is two passes over the input (so the dump is read and parsed twice):
+pass 1 counts unigrams only (bounded by the syllable alphabet); pass 2 counts
+only bigrams whose two syllables both reached `--min-unigram`, so
+non-Vietnamese tokens do not bloat memory. Estimates, not yet measured on the
+real dump (Task 3 will record real figures): about 1-2 hours total, and memory
+bounded by the kept-syllable bigram table (likely several hundred MB to about
+1 GB). Output is about 1-3 MB.
+
+Use `--counts-cache counts.tsv.gz` to save the pruned counts. Re-running with
+the same inputs and equal or higher `--min-unigram` / `--min-bigram` reuses the
+cache and skips counting, so tuning thresholds after a budget failure is
+instant. Without a cache, every retry recounts the whole corpus. A cache built
+with higher thresholds than requested, or for different inputs (name/size), is
+ignored and rebuilt.
+
+If the output exceeds `--max-bytes` the tool exits non-zero, tells you which
+thresholds to raise (`--min-unigram`, `--min-bigram`, or lower
+`--top-per-prev`), and leaves any existing output file untouched (output is
+written to a temp file and renamed on success). Bigrams are only emitted when
+both syllables are kept U lines. The output is deterministic (fixed gzip
+mtime), so diffs stay stable.
 
 ## Output format
 

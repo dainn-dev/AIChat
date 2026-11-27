@@ -122,18 +122,32 @@ def count(runs):
 
 # --- Asset output ----------------------------------------------------------------
 
+def _gzip_to_temp(path, payload: bytes) -> str:
+    """Write a deterministic gzip next to `path` and return the temp path."""
+    tmp = f"{path}.tmp"
+    with open(tmp, "wb") as raw:
+        # mtime=0 and empty filename keep the output byte-for-byte reproducible.
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
+            gz.write(payload)
+    return tmp
+
+
 def write_asset(unigrams, bigrams, path, min_unigram, min_bigram,
                 top_per_prev, max_bytes) -> int:
-    lines = []
+    """Write the asset atomically; an existing file at `path` survives failures.
+
+    Bigrams are kept only when both syllables survive `min_unigram`.
+    """
     kept_uni = sorted(
         ((s, c) for s, c in unigrams.items() if c >= min_unigram),
         key=lambda sc: (-sc[1], sc[0]),
     )
-    lines.extend(f"U\t{s}\t{c}" for s, c in kept_uni)
+    kept = {s for s, _ in kept_uni}
+    lines = [f"U\t{s}\t{c}" for s, c in kept_uni]
 
     by_prev = defaultdict(list)
     for (prev, syl), c in bigrams.items():
-        if c >= min_bigram:
+        if c >= min_bigram and prev in kept and syl in kept:
             by_prev[prev].append((syl, c))
     groups = []
     for prev, items in by_prev.items():
@@ -145,18 +159,52 @@ def write_asset(unigrams, bigrams, path, min_unigram, min_bigram,
         lines.extend(f"B\t{prev}\t{s}\t{c}" for s, c in top)
 
     payload = ("\n".join(lines) + "\n" if lines else "").encode("utf-8")
-    with open(path, "wb") as raw:
-        # mtime=0 and empty filename keep the output byte-for-byte reproducible.
-        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
-            gz.write(payload)
-    size = os.path.getsize(path)
+    tmp = _gzip_to_temp(path, payload)
+    size = os.path.getsize(tmp)
     if size > max_bytes:
-        os.remove(path)
+        os.remove(tmp)
         raise ValueError(
             f"asset is {size} bytes, over the {max_bytes} byte budget; raise "
             f"--min-unigram, --min-bigram or lower --top-per-prev (or raise --max-bytes)"
         )
+    os.replace(tmp, path)
     return size
+
+
+# --- Counts cache -------------------------------------------------------------------
+
+def save_counts_cache(path, fingerprint, min_unigram, min_bigram, unigrams, bigrams):
+    lines = [
+        "#fingerprint\t" + "|".join(fingerprint),
+        f"#min_unigram\t{min_unigram}",
+        f"#min_bigram\t{min_bigram}",
+    ]
+    lines.extend(f"U\t{s}\t{c}" for s, c in sorted(unigrams.items()))
+    lines.extend(
+        f"B\t{p}\t{s}\t{c}" for (p, s), c in sorted(bigrams.items())
+        if c >= min_bigram
+    )
+    tmp = _gzip_to_temp(path, ("\n".join(lines) + "\n").encode("utf-8"))
+    os.replace(tmp, path)
+
+
+def load_counts_cache(path):
+    """Return (fingerprint, min_unigram, min_bigram, unigrams, bigrams) or None."""
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            meta, unigrams, bigrams = {}, Counter(), Counter()
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if parts[0].startswith("#"):
+                    meta[parts[0][1:]] = parts[1]
+                elif parts[0] == "U":
+                    unigrams[parts[1]] = int(parts[2])
+                elif parts[0] == "B":
+                    bigrams[(parts[1], parts[2])] = int(parts[3])
+        return (meta["fingerprint"].split("|"), int(meta["min_unigram"]),
+                int(meta["min_bigram"]), unigrams, bigrams)
+    except (OSError, EOFError, KeyError, ValueError, IndexError):
+        return None
 
 
 # --- Input readers ---------------------------------------------------------------
@@ -207,13 +255,54 @@ def iter_txt_texts(path):
             yield line
 
 
+SUPPORTED_EXTENSIONS = (".xml.bz2", ".xml", ".txt")
+
+
+def validate_inputs(paths) -> None:
+    """Fail fast, before any counting, on missing or unsupported inputs."""
+    for path in paths:
+        if not os.path.isfile(path):
+            raise ValueError(f"input not found: {path}")
+        if not path.lower().endswith(SUPPORTED_EXTENSIONS):
+            raise ValueError(
+                f"unsupported input (expected *.xml.bz2, *.xml or *.txt): {path}")
+
+
 def iter_input_texts(path, progress=False):
-    lower = path.lower()
-    if lower.endswith((".xml.bz2", ".xml")):
-        return iter_dump_texts(path, progress)
-    if lower.endswith(".txt"):
+    validate_inputs([path])
+    if path.lower().endswith(".txt"):
         return iter_txt_texts(path)
-    raise ValueError(f"unsupported input (expected *.xml.bz2, *.xml or *.txt): {path}")
+    return iter_dump_texts(path, progress)
+
+
+def iter_runs(paths, progress=False):
+    for path in paths:
+        for text in iter_input_texts(path, progress):
+            yield from tokenize(strip_wiki_markup(text))
+
+
+def count_unigrams(paths, progress=False) -> Counter:
+    """Pass 1: unigrams only. Bounded by the syllable alphabet, not corpus size."""
+    unigrams = Counter()
+    for run in iter_runs(paths, progress):
+        unigrams.update(run)
+    return unigrams
+
+
+def count_bigrams(paths, kept, progress=False) -> Counter:
+    """Pass 2: bigrams whose two syllables are both in `kept`."""
+    bigrams = Counter()
+    for run in iter_runs(paths, progress):
+        if len(run) > 1:
+            bigrams.update(
+                pair for pair in zip(run, run[1:])
+                if pair[0] in kept and pair[1] in kept
+            )
+    return bigrams
+
+
+def fingerprint_inputs(paths):
+    return [f"{os.path.basename(p)}:{os.path.getsize(p)}" for p in paths]
 
 
 # --- CLI -----------------------------------------------------------------------
@@ -227,25 +316,50 @@ def build_parser():
     p.add_argument("--min-bigram", type=int, default=3)
     p.add_argument("--top-per-prev", type=int, default=40)
     p.add_argument("--max-bytes", type=int, default=3_000_000)
+    p.add_argument("--counts-cache", metavar="PATH",
+                   help="save/reuse pruned counts (gzip TSV) so retrying thresholds "
+                        "does not recount the corpus")
     p.add_argument("--progress", action="store_true",
                    help="print a page count every 50k dump pages to stderr")
     return p
 
 
+def _counts(args):
+    """Return (unigrams, bigrams), from the cache when it is valid for these args."""
+    fingerprint = fingerprint_inputs(args.input)
+    if args.counts_cache and os.path.exists(args.counts_cache):
+        cached = load_counts_cache(args.counts_cache)
+        if (cached and cached[0] == fingerprint
+                and args.min_unigram >= cached[1] and args.min_bigram >= cached[2]):
+            print(f"reusing counts cache {args.counts_cache}", file=sys.stderr)
+            return cached[3], cached[4]
+        print("counts cache is stale or built with higher thresholds; recounting",
+              file=sys.stderr)
+    unigrams = count_unigrams(args.input, args.progress)
+    kept = {s for s, c in unigrams.items() if c >= args.min_unigram}
+    bigrams = count_bigrams(args.input, kept, args.progress)
+    bigrams = Counter({k: c for k, c in bigrams.items() if c >= args.min_bigram})
+    if args.counts_cache:
+        save_counts_cache(args.counts_cache, fingerprint, args.min_unigram,
+                          args.min_bigram, unigrams, bigrams)
+    return unigrams, bigrams
+
+
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    unigrams, bigrams = Counter(), Counter()
-    for path in args.input:
-        for text in iter_input_texts(path, args.progress):
-            count_into(unigrams, bigrams, tokenize(strip_wiki_markup(text)))
     try:
+        validate_inputs(args.input)
+        unigrams, bigrams = _counts(args)
         size = write_asset(unigrams, bigrams, args.output, args.min_unigram,
                            args.min_bigram, args.top_per_prev, args.max_bytes)
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
+        if not args.counts_cache and "budget" in str(e):
+            print("note: retrying thresholds recounts the whole corpus; "
+                  "pass --counts-cache to avoid that", file=sys.stderr)
         return 1
     print(f"wrote {args.output}: {size} bytes "
-          f"({len(unigrams)} unigrams, {len(bigrams)} bigrams seen)", file=sys.stderr)
+          f"({len(unigrams)} unigrams, {len(bigrams)} bigrams kept)", file=sys.stderr)
     return 0
 
 
