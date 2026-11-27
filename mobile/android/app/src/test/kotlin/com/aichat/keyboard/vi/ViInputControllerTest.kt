@@ -568,4 +568,18 @@ class ViInputControllerTest {
 
         assertEquals("việtj", kb.editor.text)
     }
+
+    @Test
+    fun `finishWord after partial telex then new keys compose fresh`() {
+        val kb = ViTestKeyboard()
+        kb.type("dduw")
+
+        // EditorInstance.commitGesture: finishWord, then a plain commitText of the glide word.
+        kb.controller.finishWord(kb.editor)
+        kb.editor.commit(" được")
+        kb.type("s")
+
+        assertEquals("đư đượcs", kb.editor.text)
+        assertEquals("s", kb.composing)
+    }
 }

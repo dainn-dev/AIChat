@@ -37,6 +37,9 @@ class ViInputBridge(private val context: Context, editor: AbstractEditorInstance
 
     val controller = ViInputController(settings = { settings })
 
+    /** The live Vietnamese settings, as the composer reads them on every key (glide uses the tone style). */
+    fun currentSettings(): ViInputSettings = settings
+
     /**
      * Starts watching the settings and the active subtype, once per input session. Runs on the
      * non-immediate main dispatcher, so collectors never run inside the caller's stack.
