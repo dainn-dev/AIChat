@@ -2,5 +2,5 @@
   "hash": "cc-by-sa-4.0-wikipedia",
   "name": "Creative Commons Attribution-ShareAlike 4.0 International (Vietnamese Wikipedia)",
   "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode",
-  "content": "Contains statistics derived from Wikipedia (vi.wikipedia.org), CC BY-SA 4.0.\nSource: Vietnamese Wikipedia contributors, https://vi.wikipedia.org (article dump of 2026-11-01, https://dumps.wikimedia.org/viwiki/latest/).\nLicense: Creative Commons Attribution-ShareAlike 4.0 International, https://creativecommons.org/licenses/by-sa/4.0/ .\nChanges made by AIChat: the article text was reduced to syllable unigram and bigram frequency counts (ime/dict/vi_glide.tsv.gz) used to rank Vietnamese glide typing candidates; no article text is included."
+  "content": "Contains statistics derived from Wikipedia (vi.wikipedia.org), CC BY-SA 4.0.\nSource: Vietnamese Wikipedia contributors, https://vi.wikipedia.org (article dump of 2026-11-01, https://dumps.wikimedia.org/viwiki/latest/).\nLicense: Creative Commons Attribution-ShareAlike 4.0 International, https://creativecommons.org/licenses/by-sa/4.0/ .\nChanges made by AIChat: the article text was reduced to syllable unigram and bigram frequency counts (ime/dict/vi_glide.tsv) used to rank Vietnamese glide typing candidates; no article text is included."
 }

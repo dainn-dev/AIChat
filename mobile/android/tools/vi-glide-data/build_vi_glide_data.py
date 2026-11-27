@@ -11,13 +11,15 @@ Stdlib only. Pages are stream-parsed so memory stays bounded.
 """
 import argparse
 import bz2
+import codecs
 import gzip
 import html
 import os
 import re
 import sys
 import unicodedata
-from collections import Counter, defaultdict
+import zlib
+from collections import Counter, defaultdict, namedtuple
 
 MAX_SYLLABLE_LETTERS = 7
 PROGRESS_EVERY_PAGES = 50_000
@@ -119,26 +121,151 @@ def count(runs):
     return unigrams, bigrams
 
 
+# --- Vietnamese syllable shape ---------------------------------------------------
+#
+# Ported from the app's ViSyllable.kt (vi-input), which is itself ported from Bamboo
+# (https://github.com/BambooEngine/bamboo-core, spelling.go and the CVC splitting in
+# bamboo_utils.go), commit b2e49a2b48c7d3772a3673142a7747eccd9d5f79.
+# Copyright (C) 2018 Luong Thanh Lam <ltlam93@gmail.com>. MIT License, see NOTICE.
+# Complete syllables only (the Kotlin `complete = true` path, plus a required vowel).
+
+_FIRST_CONSONANTS = [r.split() for r in (
+    "b d đ g gh m n nh p ph r s t tr v z",
+    "c h k kh qu th",
+    "ch gi l ng ngh x",
+    "đ l",
+    "h",
+)]
+_VOWEL_ROWS = [r.split() for r in (
+    "ê i ua uê uy y",
+    "a iê oa uyê yê",
+    "â ă e o oo ô ơ oe u ư uâ uô ươ",
+    "oă",
+    "uơ",
+    "ai ao au âu ay ây eo êu ia iêu iu oai oao oay oeo oi ôi ơi ưa uây ui ưi uôi ươi ươu ưu uya uyu yêu",
+    "ă",
+    "i",
+)]
+_LAST_CONSONANTS = [r.split() for r in ("ch nh", "c ng", "m n p t", "k", "c")]
+_CV_MATRIX = [{0, 1, 2, 5}, {0, 1, 2, 3, 4, 5}, {0, 1, 2, 3, 5}, {6}, {7}]
+_VC_MATRIX = [{0, 2}, {0, 1, 2}, {1, 2}, {1, 2}, set(), set(), {3}, {4}]
+_STOP_FINALS = {"c", "k", "p", "t", "ch"}
+_ACUTE = "́"
+_DOT_BELOW = "̣"
+# Combining tone marks: grave, hook above, tilde, acute, dot below.
+_TONE_CODEPOINTS = frozenset("̣̀̉̃́")
+_PLAIN_VOWELS = frozenset("aeiouy")
+
+
+def _rows_of(table, text):
+    return [i for i, row in enumerate(table) if text in row]
+
+
+def _tone_of(ch):
+    return next((c for c in unicodedata.normalize("NFD", ch) if c in _TONE_CODEPOINTS), "")
+
+
+def _strip_tone(ch):
+    return unicodedata.normalize(
+        "NFC", "".join(c for c in unicodedata.normalize("NFD", ch) if c not in _TONE_CODEPOINTS))
+
+
+def _base_letter(ch):
+    return unicodedata.normalize("NFD", ch)[0]
+
+
+def _is_vowel_char(ch):
+    return _base_letter(ch) in _PLAIN_VOWELS
+
+
+def _run_start(letters, end, vowels):
+    i = end
+    while i > 0 and _is_vowel_char(letters[i - 1]) == vowels:
+        i -= 1
+    return i
+
+
+def _split_cvc(word):
+    """(initial, vowel, final) with gi/qu counted as initials (Bamboo extractCvc)."""
+    last_start = _run_start(word, len(word), False)
+    vowel_start = _run_start(word, last_start, True)
+    fc, vo, lc = word[:vowel_start], word[vowel_start:last_start], word[last_start:]
+    if lc and not vo and not fc:
+        fc, lc = lc, ""
+    if len(fc) == 1 and vo:
+        first, v0 = _base_letter(fc[0]), _base_letter(vo[0])
+        gi = (first == "g" and v0 == "i" and len(vo) > 1
+              and not (_base_letter(vo[1]) == "e" and lc))
+        qu = first == "q" and v0 == "u"
+        if gi or qu:
+            fc, vo = fc + vo[0], vo[1:]
+    return fc, vo, lc
+
+
+def _combines(left, right, matrix):
+    return any(r in matrix[l] for l in left for r in right)
+
+
+def is_vi_syllable(word: str) -> bool:
+    """True if `word` is a complete, validly spelled Vietnamese syllable."""
+    word = unicodedata.normalize("NFC", word.lower())
+    if not word:
+        return False
+    tones = [t for t in map(_tone_of, word) if t]
+    if len(tones) > 1:
+        return False
+    fc, vo, lc = _split_cvc(word)
+    if not vo:
+        return False
+    if tones and tones[0] not in (_ACUTE, _DOT_BELOW) and lc in _STOP_FINALS:
+        return False
+    fc, vo = "".join(map(_strip_tone, fc)), "".join(map(_strip_tone, vo))
+    fc_rows = _rows_of(_FIRST_CONSONANTS, fc) if fc else []
+    if fc and not fc_rows:
+        return False
+    vo_rows = _rows_of(_VOWEL_ROWS, vo)
+    if not vo_rows:
+        return False
+    lc_rows = _rows_of(_LAST_CONSONANTS, lc) if lc else []
+    if lc and not lc_rows:
+        return False
+    if fc_rows and not _combines(fc_rows, vo_rows, _CV_MATRIX):
+        return False
+    return not lc_rows or _combines(vo_rows, lc_rows, _VC_MATRIX)
+
+
 # --- Asset output ----------------------------------------------------------------
 
-def _gzip_to_temp(path, payload: bytes) -> str:
-    """Write a deterministic gzip next to `path` and return the temp path."""
+AssetResult = namedtuple("AssetResult", "size deflate_size unigrams bigrams")
+
+
+def _write_temp(path, payload: bytes, gz=None) -> str:
+    """Write the asset next to `path` and return the temp path.
+
+    A path ending in .gz gets a deterministic gzip (mtime=0, empty filename);
+    anything else gets the plain TSV, which is what the app ships (the APK
+    deflates assets itself).
+    """
     tmp = f"{path}.tmp"
     with open(tmp, "wb") as raw:
-        # mtime=0 and empty filename keep the output byte-for-byte reproducible.
-        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
-            gz.write(payload)
+        if path.endswith(".gz") if gz is None else gz:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
+                gz.write(payload)
+        else:
+            raw.write(payload)
     return tmp
 
 
 def write_asset(unigrams, bigrams, path, min_unigram, min_bigram,
-                top_per_prev, max_bytes) -> int:
+                top_per_prev, max_bytes) -> AssetResult:
     """Write the asset atomically; an existing file at `path` survives failures.
 
-    Bigrams are kept only when both syllables survive `min_unigram`.
+    Only syllable-shaped (is_vi_syllable) U lines are kept, and B lines only when
+    both syllables are kept. The budget is the deflated size of the TSV, which is
+    what the APK carries, whatever the output format.
     """
     kept_uni = sorted(
-        ((s, c) for s, c in unigrams.items() if c >= min_unigram),
+        ((s, c) for s, c in unigrams.items() if c >= min_unigram and is_vi_syllable(s)),
         key=lambda sc: (-sc[1], sc[0]),
     )
     kept = {s for s, _ in kept_uni}
@@ -154,20 +281,20 @@ def write_asset(unigrams, bigrams, path, min_unigram, min_bigram,
         top = items[:top_per_prev]
         groups.append((prev, sum(c for _, c in top), top))
     groups.sort(key=lambda g: (-g[1], g[0]))
-    for prev, _, top in groups:
-        lines.extend(f"B\t{prev}\t{s}\t{c}" for s, c in top)
+    bigram_lines = [f"B\t{prev}\t{s}\t{c}" for prev, _, top in groups for s, c in top]
+    lines.extend(bigram_lines)
 
     payload = ("\n".join(lines) + "\n" if lines else "").encode("utf-8")
-    tmp = _gzip_to_temp(path, payload)
-    size = os.path.getsize(tmp)
-    if size > max_bytes:
-        os.remove(tmp)
+    deflate_size = len(zlib.compress(payload, 9))
+    if deflate_size > max_bytes:
         raise ValueError(
-            f"asset is {size} bytes, over the {max_bytes} byte budget; raise "
+            f"asset deflates to {deflate_size} bytes, over the {max_bytes} byte budget; raise "
             f"--min-unigram, --min-bigram or lower --top-per-prev (or raise --max-bytes)"
         )
+    tmp = _write_temp(path, payload)
+    size = os.path.getsize(tmp)
     os.replace(tmp, path)
-    return size
+    return AssetResult(size, deflate_size, len(kept_uni), len(bigram_lines))
 
 
 # --- Counts cache -------------------------------------------------------------------
@@ -183,7 +310,7 @@ def save_counts_cache(path, fingerprint, min_unigram, min_bigram, unigrams, bigr
         f"B\t{p}\t{s}\t{c}" for (p, s), c in sorted(bigrams.items())
         if c >= min_bigram
     )
-    tmp = _gzip_to_temp(path, ("\n".join(lines) + "\n").encode("utf-8"))
+    tmp = _write_temp(path, ("\n".join(lines) + "\n").encode("utf-8"), gz=True)
     os.replace(tmp, path)
 
 
@@ -224,35 +351,38 @@ def _page_text(page):
     return html.unescape(m.group(1)) if m else None
 
 
-def iter_dump_texts(path, progress=False):
+def iter_dump_texts(path, progress=False, read_bytes=_READ_CHUNK_BYTES):
     """Yield wikitext of article (ns 0, non-redirect) pages of a MediaWiki dump.
 
     Streams the dump page by page with a plain scanner instead of an XML parser:
     expat (via ElementTree.iterparse) aborted with "out of memory" on the real
     viwiki dump at a page near line 36M, with the process far below any limit.
+    Entities are unescaped; CDATA sections are not handled (the Wikipedia export
+    never uses them).
     """
-    import codecs
     opener = bz2.open if path.endswith(".bz2") else open
     decoder = codecs.getincrementaldecoder("utf-8")("replace")
     pages = 0
     buf = ""
     with opener(path, "rb") as f:
         while True:
-            chunk = f.read(_READ_CHUNK_BYTES)
+            chunk = f.read(read_bytes)
             buf += decoder.decode(chunk, final=not chunk)
+            pos = 0
             while True:
-                end = buf.find(_PAGE_END)
+                end = buf.find(_PAGE_END, pos)
                 if end < 0:
                     break
-                start = buf.rfind("<page>", 0, end)
+                start = buf.rfind("<page>", pos, end)
                 page = buf[start:end] if start >= 0 else ""
-                buf = buf[end + len(_PAGE_END):]
+                pos = end + len(_PAGE_END)
                 pages += 1
                 if progress and pages % PROGRESS_EVERY_PAGES == 0:
                     print(f"{pages} pages", file=sys.stderr, flush=True)
                 text = _page_text(page)
                 if text and not _REDIRECT_RE.match(text):
                     yield text
+            buf = buf[pos:]  # one copy per chunk, not per page
             if not chunk:
                 return
 
@@ -319,7 +449,7 @@ def build_parser():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--input", nargs="+", action="extend", required=True,
                    help="*.xml.bz2 MediaWiki dump(s) or *.txt file(s); counts are summed")
-    p.add_argument("--output", required=True, help="output path (*.tsv.gz)")
+    p.add_argument("--output", required=True, help="output path: *.tsv (plain, what the app ships) or *.tsv.gz")
     p.add_argument("--min-unigram", type=int, default=5)
     p.add_argument("--min-bigram", type=int, default=3)
     p.add_argument("--top-per-prev", type=int, default=40)
@@ -358,16 +488,17 @@ def main(argv=None) -> int:
     try:
         validate_inputs(args.input)
         unigrams, bigrams = _counts(args)
-        size = write_asset(unigrams, bigrams, args.output, args.min_unigram,
-                           args.min_bigram, args.top_per_prev, args.max_bytes)
+        result = write_asset(unigrams, bigrams, args.output, args.min_unigram,
+                             args.min_bigram, args.top_per_prev, args.max_bytes)
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         if not args.counts_cache and "budget" in str(e):
             print("note: retrying thresholds recounts the whole corpus; "
                   "pass --counts-cache to avoid that", file=sys.stderr)
         return 1
-    print(f"wrote {args.output}: {size} bytes "
-          f"({len(unigrams)} unigrams, {len(bigrams)} bigrams kept)", file=sys.stderr)
+    print(f"wrote {args.output}: {result.size} bytes ({result.deflate_size} deflated); "
+          f"{result.unigrams} unigram lines, {result.bigrams} bigram lines",
+          file=sys.stderr)
     return 0
 
 

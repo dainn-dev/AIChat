@@ -193,5 +193,10 @@ Files added by AIChat (not part of upstream):
   frame merged, re-encoded as lossy animated WebP. Notice shown in the app via
   app/src/main/config/libraries/noto-emoji-animation.json and
   app/src/main/config/licenses/noto-emoji-animation-cc-by-4.0.json),
-  app/src/main/config/libraries/vi-wikipedia-statistics.json, app/src/main/config/licenses/cc-by-sa-4.0-wikipedia.json,
-  app/src/main/assets/ime/dict/vi_glide.tsv.gz (Vietnamese syllable statistics derived from Wikipedia, CC BY-SA 4.0)
+  app/src/main/assets/ime/dict/vi_glide.tsv (Vietnamese syllable unigram/bigram counts derived from the
+  Vietnamese Wikipedia article dump of 2026-11-01, https://vi.wikipedia.org, by Vietnamese Wikipedia
+  contributors, licensed under CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/ . Changed by
+  AIChat: the article text was reduced to syllable frequency counts by
+  tools/vi-glide-data/build_vi_glide_data.py (no article text is included). Notice shown in the app via
+  app/src/main/config/libraries/vi-wikipedia-statistics.json and
+  app/src/main/config/licenses/cc-by-sa-4.0-wikipedia.json)
