@@ -2,6 +2,10 @@ package com.aichat.keyboard.ui
 
 import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiButton
+import com.aichat.keyboard.ai.AiFeatureGate
+import androidx.compose.runtime.LaunchedEffect
+import dev.patrickgold.florisboard.app.FlorisPreferenceStore
+import dev.patrickgold.jetpref.datastore.model.observeAsState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -50,6 +54,7 @@ private val IconSize = 24.dp
 @Composable
 fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val prefs by FlorisPreferenceStore
     val subtypeManager by context.subtypeManager()
     val subtypes by subtypeManager.subtypesFlow.collectAsState()
     val barHeight = AiChatSizing.bottomBarHeightDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp
@@ -69,14 +74,21 @@ fun AiChatImeBottomBar(modifier: Modifier = Modifier) {
             )
         }
         val aiController = remember { AiAssist.controller(context) }
-        val keyboardManager by context.keyboardManager()
-        AiButton(
-            controller = aiController,
-            modifier = Modifier.fillMaxHeight().width(ButtonWidth),
-            iconModifier = Modifier.size(IconSize),
-            // The chips live in the smartbar, which only the text layout has.
-            onOpen = { keyboardManager.activeState.imeUiMode = ImeUiMode.TEXT },
-        )
+        val aiEnabled by prefs.aichatAi.enabled.observeAsState()
+        val aiState by aiController.state.collectAsState()
+        LaunchedEffect(aiEnabled, aiState) {
+            if (AiFeatureGate.shouldCloseAssist(aiEnabled, aiState)) aiController.reset()
+        }
+        if (AiFeatureGate.showAiButton(aiEnabled)) {
+            val keyboardManager by context.keyboardManager()
+            AiButton(
+                controller = aiController,
+                modifier = Modifier.fillMaxHeight().width(ButtonWidth),
+                iconModifier = Modifier.size(IconSize),
+                // The chips live in the smartbar, which only the text layout has.
+                onOpen = { keyboardManager.activeState.imeUiMode = ImeUiMode.TEXT },
+            )
+        }
         ClipboardButton()
         Spacer(modifier = Modifier.weight(1f))
         // Opens the DBoard settings app (KeyCode.SETTINGS → FlorisImeService.launchSettings()).

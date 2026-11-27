@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.aichat.keyboard.ai.AiAssist
 import com.aichat.keyboard.ai.AiAssistState
+import com.aichat.keyboard.ai.AiFeatureGate
 import com.aichat.keyboard.ai.AiSmartbarLayout
 import com.aichat.keyboard.sticker.suggest.rememberTypingStickerSuggestion
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
@@ -34,7 +35,9 @@ fun isSmartbarVisible(): Boolean {
     val enabled by prefs.smartbar.enabled.observeAsState()
     val layout by prefs.smartbar.layout.observeAsState()
     val aiController = remember { AiAssist.controller(context) }
-    val aiState by aiController.state.collectAsState()
+    val aiEnabled by prefs.aichatAi.enabled.observeAsState()
+    val rawAiState by aiController.state.collectAsState()
+    val aiState = AiFeatureGate.panelState(aiEnabled, rawAiState)
     val stickerSuggestion = rememberTypingStickerSuggestion()
     return AiChatSizing.shouldShowSmartbar(
         enabled = enabled,
@@ -56,6 +59,8 @@ fun smartbarMainRowCount(): Int {
     val context = LocalContext.current
     val layout by prefs.smartbar.layout.observeAsState()
     val aiController = remember { AiAssist.controller(context) }
-    val aiState by aiController.state.collectAsState()
+    val aiEnabled by prefs.aichatAi.enabled.observeAsState()
+    val rawAiState by aiController.state.collectAsState()
+    val aiState = AiFeatureGate.panelState(aiEnabled, rawAiState)
     return AiSmartbarLayout.mainRowCount(suggestionsOnly = layout == SmartbarLayout.SUGGESTIONS_ONLY, state = aiState)
 }

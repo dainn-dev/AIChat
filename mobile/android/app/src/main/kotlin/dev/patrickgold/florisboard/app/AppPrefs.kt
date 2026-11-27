@@ -651,6 +651,16 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
     }
 
+    // AIChat MODIFIED: the AI assistant (AI button, chat reader entry) is opt-in, off by default
+    // (com.aichat.keyboard.ai.AiFeatureGate).
+    val aichatAi = AiChatAi()
+    inner class AiChatAi {
+        val enabled = boolean(
+            key = "aichat_ai__enabled",
+            default = com.aichat.keyboard.ai.AiFeatureGate.DEFAULT_ENABLED,
+        )
+    }
+
     // AIChat MODIFIED: sticker suggestions while typing (com.aichat.keyboard.sticker.suggest), on by default.
     val aichatStickerSuggest = AiChatStickerSuggest()
     inner class AiChatStickerSuggest {

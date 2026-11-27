@@ -274,6 +274,8 @@
     <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
     <string name="aichat__sticker_suggest__pref_label">Gợi ý sticker khi gõ</string>
     <string name="aichat__sticker_suggest__pref_summary">Hiện sticker phù hợp trên thanh gợi ý khi gõ các từ như “cảm ơn” hay “haha”. Hoạt động không cần mạng.</string>
+    <string name="aichat__ai__pref_label">Trợ lý AI</string>
+    <string name="aichat__ai__pref_summary">Hiện nút AI trên bàn phím để gợi ý trả lời, viết lại và dịch. Cần kết nối mạng.</string>
     <string name="aichat__sticker_suggest__send">Gửi sticker %1$s</string>
     <!-- Keyboard background photo (com.aichat.keyboard.theme.background), on the theme settings screen. -->
     <string name="aichat__keyboard_background__title">Hình nền bàn phím</string>

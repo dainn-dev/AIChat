@@ -144,7 +144,7 @@ private fun openAppInfo(context: Context) {
 
 /** Whether the service is on; re-read whenever the screen resumes (the user may come back from Settings). */
 @Composable
-private fun rememberCaptureEnabled(): Boolean {
+internal fun rememberCaptureEnabled(): Boolean {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(isCaptureEnabled(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { enabled = isCaptureEnabled(context) }

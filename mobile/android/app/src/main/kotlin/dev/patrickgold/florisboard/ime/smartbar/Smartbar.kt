@@ -335,7 +335,10 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
             SmartbarLayout.SUGGESTIONS_ONLY -> {
                 // AIChat MODIFIED: while the AI button (bottom strip) is open, its chips replace the suggestions.
                 val aiController = remember { AiAssist.controller(context) }
-                val aiState by aiController.state.collectAsState()
+                val aiRawState by aiController.state.collectAsState()
+                // AIChat MODIFIED: never the AI chips while "Trợ lý AI" is off.
+                val aiEnabled by prefs.aichatAi.enabled.observeAsState()
+                val aiState = com.aichat.keyboard.ai.AiFeatureGate.panelState(aiEnabled, aiRawState)
                 if (aiState != AiAssistState.Closed) {
                     AiSmartbarPanel(aiController)
                 } else if (shouldShowInlineSuggestionsUi) {

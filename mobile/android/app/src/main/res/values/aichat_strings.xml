@@ -278,6 +278,8 @@
     <!-- Sticker suggestions (com.aichat.keyboard.sticker.suggest): while typing and with AI replies. -->
     <string name="aichat__sticker_suggest__pref_label">Suggest stickers while typing</string>
     <string name="aichat__sticker_suggest__pref_summary">Shows matching stickers in the suggestion bar for words like “thanks” or “haha”. Works offline.</string>
+    <string name="aichat__ai__pref_label">AI assistant</string>
+    <string name="aichat__ai__pref_summary">Shows the AI button on the keyboard to suggest replies, rewrite and translate. Uses the internet.</string>
     <string name="aichat__sticker_suggest__send">Send sticker %1$s</string>
     <!-- Keyboard background photo (com.aichat.keyboard.theme.background), on the theme settings screen. -->
     <string name="aichat__keyboard_background__title">Keyboard background</string>
