@@ -11,7 +11,6 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ViGlideLexiconTest {
@@ -64,6 +63,49 @@ class ViGlideLexiconTest {
         assertEquals("ok", ok.word)
         assertTrue(ok.count <= 0.3 * 3000)
         assertTrue("ok" in lex().foldedForms)
+    }
+
+    @Test
+    fun `english count is exactly weighted and scaled`() {
+        // max Vietnamese count is 3000; round(0.3 * 200 / 255 * 3000) = 706
+        assertEquals(706L, lex().expansions("ok").single().count)
+        assertEquals(353L, lex().expansions("hello").single().count)
+    }
+
+    @Test
+    fun `unigram probability divides by total including english`() {
+        // vi: 3000 + 100 + 500 + 100 (merged hoa) + 2000 = 5700; en: 706 + 353
+        val total = 5700.0 + 706 + 353
+        assertEquals(706 / total, lex().unigramProbability("ok"), 1e-12)
+        assertEquals(3000 / total, lex().unigramProbability("được"), 1e-12)
+    }
+
+    @Test
+    fun `english word equal to vietnamese syllable is merged once`() {
+        val l = ViGlideLexicon.parse(
+            sequenceOf("U	the	1000", "U	thể	50"),
+            mapOf("the" to 255),
+        )
+        val the = l.expansions("the").filter { it.word == "the" }
+        assertEquals(1, the.size)
+        assertFalse(the.single().english)
+        assertEquals(1000L + 300L, the.single().count)
+    }
+
+    @Test
+    fun `different english and vietnamese words share a folded key`() {
+        val l = ViGlideLexicon.parse(
+            sequenceOf("U	thể	1000", "U	thế	900"),
+            mapOf("the" to 255),
+        )
+        val entries = l.expansions("the")
+        assertEquals(setOf("thể", "thế", "the"), entries.map { it.word }.toSet())
+        assertTrue(entries.single { it.word == "the" }.english)
+    }
+
+    @Test
+    fun `english entries with zero weight are dropped`() {
+        assertTrue(lex(mapOf("zero" to 0)).expansions("zero").isEmpty())
     }
 
     @Test
@@ -130,7 +172,10 @@ class ViGlideLexiconTest {
         assertTrue(l.expansions("duoc").any { it.word == "được" })
         assertTrue(l.bigramCount("không", "được") > 0)
         assertTrue(l.expansions("ok").any { it.english })
-        assertNotNull(l.foldedForms.firstOrNull())
+        val viUnigrams = file.useLines(Charsets.UTF_8) { it.count { line -> line.startsWith("U\t") } }
+        assertTrue(viUnigrams in 8_000..10_000, "U lines: $viUnigrams")
+        assertTrue(l.foldedForms.size > 2_000, "folded forms: ${l.foldedForms.size}")
+        assertTrue(l.bigramTotal("không") > 0)
     }
 
     private fun findAssets(): File {

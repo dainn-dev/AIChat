@@ -15,11 +15,11 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-/** Loads [ViGlideLexicon] once from assets, off the main thread. A failed load is retried by the next [get]. */
-object ViGlideLexiconLoader {
-    private const val VI_ASSET = "ime/dict/vi_glide.tsv"
-    private const val ENGLISH_ASSET = "ime/dict/data.json"
-
+/**
+ * Memoizes one [ViGlideLexicon] built by [load]. A failed load is not cached, so the next [get]
+ * retries. Pure JVM so the contract can be unit-tested; [ViGlideLexiconLoader] supplies the assets.
+ */
+internal class ViGlideLexiconCache(private val load: suspend () -> ViGlideLexicon) {
     private val mutex = Mutex()
 
     @Volatile
@@ -27,11 +27,32 @@ object ViGlideLexiconLoader {
 
     fun peek(): ViGlideLexicon? = instance
 
-    suspend fun get(context: Context): ViGlideLexicon {
+    suspend fun get(): ViGlideLexicon {
         instance?.let { return it }
         return mutex.withLock {
-            instance ?: withContext(Dispatchers.IO) { load(context.applicationContext) }.also { instance = it }
+            instance ?: load().also { instance = it }
         }
+    }
+}
+
+/** Loads [ViGlideLexicon] once from assets, off the main thread. */
+object ViGlideLexiconLoader {
+    private const val VI_ASSET = "ime/dict/vi_glide.tsv"
+    private const val ENGLISH_ASSET = "ime/dict/data.json"
+
+    @Volatile
+    private var appContext: Context? = null
+
+    private val cache = ViGlideLexiconCache {
+        val context = checkNotNull(appContext) { "ViGlideLexiconLoader.get was not called" }
+        withContext(Dispatchers.IO) { load(context) }
+    }
+
+    fun peek(): ViGlideLexicon? = cache.peek()
+
+    suspend fun get(context: Context): ViGlideLexicon {
+        appContext = context.applicationContext
+        return cache.get()
     }
 
     private fun load(context: Context): ViGlideLexicon {

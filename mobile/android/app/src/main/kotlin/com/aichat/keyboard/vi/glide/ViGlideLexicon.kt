@@ -93,54 +93,81 @@ class ViGlideLexicon private constructor(
          */
         fun parse(lines: Sequence<String>, english: Map<String, Int>): ViGlideLexicon {
             val words = ArrayList<String>()
-            val counts = ArrayList<Long>()
+            var counts = LongArray(16384)
             val ids = HashMap<String, Int>()
             val rawToId = HashMap<String, Int>()
-            val packed = ArrayList<Long>()
-            val bigramCounts = ArrayList<Long>()
+            val bigrams = BigramBuffer()
 
             for (line in lines) {
-                val f = line.split('\t')
-                when {
-                    f.size == 3 && f[0] == "U" -> addUnigram(f[1], f[2], words, counts, ids, rawToId)
-                    f.size == 4 && f[0] == "B" -> {
-                        val count = f[3].toLongOrNull() ?: continue
-                        val p = lookup(f[1], ids, rawToId)
-                        val w = lookup(f[2], ids, rawToId)
-                        if (p >= 0 && w >= 0 && count > 0) {
-                            packed.add(pack(p, w))
-                            bigramCounts.add(count)
-                        }
+                val t1 = line.indexOf('\t')
+                if (t1 != 1) continue
+                val t2 = line.indexOf('\t', t1 + 1)
+                if (t2 < 0) continue
+                when (line[0]) {
+                    'U' -> {
+                        val count = line.substring(t2 + 1).toLongOrNull() ?: continue
+                        counts = addUnigram(line.substring(t1 + 1, t2), count, words, counts, ids, rawToId)
+                    }
+                    'B' -> {
+                        val t3 = line.indexOf('\t', t2 + 1)
+                        if (t3 < 0) continue
+                        val count = line.substring(t3 + 1).toLongOrNull() ?: continue
+                        val p = lookup(line.substring(t1 + 1, t2), ids, rawToId)
+                        val w = lookup(line.substring(t2 + 1, t3), ids, rawToId)
+                        if (p >= 0 && w >= 0 && count > 0) bigrams.add(p, w, count)
                     }
                 }
             }
-            return build(words, counts, ids, packed, bigramCounts, english)
+            return build(words, counts.copyOf(words.size), ids, bigrams, english)
+        }
+
+        /** Growable primitive (prev, word, count) rows. */
+        private class BigramBuffer {
+            var prev = IntArray(1 shl 16)
+            var word = IntArray(1 shl 16)
+            var count = LongArray(1 shl 16)
+            var size = 0
+
+            fun add(p: Int, w: Int, c: Long) {
+                if (size == prev.size) {
+                    prev = prev.copyOf(size * 2)
+                    word = word.copyOf(size * 2)
+                    count = count.copyOf(size * 2)
+                }
+                prev[size] = p
+                word[size] = w
+                count[size] = c
+                size++
+            }
         }
 
         private fun addUnigram(
             raw: String,
-            rawCount: String,
+            count: Long,
             words: MutableList<String>,
-            counts: MutableList<Long>,
+            counts: LongArray,
             ids: MutableMap<String, Int>,
             rawToId: MutableMap<String, Int>,
-        ) {
-            val count = rawCount.toLongOrNull() ?: return
-            if (count <= 0) return
+        ): LongArray {
+            if (count <= 0) return counts
             val s = normalize(raw)
-            if (!ViSyllable.isValid(s)) return
+            if (!ViSyllable.isValid(s)) return counts
             val canonical = ViText.withToneStyle(s, ToneStyle.MODERN)
             val existing = ids[canonical]
-            val id = if (existing != null) {
-                counts[existing] = counts[existing] + count
-                existing
+            val id: Int
+            var result = counts
+            if (existing != null) {
+                counts[existing] += count
+                id = existing
             } else {
+                id = words.size
+                if (id == counts.size) result = counts.copyOf(id * 2)
                 words.add(canonical)
-                counts.add(count)
-                ids[canonical] = words.size - 1
-                words.size - 1
+                result[id] = count
+                ids[canonical] = id
             }
             rawToId[raw] = id
+            return result
         }
 
         private fun lookup(raw: String, ids: Map<String, Int>, rawToId: MutableMap<String, Int>): Int {
@@ -153,22 +180,24 @@ class ViGlideLexicon private constructor(
 
         private fun build(
             words: List<String>,
-            counts: List<Long>,
+            viCounts: LongArray,
             ids: Map<String, Int>,
-            packed: List<Long>,
-            bigramCounts: List<Long>,
+            bigrams: BigramBuffer,
             english: Map<String, Int>,
         ): ViGlideLexicon {
-            val viCounts = counts.toLongArray()
             val maxVi = viCounts.maxOrNull() ?: 0L
 
+            // An English word spelled like a Vietnamese syllable merges into that entry.
             val englishCounts = HashMap<String, Long>()
             english.entries
                 .filter { ENGLISH_WORD.matches(it.key) }
                 .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
                 .take(ENGLISH_TOP_N)
                 .forEach { (w, freq) ->
-                    englishCounts[w] = (ENGLISH_WEIGHT * (freq / 255.0) * maxVi).roundToLong()
+                    val pseudo = (ENGLISH_WEIGHT * (freq / 255.0) * maxVi).roundToLong()
+                    if (pseudo <= 0L) return@forEach
+                    val viId = ids[w]
+                    if (viId != null) viCounts[viId] += pseudo else englishCounts[w] = pseudo
                 }
 
             val grouped = HashMap<String, MutableList<ViGlideEntry>>()
@@ -182,27 +211,39 @@ class ViGlideLexicon private constructor(
                 list.sortedWith(compareByDescending<ViGlideEntry> { it.count }.thenBy { it.word })
             }
 
-            val order = packed.indices.sortedBy { packed[it] }
-            val keys = ArrayList<Long>(order.size)
-            val values = ArrayList<Long>(order.size)
-            for (i in order) {
-                if (keys.isNotEmpty() && keys.last() == packed[i]) {
-                    values[values.lastIndex] = values.last() + bigramCounts[i]
+            val n = bigrams.size
+            require(words.size < (1 shl 21) && n < (1 shl 21)) { "lexicon too large" }
+            val sortKeys = LongArray(n) { i ->
+                (bigrams.prev[i].toLong() shl 42) or (bigrams.word[i].toLong() shl 21) or i.toLong()
+            }
+            sortKeys.sort()
+            var keys = LongArray(n)
+            var values = LongArray(n)
+            var size = 0
+            val rowMask = (1L shl 21) - 1
+            for (sk in sortKeys) {
+                val row = (sk and rowMask).toInt()
+                val key = pack(bigrams.prev[row], bigrams.word[row])
+                if (size > 0 && keys[size - 1] == key) {
+                    values[size - 1] += bigrams.count[row]
                 } else {
-                    keys.add(packed[i])
-                    values.add(bigramCounts[i])
+                    keys[size] = key
+                    values[size] = bigrams.count[row]
+                    size++
                 }
             }
+            keys = keys.copyOf(size)
+            values = values.copyOf(size)
             val totals = LongArray(words.size)
-            keys.forEachIndexed { i, k -> totals[(k ushr 32).toInt()] += values[i] }
+            for (i in 0 until size) totals[(keys[i] ushr 32).toInt()] += values[i]
 
             return ViGlideLexicon(
                 byFolded = byFolded,
                 viIds = ids,
                 viCounts = viCounts,
                 englishCounts = englishCounts,
-                bigramKeys = keys.toLongArray(),
-                bigramValues = values.toLongArray(),
+                bigramKeys = keys,
+                bigramValues = values,
                 bigramTotals = totals,
                 totalCount = viCounts.sum() + englishCounts.values.sum(),
             )
