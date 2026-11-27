@@ -192,4 +192,6 @@ Files added by AIChat (not part of upstream):
   https://creativecommons.org/licenses/by/4.0/ . Changed by AIChat: resized from 512 to 192 px, every second
   frame merged, re-encoded as lossy animated WebP. Notice shown in the app via
   app/src/main/config/libraries/noto-emoji-animation.json and
-  app/src/main/config/licenses/noto-emoji-animation-cc-by-4.0.json)
+  app/src/main/config/licenses/noto-emoji-animation-cc-by-4.0.json),
+  app/src/main/config/libraries/vi-wikipedia-statistics.json, app/src/main/config/licenses/cc-by-sa-4.0-wikipedia.json,
+  app/src/main/assets/ime/dict/vi_glide.tsv.gz (Vietnamese syllable statistics derived from Wikipedia, CC BY-SA 4.0)

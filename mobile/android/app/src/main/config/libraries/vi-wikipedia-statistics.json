@@ -1,0 +1,15 @@
+{
+  "uniqueId": "vi-wikipedia-statistics",
+  "name": "Vietnamese Wikipedia syllable statistics",
+  "description": "Contains statistics derived from Wikipedia (vi.wikipedia.org), CC BY-SA 4.0",
+  "developers": [
+    {
+      "name": "Vietnamese Wikipedia contributors",
+      "organisationUrl": "https://vi.wikipedia.org"
+    }
+  ],
+  "website": "https://vi.wikipedia.org",
+  "licenses": [
+    "cc-by-sa-4.0-wikipedia"
+  ]
+}

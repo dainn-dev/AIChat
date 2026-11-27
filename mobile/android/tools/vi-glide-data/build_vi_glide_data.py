@@ -17,7 +17,6 @@ import os
 import re
 import sys
 import unicodedata
-import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 
 MAX_SYLLABLE_LETTERS = 7
@@ -209,44 +208,53 @@ def load_counts_cache(path):
 
 # --- Input readers ---------------------------------------------------------------
 
-def _local(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
+_PAGE_END = "</page>"
+_NS_RE = re.compile(r"<ns>\s*(\d+)\s*</ns>")
+_REDIRECT_TAG_RE = re.compile(r"<redirect\b")
+_TEXT_RE = re.compile(r"<text\b[^>]*?(?<!/)>(.*?)</text>", re.S)
+_READ_CHUNK_BYTES = 4 * 1024 * 1024
+
+
+def _page_text(page):
+    """Wikitext of an article (ns 0, non-redirect) page body, else None."""
+    ns = _NS_RE.search(page)
+    if ns is None or ns.group(1) != "0" or _REDIRECT_TAG_RE.search(page):
+        return None
+    m = _TEXT_RE.search(page)
+    return html.unescape(m.group(1)) if m else None
 
 
 def iter_dump_texts(path, progress=False):
-    """Yield wikitext of article (ns 0, non-redirect) pages of a MediaWiki dump."""
+    """Yield wikitext of article (ns 0, non-redirect) pages of a MediaWiki dump.
+
+    Streams the dump page by page with a plain scanner instead of an XML parser:
+    expat (via ElementTree.iterparse) aborted with "out of memory" on the real
+    viwiki dump at a page near line 36M, with the process far below any limit.
+    """
+    import codecs
     opener = bz2.open if path.endswith(".bz2") else open
+    decoder = codecs.getincrementaldecoder("utf-8")("replace")
     pages = 0
+    buf = ""
     with opener(path, "rb") as f:
-        root = None
-        for event, elem in ET.iterparse(f, events=("start", "end")):
-            if event == "start":
-                if root is None:
-                    root = elem
-                continue
-            if _local(elem.tag) != "page":
-                continue
-            pages += 1
-            if progress and pages % PROGRESS_EVERY_PAGES == 0:
-                print(f"{pages} pages", file=sys.stderr, flush=True)
-            ns = None
-            redirect = False
-            for child in elem:
-                name = _local(child.tag)
-                if name == "ns":
-                    ns = (child.text or "").strip()
-                elif name == "redirect":
-                    redirect = True
-            text = None
-            if ns == "0" and not redirect:
-                for node in elem.iter():
-                    if _local(node.tag) == "text":
-                        text = node.text
-                        break
-            elem.clear()
-            root.clear()  # drop finished pages kept alive by the root
-            if text and not _REDIRECT_RE.match(text):
-                yield text
+        while True:
+            chunk = f.read(_READ_CHUNK_BYTES)
+            buf += decoder.decode(chunk, final=not chunk)
+            while True:
+                end = buf.find(_PAGE_END)
+                if end < 0:
+                    break
+                start = buf.rfind("<page>", 0, end)
+                page = buf[start:end] if start >= 0 else ""
+                buf = buf[end + len(_PAGE_END):]
+                pages += 1
+                if progress and pages % PROGRESS_EVERY_PAGES == 0:
+                    print(f"{pages} pages", file=sys.stderr, flush=True)
+                text = _page_text(page)
+                if text and not _REDIRECT_RE.match(text):
+                    yield text
+            if not chunk:
+                return
 
 
 def iter_txt_texts(path):

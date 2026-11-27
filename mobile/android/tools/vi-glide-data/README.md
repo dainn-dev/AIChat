@@ -24,13 +24,30 @@ From `mobile/android`:
 Options (defaults): `--min-unigram 5`, `--min-bigram 3`, `--top-per-prev 40`,
 `--max-bytes 3000000`, `--progress` (page count to stderr every 50k pages).
 
-Counting is two passes over the input (so the dump is read and parsed twice):
-pass 1 counts unigrams only (bounded by the syllable alphabet); pass 2 counts
-only bigrams whose two syllables both reached `--min-unigram`, so
-non-Vietnamese tokens do not bloat memory. Estimates, not yet measured on the
-real dump (Task 3 will record real figures): about 1-2 hours total, and memory
-bounded by the kept-syllable bigram table (likely several hundred MB to about
-1 GB). Output is about 1-3 MB.
+Counting is two passes over the input (so the dump is read twice): pass 1
+counts unigrams only (bounded by the syllable alphabet); pass 2 counts only
+bigrams whose two syllables both reached `--min-unigram`, so non-Vietnamese
+tokens do not bloat memory. The dump is scanned page by page with a plain
+streaming reader, not an XML parser: `ElementTree.iterparse` (expat) aborted
+with "out of memory" on the real dump near line 36M while the process was tiny.
+
+Measured on the real dump (viwiki 2026-11-01, 1,165,020,800 bytes) with the
+default thresholds, on a 32 GB Windows machine with Python 3.14: about 97
+minutes wall time for both passes (5,821 s); Python's working set was about
+40-60 MB during pass 1 and was not sampled in pass 2 (the kept-bigram table is
+about 2M entries, a few hundred MB at most); output 2,855,755 bytes
+(458,041 unigrams, 2,026,821 bigrams kept; counts cache 10.4 MB).
+
+## Shipped asset
+
+`app/src/main/assets/ime/dict/vi_glide.tsv.gz` was built from the 2026-11-01
+dump (`viwiki-latest-pages-articles.xml.bz2`) with, from `mobile/android`:
+
+    python tools/vi-glide-data/build_vi_glide_data.py       --input viwiki-latest-pages-articles.xml.bz2       --output app/src/main/assets/ime/dict/vi_glide.tsv.gz       --counts-cache counts.tsv.gz --progress
+
+The attribution shows in the app under About > Open-source licenses
+(`app/src/main/config/libraries/vi-wikipedia-statistics.json`,
+`app/src/main/config/licenses/cc-by-sa-4.0-wikipedia.json`).
 
 Use `--counts-cache counts.tsv.gz` to save the pruned counts. Re-running with
 the same inputs and equal or higher `--min-unigram` / `--min-bigram` reuses the
