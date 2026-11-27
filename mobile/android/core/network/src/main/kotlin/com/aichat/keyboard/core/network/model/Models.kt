@@ -213,10 +213,10 @@ enum class Tone {
     @SerialName("Professional") PROFESSIONAL,
     @SerialName("Mature") MATURE,
 
-    /** Rewrite only: formal, courteous wording. */
+    /** Formal, courteous wording (rewrite and keyboard replies). */
     @SerialName("Formal") FORMAL,
 
-    /** Rewrite only: relaxed everyday wording. */
+    /** Relaxed everyday wording (rewrite and keyboard replies). */
     @SerialName("Casual") CASUAL,
 }
 

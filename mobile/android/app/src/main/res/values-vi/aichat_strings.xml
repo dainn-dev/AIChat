@@ -165,6 +165,7 @@
 
     <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
     <string name="aichat__ai__button">Công cụ viết AI</string>
+    <string name="aichat__typing__status">Kiểm tra chính tả chạy ngay trên máy cho tiếng Anh và tiếng Việt: bật ở mục "Spelling" bên dưới. Gợi ý từ khi gõ chưa có (gợi ý emoji và tiếng Trung thì có); các mục trong "Corrections" đều hoạt động.</string>
     <string name="aichat__ai__suggest_replies">💬 Gợi ý trả lời</string>
     <string name="aichat__ai__rewrite_formal">Trang trọng</string>
     <string name="aichat__ai__rewrite_casual">Bình thường</string>
@@ -179,6 +180,8 @@
     <string name="aichat__ai__tone_friendly">🙂 Thân thiện</string>
     <string name="aichat__ai__tone_polite">Lịch sự</string>
     <string name="aichat__ai__tone_mature">Chín chắn</string>
+    <string name="aichat__ai__tone_formal">Trang trọng</string>
+    <string name="aichat__ai__tone_casual">Bình thường</string>
     <string name="aichat__ai__back">‹ Quay lại</string>
     <string name="aichat__ai__enable_reading">Bật</string>
     <string name="aichat__ai__error_no_conversation">Chưa đọc được tin nhắn. Bật đọc tin nhắn hoặc copy tin nhắn cuối</string>

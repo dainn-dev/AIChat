@@ -318,7 +318,7 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         )
         val spaceBarLongPress = enum(
             key = "gestures__space_bar_long_press",
-            default = SwipeAction.SHOW_INPUT_METHOD_PICKER,
+            default = SwipeAction.NO_ACTION, // AIChat MODIFIED: long-press space does not open the IME picker (upstream: SHOW_INPUT_METHOD_PICKER).
         )
         val deleteKeySwipeLeft = enum(
             key = "gestures__delete_key_swipe_left",

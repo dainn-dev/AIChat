@@ -74,6 +74,8 @@ private val ReplyTones: List<Pair<Tone, Int>> = listOf(
     Tone.FRIENDLY to R.string.aichat__ai__tone_friendly,
     Tone.PROFESSIONAL to R.string.aichat__ai__tone_polite,
     Tone.MATURE to R.string.aichat__ai__tone_mature,
+    Tone.FORMAL to R.string.aichat__ai__tone_formal,
+    Tone.CASUAL to R.string.aichat__ai__tone_casual,
 )
 
 private val ChipAttrs = mapOf("state" to "inactive")

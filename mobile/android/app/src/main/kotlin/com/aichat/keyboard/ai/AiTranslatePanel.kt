@@ -60,7 +60,7 @@ private val TranslateLanguages: List<Pair<String, String>> = listOf(
     "de" to "Deutsch",
 )
 
-private fun languageName(code: String): String = TranslateLanguages.firstOrNull { it.first == code }?.second ?: code
+internal fun languageName(code: String): String = TranslateLanguages.firstOrNull { it.first == code }?.second ?: code
 
 private val ChipAttrs = mapOf("state" to "inactive")
 
