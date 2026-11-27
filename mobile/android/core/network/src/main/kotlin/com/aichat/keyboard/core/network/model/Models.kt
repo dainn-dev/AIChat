@@ -212,6 +212,12 @@ enum class Tone {
     @SerialName("Flirty") FLIRTY,
     @SerialName("Professional") PROFESSIONAL,
     @SerialName("Mature") MATURE,
+
+    /** Rewrite only: formal, courteous wording. */
+    @SerialName("Formal") FORMAL,
+
+    /** Rewrite only: relaxed everyday wording. */
+    @SerialName("Casual") CASUAL,
 }
 
 /** Output language from the keyboard's EN/VI toggle. */
@@ -312,6 +318,51 @@ data class KeyboardTranslateRequest(
     @SerialName("target_lang") val targetLang: String,
     /** Omitted: auto-detect. */
     @SerialName("source_lang") val sourceLang: String? = null,
+)
+
+/** `POST /v1/keyboard/write`: writes a new message from [instruction]. Answered with [KeyboardTextResponse]. */
+@Serializable
+data class KeyboardWriteRequest(
+    /** 1-2000 chars. */
+    val instruction: String,
+    /** Omitted: the instruction's own language. */
+    val lang: OutputLang? = null,
+)
+
+/** `POST /v1/keyboard/correct`: spelling and grammar fix, minimal edits. Answered with [KeyboardTextResponse]. */
+@Serializable
+data class KeyboardCorrectRequest(
+    /** 1-2000 chars. */
+    val text: String,
+)
+
+/** `POST /v1/keyboard/summarize`. Read-only: the backend never stores this conversation. */
+@Serializable
+data class KeyboardSummarizeRequest(
+    /** 1-100 messages, like a reply. */
+    val conversation: List<ChatMessage>,
+    /** Language of the summary; omitted: the conversation's own language. */
+    val lang: OutputLang? = null,
+    /** Chat partner's display name, 1-128 chars; scopes memory retrieval only. */
+    @SerialName("contact_label") val contactLabel: String? = null,
+)
+
+@Serializable
+data class RedFlag(
+    val code: String = "",
+    val message: String,
+)
+
+/** Response of summarize. */
+@Serializable
+data class KeyboardSummaryResponse(
+    val summary: String,
+    /** How interested the other person seems, 0-100. */
+    @SerialName("interest_score") val interestScore: Int,
+    @SerialName("red_flags") val redFlags: List<RedFlag> = emptyList(),
+    /** True when the model output was unusable and [summary] is an English placeholder. */
+    val degraded: Boolean = false,
+    val usage: Usage,
 )
 
 /** Response of rewrite and translate. */

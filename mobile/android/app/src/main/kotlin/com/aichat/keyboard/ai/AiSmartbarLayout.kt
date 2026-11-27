@@ -37,6 +37,8 @@ object AiSmartbarLayout {
     fun mainRowCount(suggestionsOnly: Boolean, state: AiAssistState): Int = when {
         !suggestionsOnly -> 1
         state is AiAssistState.Suggestions -> SUGGESTION_ROWS
+        // A summary is a few sentences plus the interest score: the tall bar, like reply suggestions.
+        state is AiAssistState.Summary -> SUGGESTION_ROWS
         state is AiAssistState.Loading && state.fromSuggestions -> SUGGESTION_ROWS
         state is AiAssistState.Failed -> MESSAGE_ROWS
         // A copied message (a whole chat message) and its translation get the tall bar, like reply suggestions.

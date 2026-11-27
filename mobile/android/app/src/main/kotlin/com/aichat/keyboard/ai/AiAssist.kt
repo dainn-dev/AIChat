@@ -13,8 +13,12 @@ import com.aichat.keyboard.core.network.error.ApiError
 import com.aichat.keyboard.core.network.error.ApiResult
 import com.aichat.keyboard.core.network.error.errorOrNull
 import com.aichat.keyboard.core.network.error.map
+import com.aichat.keyboard.core.network.model.KeyboardCorrectRequest
 import com.aichat.keyboard.core.network.model.KeyboardReplyRequest
 import com.aichat.keyboard.core.network.model.KeyboardRewriteRequest
+import com.aichat.keyboard.core.network.model.KeyboardSummarizeRequest
+import com.aichat.keyboard.core.network.model.KeyboardWriteRequest
+import com.aichat.keyboard.core.network.model.OutputLang
 import com.aichat.keyboard.core.network.model.Tone
 import com.aichat.keyboard.reply.AccessibilityConversationProvider
 import com.aichat.keyboard.reply.CaptureResult
@@ -79,7 +83,7 @@ object AiAssist {
     }
 }
 
-/** Rewrite and translate through the backend's keyboard endpoints (`/v1/keyboard/rewrite|translate`). */
+/** The backend's keyboard endpoints (`/v1/keyboard/reply|summarize|rewrite|correct|translate`). */
 internal class AiChatTextBackend(
     private val client: AiChatClient,
     private val isIncognito: () -> Boolean,
@@ -104,14 +108,35 @@ internal class AiChatTextBackend(
         return result
     }
 
+    override suspend fun summarize(conversation: CapturedConversation, lang: OutputLang?): ApiResult<ConversationSummary> {
+        // No platform or remember: a summary never stores the chat; the contact only scopes the memories read.
+        val request = KeyboardSummarizeRequest(
+            conversation = conversation.messages,
+            lang = lang,
+            contactLabel = conversation.contactLabel,
+        )
+        val result = client.summarize(request).map { response ->
+            ConversationSummary(
+                text = response.summary.trim().takeUnless { response.degraded || it.isEmpty() },
+                interestScore = response.interestScore.coerceIn(0, 100),
+                redFlags = response.redFlags.map { it.message.trim() }.filter { it.isNotEmpty() },
+            )
+        }
+        result.errorOrNull()?.let { Log.w(TAG, "Summarize failed: ${it.logSummary()}") }
+        return result
+    }
+
     override suspend fun run(action: AiAction, text: String): ApiResult<String> {
         val result = when (action) {
             // `lang` omitted: the backend answers in the language of the text.
             is AiAction.Rewrite -> client.rewrite(KeyboardRewriteRequest(text = text, tone = action.tone)).map { it.text }
+            is AiAction.Write -> client.write(KeyboardWriteRequest(instruction = text, lang = action.lang)).map { it.text }
+            AiAction.Correct -> client.correct(KeyboardCorrectRequest(text = text)).map { it.text }
             is AiAction.Translate ->
                 client.translate(KeyboardTranslateRequest(text = text, targetLang = action.targetLang)).map { it.text }
             // Replies go through reply(); the controller never routes them here.
             is AiAction.Reply -> error("Reply is not a text transform")
+            AiAction.Summarize -> error("Summarize is not a text transform")
         }
         result.errorOrNull()?.let { Log.w(TAG, "${action::class.simpleName} failed: ${it.logSummary()}") }
         return result

@@ -6,6 +6,7 @@ package com.aichat.keyboard.ai
 
 import com.aichat.keyboard.core.network.error.ApiError
 import com.aichat.keyboard.core.network.error.ApiResult
+import com.aichat.keyboard.core.network.model.OutputLang
 import com.aichat.keyboard.core.network.model.Tone
 import com.aichat.keyboard.reply.CapturedConversation
 import com.aichat.keyboard.reply.ConversationCapturer
@@ -24,11 +25,23 @@ import java.io.InterruptedIOException
 sealed interface AiAction {
     data class Rewrite(val tone: Tone) : AiAction
 
+    /**
+     * Write a new message from the request typed in the field ("birthday wishes for my boss"); the result
+     * replaces the field. [lang] is the keyboard language (null: the request's own).
+     */
+    data class Write(val lang: OutputLang? = null) : AiAction
+
+    /** Fix spelling and grammar, keeping the user's wording, tone and language. */
+    data object Correct : AiAction
+
     /** [targetLang] is a backend language code, e.g. `en` or `vi`. */
     data class Translate(val targetLang: String) : AiAction
 
     /** Suggest replies to the chat behind the field (see [com.aichat.keyboard.reply.ConversationProvider]). */
     data class Reply(val tone: Tone) : AiAction
+
+    /** Summarize the chat behind the field: what it is about, how interested they seem, red flags. */
+    data object Summarize : AiAction
 }
 
 /** Why an AI action did not change the field. Each one maps to a localized message in the smartbar. */
@@ -82,6 +95,9 @@ sealed interface AiAssistState {
      * (from the backend's `sticker_tags`), shown next to the replies.
      */
     data class Suggestions(val replies: List<String>, val stickerTags: List<StickerTag> = emptyList()) : AiAssistState
+
+    /** Summary flow: the summary of the chat, shown in the tall bar until dismissed. */
+    data class Summary(val summary: ConversationSummary) : AiAssistState
 
     /**
      * [captureDisabled] is set with [AiFailure.NO_CONVERSATION] when a chat reader is switched off (e.g. the
@@ -163,16 +179,29 @@ interface AiEditorPort {
     fun replaceAllText(text: String): Boolean
 }
 
+/**
+ * Summary of a chat. [text] is null when the backend could not summarize it (the UI shows its own "not enough
+ * context" message). [interestScore]: how interested the other person seems, 0-100. [redFlags]: warnings to show.
+ */
+data class ConversationSummary(
+    val text: String?,
+    val interestScore: Int,
+    val redFlags: List<String> = emptyList(),
+)
+
 /** Suggested replies, best first, and the sticker tags that fit the chat (may be empty). */
 data class ReplySuggestions(val replies: List<String>, val stickerTags: List<StickerTag> = emptyList())
 
 /** The backend calls behind the AI button. */
 interface AiTextBackend {
-    /** Rewrite or translate [text]; returns the new text. */
+    /** Rewrite, correct or translate [text]; returns the new text. */
     suspend fun run(action: AiAction, text: String): ApiResult<String>
 
     /** Suggested replies to [conversation] in [tone], best first. */
     suspend fun reply(conversation: CapturedConversation, tone: Tone): ApiResult<ReplySuggestions>
+
+    /** Summary of [conversation], written in [lang] (null: the chat's own language). Never stored by the backend. */
+    suspend fun summarize(conversation: CapturedConversation, lang: OutputLang?): ApiResult<ConversationSummary>
 }
 
 /**
@@ -347,7 +376,7 @@ class AiAssistController(
     fun dismissMessage() {
         val s = _state.value
         if (s is AiAssistState.Done || s is AiAssistState.Failed || s is AiAssistState.Suggestions ||
-            s == AiAssistState.ChoosingReplyTone
+            s is AiAssistState.Summary || s == AiAssistState.ChoosingReplyTone
         ) {
             _state.value = AiAssistState.Ready
         }
@@ -355,6 +384,7 @@ class AiAssistController(
 
     fun run(action: AiAction) {
         if (action is AiAction.Reply) return requestReplies(action.tone)
+        if (action is AiAction.Summarize) return requestSummary(lang = null)
         if (_state.value is AiAssistState.Loading) return
         val original = when (val read = readField()) {
             is FieldRead.Text -> read.text
@@ -399,6 +429,22 @@ class AiAssistController(
                             AiAssistState.Suggestions(replies, result.value.stickerTags)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /** Reads the chat through the providers, then asks the backend to summarize it in [lang]. */
+    fun requestSummary(lang: OutputLang?) {
+        if (_state.value is AiAssistState.Loading) return
+        if (!editor.isAvailable()) return fail(AiFailure.UNAVAILABLE)
+        _state.value = AiAssistState.Loading(AiAction.Summarize)
+        job = scope.launch {
+            _state.value = when (val outcome = capturer.capture()) {
+                is ConversationCapturer.Outcome.NotFound -> noConversation(outcome.reasons.values)
+                is ConversationCapturer.Outcome.Found -> when (val result = backend.summarize(outcome.conversation, lang)) {
+                    is ApiResult.Failure -> AiAssistState.Failed(result.error.toFailure())
+                    is ApiResult.Success -> AiAssistState.Summary(result.value)
                 }
             }
         }
@@ -523,7 +569,7 @@ class AiAssistController(
     }
 
     companion object {
-        /** `@MaxLength(2000)` on the backend's rewrite and translate DTOs. */
+        /** `@MaxLength(2000)` on the backend's rewrite, correct and translate DTOs. */
         const val MAX_TEXT_LENGTH = 2000
 
         /** Pause in typing before live translation calls the backend (each call counts against the quota). */

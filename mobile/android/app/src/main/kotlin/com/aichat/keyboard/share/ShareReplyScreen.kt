@@ -162,6 +162,9 @@ private fun toneLabel(tone: Tone): String = stringRes(
         Tone.FRIENDLY -> R.string.aichat__share__tone_friendly
         Tone.PROFESSIONAL -> R.string.aichat__share__tone_polite
         Tone.MATURE -> R.string.aichat__share__tone_mature
+        // Rewrite-only tones: the share screen never offers them as reply tones.
+        Tone.FORMAL -> R.string.aichat__ai__rewrite_formal
+        Tone.CASUAL -> R.string.aichat__ai__rewrite_casual
     },
 )
 

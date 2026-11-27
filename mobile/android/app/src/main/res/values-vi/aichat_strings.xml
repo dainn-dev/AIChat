@@ -166,6 +166,13 @@
     <!-- Bàn phím: nút AI trên smartbar (viết lại / dịch nội dung ô nhập) -->
     <string name="aichat__ai__button">Công cụ viết AI</string>
     <string name="aichat__ai__suggest_replies">💬 Gợi ý trả lời</string>
+    <string name="aichat__ai__rewrite_formal">Trang trọng</string>
+    <string name="aichat__ai__rewrite_casual">Bình thường</string>
+    <string name="aichat__ai__write">✍️ Viết giúp</string>
+    <string name="aichat__ai__correct">✅ Sửa lỗi</string>
+    <string name="aichat__ai__summarize">📝 Tóm tắt</string>
+    <string name="aichat__ai__summary_interest">Quan tâm %1$d/100</string>
+    <string name="aichat__ai__summary_unavailable">Cuộc trò chuyện chưa đủ nội dung để tóm tắt.</string>
     <string name="aichat__ai__rewrite_flirty">Tán tỉnh</string>
     <string name="aichat__ai__tone_flirty">😏 Tán tỉnh</string>
     <string name="aichat__ai__tone_funny">😄 Vui vẻ</string>

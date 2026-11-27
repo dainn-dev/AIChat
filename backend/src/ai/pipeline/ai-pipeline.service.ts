@@ -63,6 +63,8 @@ export interface AnalyzeInput {
   messages: AiMessageDto[];
   userGoal?: string;
   relationshipStage?: string;
+  /** Language of the summary and red flags; omitted → the conversation's. */
+  lang?: OutputLang;
 }
 
 export interface RewriteInput {
@@ -201,6 +203,7 @@ export class AiPipelineService {
       memories,
       userGoal: input.userGoal,
       relationshipStage: input.relationshipStage,
+      lang: input.lang,
     };
     const prompt = this.contextBuilder.buildAnalyzePrompt(analyzeCtx);
 
@@ -228,6 +231,31 @@ export class AiPipelineService {
   }
 
   /** Translate `text` into `targetLang` (keyboard surface, P4-1 / DAI-136). */
+  /** Writing assistant: instruction in, finished text out. */
+  async write(
+    input: { instruction: string; lang?: OutputLang },
+    ctx: PipelineContext,
+  ): Promise<string> {
+    const prompt = this.contextBuilder.buildWritePrompt(input);
+    const { result } = await this.complete(prompt, AiRequestType.Rewrite, ctx);
+    const text = result.text.trim();
+    // Degrade to the instruction rather than an empty field on drift.
+    return text.length > 0 ? text : input.instruction;
+  }
+
+  /** Spelling/grammar fix; degrades to the original text, never throws on drift. */
+  async correct(
+    input: { text: string },
+    ctx: PipelineContext,
+  ): Promise<string> {
+    const prompt = this.contextBuilder.buildCorrectPrompt({ text: input.text });
+    // Plain-text transform like rewrite; logged under the same request type
+    // (no new `ai_request_type` value, so no migration).
+    const { result } = await this.complete(prompt, AiRequestType.Rewrite, ctx);
+    const text = result.text.trim();
+    return text.length > 0 ? text : input.text;
+  }
+
   async translate(
     input: TranslateInput,
     ctx: PipelineContext,
